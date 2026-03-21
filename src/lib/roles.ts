@@ -1,0 +1,101 @@
+// Role-based access control configuration
+// Maps each role to the paths they can access
+
+export type AppRole = string;
+
+// Full admin paths
+const ADMIN_PATHS = [
+  "/", "/tickets", "/sla-report",
+  "/admin/users", "/admin/departments", "/admin/roles",
+  "/admin/centers", "/admin/sla", "/admin/categories",
+  "/admin/subcategories", "/admin/child-categories", "/admin/service-titles", "/admin/designations",
+];
+
+// Which paths each role can access
+const roleAccess: Record<string, string[]> = {
+  "Super Admin": ADMIN_PATHS,
+  "Global Admin": ADMIN_PATHS,
+  "Super User": ADMIN_PATHS,
+  "Help Desk Admin": ["/", "/tickets", "/sla-report", "/admin/users", "/admin/departments", "/admin/centers", "/admin/categories", "/admin/subcategories", "/admin/service-titles"],
+  "Helpdesk In-charge": ["/", "/tickets", "/sla-report", "/admin/users", "/admin/departments", "/admin/centers"],
+  "Area Operations Manager": ["/tickets", "/approvals", "/sla-report"],
+  "Area Operations Manager Head": ["/", "/tickets", "/approvals", "/sla-report"],
+  "Manager": ["/tickets", "/sla-report", "/approvals"],
+  "L1 Manager": ["/tickets", "/sla-report", "/approvals"],
+  "L2 Manager": ["/tickets", "/sla-report", "/approvals"],
+  "Finance": ["/tickets", "/finance-approvals", "/sla-report"],
+  "Finance Head": ["/", "/tickets", "/finance-approvals", "/sla-report"],
+  "Clinic Incharge": ["/tickets", "/sla-report"],
+  "Clinic Manager": ["/tickets", "/sla-report"],
+  "QA": ["/tickets", "/sla-report"],
+  "Zenoti Team": ["/tickets", "/zenoti-requests", "/sla-report"],
+  "Employee": ["/tickets"],
+  "Others": ["/tickets"],
+};
+
+// Default access for unknown roles
+const DEFAULT_ACCESS = ["/tickets"];
+
+/**
+ * Check if a user's role string (possibly comma-separated) includes any of the given roles.
+ */
+export function hasAnyRole(userRole: string, roles: string[]): boolean {
+  const userRoles = userRole.split(",").map((r) => r.trim());
+  return userRoles.some((r) => roles.includes(r));
+}
+
+const SUPER_ROLES = ["Super Admin", "Global Admin", "Super User"];
+const ADMIN_LIKE_ROLES = [...SUPER_ROLES, "Help Desk Admin", "Helpdesk In-charge", "Area Operations Manager Head", "Finance Head"];
+
+export function isSuperRole(userRole: string): boolean {
+  return hasAnyRole(userRole, SUPER_ROLES);
+}
+
+export function isAdminLikeRole(userRole: string): boolean {
+  return hasAnyRole(userRole, ADMIN_LIKE_ROLES);
+}
+
+export function getUserRole(): AppRole {
+  try {
+    const stored = localStorage.getItem("oliva_user");
+    if (stored) {
+      const user = JSON.parse(stored);
+      if (user?.role) return user.role as AppRole;
+    }
+  } catch { /* ignore */ }
+  return "Employee";
+}
+
+export function canAccess(path: string): boolean {
+  const role = getUserRole();
+  const roles = role.split(",").map((r) => r.trim());
+  // If user has any super role, use ADMIN_PATHS only
+  if (roles.some((r) => SUPER_ROLES.includes(r))) {
+    return ADMIN_PATHS.includes(path);
+  }
+  for (const r of roles) {
+    const allowed = roleAccess[r];
+    if (allowed && allowed.includes(path)) return true;
+  }
+  const allowed = roleAccess[role] || DEFAULT_ACCESS;
+  return allowed.includes(path);
+}
+
+export function getAllowedPaths(): string[] {
+  const role = getUserRole();
+  const roles = role.split(",").map((r) => r.trim());
+  // If user has any super role, use ADMIN_PATHS only (no approvals)
+  if (roles.some((r) => SUPER_ROLES.includes(r))) {
+    return [...ADMIN_PATHS];
+  }
+  const paths = new Set<string>();
+  for (const r of roles) {
+    const allowed = roleAccess[r];
+    if (allowed) allowed.forEach((p) => paths.add(p));
+  }
+  if (paths.size === 0) {
+    const fallback = roleAccess[role] || DEFAULT_ACCESS;
+    fallback.forEach((p) => paths.add(p));
+  }
+  return [...paths];
+}

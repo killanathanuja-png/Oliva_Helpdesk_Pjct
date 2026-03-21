@@ -1,98 +1,599 @@
-import { useState } from "react";
-import { X } from "lucide-react";
-import { departments, centers } from "@/data/dummyData";
+import { useState, useRef, useEffect } from "react";
+import { X, AlertCircle, RotateCcw, Loader2 } from "lucide-react";
+import { departments as fallbackDepartments, centers as fallbackCenters } from "@/data/dummyData";
+import type { Ticket } from "@/data/dummyData";
+import { cn } from "@/lib/utils";
+import { departmentsApi, centersApi, categoriesApi, subcategoriesApi, childCategoriesApi, serviceTitlesApi } from "@/lib/api";
+import type { ApiDepartment, ApiCenter, ApiCategory, ApiSubcategory, ApiChildCategory, ApiServiceTitle } from "@/lib/api";
+
+export interface TicketFormData {
+  title: string;
+  description: string;
+  department: string;
+  category: string;
+  subCategory: string;
+  priority: string;
+  center: string;
+  status?: string;
+  // Zenoti fields
+  zenotiLocation?: string;
+  zenotiMainCategory?: string;
+  zenotiSubCategory?: string;
+  zenotiChildCategory?: string;
+  zenotiMobileNumber?: string;
+  zenotiCustomerId?: string;
+  zenotiCustomerName?: string;
+  zenotiBilledBy?: string;
+  zenotiInvoiceNo?: string;
+  zenotiInvoiceDate?: string;
+  zenotiAmount?: string;
+  zenotiDescription?: string;
+}
 
 interface Props {
   onClose: () => void;
+  onSuccess?: (formData: TicketFormData) => void;
+  editMode?: boolean;
+  editTicket?: Ticket;
+  userRole?: string;
 }
 
-const categories = [
-  { name: "IT Infrastructure", subs: ["Network", "Hardware", "Software", "Security Systems", "Email"] },
-  { name: "Biomedical Equipment", subs: ["Laser Systems", "Diagnostic Equipment", "Treatment Devices"] },
-  { name: "Facilities", subs: ["HVAC", "Plumbing", "Electrical", "Housekeeping", "Civil"] },
-  { name: "HR & Admin", subs: ["Onboarding", "ID Cards", "Attendance", "Leave", "Policies"] },
-  { name: "Procurement", subs: ["Medical Consumables", "Office Supplies", "Equipment Purchase"] },
-  { name: "Marketing", subs: ["Collateral", "Digital", "Events", "Social Media"] },
-  { name: "Finance", subs: ["Billing", "Reimbursement", "Vendor Payment", "Petty Cash"] },
-];
+interface ComboBoxProps {
+  value: string;
+  onChange: (val: string) => void;
+  options: string[];
+  placeholder: string;
+  error?: boolean;
+}
 
-const RaiseTicketModal = ({ onClose }: Props) => {
-  const [category, setCategory] = useState("");
-  const selectedCat = categories.find((c) => c.name === category);
+const ComboBox = ({ value, onChange, options, placeholder, error }: ComboBoxProps) => {
+  const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState("");
+  const ref = useRef<HTMLDivElement>(null);
+
+  const filtered = search
+    ? options.filter((o) => o.toLowerCase().includes(search.toLowerCase()))
+    : options;
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) {
+        setOpen(false);
+        setSearch("");
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  const handleSelect = (item: string) => {
+    onChange(item);
+    setSearch("");
+    setOpen(false);
+  };
+
+  const toggleOpen = () => {
+    if (open) {
+      setOpen(false);
+      setSearch("");
+    } else {
+      setOpen(true);
+      setSearch("");
+    }
+  };
+
+  return (
+    <div className="relative" ref={ref}>
+      <div className="relative cursor-pointer" onClick={toggleOpen}>
+        <input
+          type="text"
+          value={open ? search : value}
+          onChange={(e) => { setSearch(e.target.value); if (!open) setOpen(true); }}
+          placeholder={value || placeholder}
+          className={cn(
+            "w-full px-3 py-2 pr-8 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 cursor-pointer",
+            error && "border-destructive ring-1 ring-destructive/30"
+          )}
+          readOnly={!open}
+        />
+        <svg className={cn("absolute right-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none transition-transform", open && "rotate-180")} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+      </div>
+      {open && (
+        <div className="absolute z-10 mt-1 w-full bg-card border border-border rounded-lg shadow-lg max-h-48 overflow-y-auto">
+          {filtered.length > 0 ? filtered.map((item) => (
+            <button
+              key={item}
+              type="button"
+              onClick={() => handleSelect(item)}
+              className={cn(
+                "w-full text-left px-3 py-2 text-sm hover:bg-primary/10 transition-colors",
+                item === value && "bg-primary/10 text-primary font-medium"
+              )}
+            >
+              {item}
+            </button>
+          )) : (
+            <div className="px-3 py-2 text-sm text-muted-foreground">No results found</div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+};
+
+const emptyZenotiFields = {
+  location: "",
+  mainCategory: "",
+  subCategory: "",
+  childCategory: "",
+  mobileNumber: "",
+  customerId: "",
+  customerName: "",
+  billedBy: "",
+  invoiceNo: "",
+  invoiceDate: "",
+  amount: "",
+  zenotiDescription: "",
+};
+
+const RaiseTicketModal = ({ onClose, onSuccess, editMode, editTicket, userRole }: Props) => {
+  const [department, setDepartment] = useState(editTicket?.assignedDept || "");
+  const [category, setCategory] = useState(editTicket?.category || "");
+  const [zenotiFields, setZenotiFields] = useState(emptyZenotiFields);
+  const [showAlert, setShowAlert] = useState(false);
+  const [title, setTitle] = useState(editTicket?.title || "");
+  const [description, setDescription] = useState(editTicket?.description || "");
+  const [priority, setPriority] = useState(editTicket?.priority || "");
+  const [subCategory, setSubCategory] = useState(editTicket?.subCategory || "");
+  const [center, setCenter] = useState(editTicket?.center || "");
+  const [status, setStatus] = useState(editTicket?.status || "");
+
+  // API-fetched master data
+  const [apiDepartments, setApiDepartments] = useState<ApiDepartment[]>([]);
+  const [apiCenters, setApiCenters] = useState<ApiCenter[]>([]);
+  const [apiCategories, setApiCategories] = useState<ApiCategory[]>([]);
+  const [apiSubcategories, setApiSubcategories] = useState<ApiSubcategory[]>([]);
+  const [apiServiceTitles, setApiServiceTitles] = useState<ApiServiceTitle[]>([]);
+  const [apiChildCategories, setApiChildCategories] = useState<ApiChildCategory[]>([]);
+  const [childCategory, setChildCategory] = useState(editTicket?.zenotiChildCategory || "");
+  const [loadingData, setLoadingData] = useState(true);
+
+  // Fetch all master data on mount
+  useEffect(() => {
+    const fetchAll = async () => {
+      setLoadingData(true);
+      try {
+        const [depts, ctrs, cats, subs, childCats, svcs] = await Promise.all([
+          departmentsApi.list().catch(() => null),
+          centersApi.list().catch(() => null),
+          categoriesApi.list().catch(() => null),
+          subcategoriesApi.list().catch(() => null),
+          childCategoriesApi.list().catch(() => null),
+          serviceTitlesApi.list().catch(() => null),
+        ]);
+
+        if (depts && depts.length > 0) {
+          setApiDepartments(depts);
+        } else {
+          // Use fallback departments
+          setApiDepartments(fallbackDepartments.map((d, i) => ({
+            id: i + 1, code: d.id, name: d.name, head: d.head || null,
+            sla_hours: d.slaHours, center_count: d.centerCount,
+            active_tickets: d.activeTickets, status: null, created_at: null,
+          })));
+        }
+
+        if (ctrs && ctrs.length > 0) {
+          setApiCenters(ctrs);
+        } else {
+          setApiCenters(fallbackCenters.map((c, i) => ({
+            id: i + 1, code: c.id, location_code: null, name: c.name, city: c.city, state: c.state,
+            department: c.department, contact_person: c.contactPerson,
+            phone: c.phone, address: null, pincode: null, latitude: null,
+            longitude: null, zone: null, country: c.country, status: c.status, created_at: null,
+          })));
+        }
+
+        if (cats) setApiCategories(cats);
+        if (subs) setApiSubcategories(subs);
+        if (childCats) setApiChildCategories(childCats);
+        if (svcs) setApiServiceTitles(svcs);
+      } finally {
+        setLoadingData(false);
+      }
+    };
+    fetchAll();
+  }, []);
+
+  const isZenoti = department === "Zenoti";
+
+  // Department options from API
+  const departmentOptions = apiDepartments.map((d) => d.name);
+
+  // All categories (no department filtering)
+  const categoryOptions = [...new Set(apiCategories.filter((c) => c.status !== "Inactive").map((c) => c.name))].sort();
+
+  // Subcategories - show all (sorted, deduplicated)
+  const subCategoryOptions = [...new Set(
+    apiSubcategories.filter((s) => s.status !== "Inactive").map((s) => s.name)
+  )].sort();
+
+  // Child categories - show all (sorted, deduplicated)
+  const childCategoryOptions = [...new Set(
+    apiChildCategories.filter((c) => c.status !== "Inactive").map((c) => c.name)
+  )].sort();
+
+  // Centers from API
+  const centerOptions = apiCenters.map((c) => c.name);
+
+  // Service titles filtered by subcategory (for priority lookup)
+  const matchingServiceTitle = subCategory
+    ? apiServiceTitles.find((st) => st.subcategory === subCategory)
+    : null;
+
+  const zenotiFieldsFilled = () => {
+    const { location, mainCategory, subCategory, childCategory, mobileNumber, customerId, customerName, billedBy, invoiceNo, invoiceDate, amount } = zenotiFields;
+    return [location, mainCategory, subCategory, childCategory, mobileNumber, customerId, customerName, billedBy, invoiceNo, invoiceDate, amount].every((v) => v.trim() !== "");
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (editMode) {
+      // Edit mode: only priority, status, attachment
+      if (onSuccess) {
+        onSuccess({
+          title: editTicket?.title || "", description: editTicket?.description || "",
+          department: editTicket?.assignedDept || "", category: editTicket?.category || "",
+          subCategory: editTicket?.subCategory || "", center: editTicket?.center || "",
+          priority, status,
+        });
+      }
+    } else {
+      // Raise mode: full form
+      if (isZenoti && !zenotiFieldsFilled()) {
+        setShowAlert(true);
+        return;
+      }
+      if (onSuccess) {
+        onSuccess({
+          title, description, department, category, subCategory, priority, center,
+          zenotiChildCategory: childCategory,
+          ...(isZenoti && {
+            zenotiLocation: zenotiFields.location,
+            zenotiMainCategory: zenotiFields.mainCategory,
+            zenotiSubCategory: zenotiFields.subCategory,
+            zenotiMobileNumber: zenotiFields.mobileNumber,
+            zenotiCustomerId: zenotiFields.customerId,
+            zenotiCustomerName: zenotiFields.customerName,
+            zenotiBilledBy: zenotiFields.billedBy,
+            zenotiInvoiceNo: zenotiFields.invoiceNo,
+            zenotiInvoiceDate: zenotiFields.invoiceDate,
+            zenotiAmount: zenotiFields.amount,
+            zenotiDescription: zenotiFields.zenotiDescription,
+          }),
+        });
+      }
+    }
+    if (!onSuccess) onClose();
+  };
+
+  const handleDepartmentChange = (val: string) => {
+    setDepartment(val);
+    setCategory("");
+    setSubCategory("");
+    setChildCategory("");
+    if (val !== "Zenoti") {
+      setZenotiFields(emptyZenotiFields);
+      setShowAlert(false);
+    }
+  };
+
+  const handleCategoryChange = (val: string) => {
+    setCategory(val);
+    setSubCategory("");
+    setChildCategory("");
+  };
+
+  const handleSubCategoryChange2 = (val: string) => {
+    setSubCategory(val);
+    setChildCategory("");
+  };
+
+  const inputClass = "w-full px-3 py-2 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/30";
+  const labelClass = "block text-xs font-medium text-muted-foreground mb-1";
+  const errField = (field: string) => showAlert && !field.trim();
 
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center pt-10 px-4">
       <div className="fixed inset-0 bg-foreground/30" onClick={onClose} />
-      <div className="relative z-10 w-full max-w-lg bg-card rounded-2xl border border-border shadow-xl animate-slide-in">
-        <div className="flex items-center justify-between px-6 py-4 border-b border-border">
-          <h2 className="text-lg font-bold font-display">Raise New Ticket</h2>
+      <div className="relative z-10 w-full max-w-2xl bg-card rounded-2xl border border-border shadow-xl animate-slide-in max-h-[85vh] overflow-y-auto">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-border sticky top-0 bg-card z-10 rounded-t-2xl">
+          <h2 className="text-lg font-bold font-display">{editMode ? "Edit Ticket" : "Raise New Ticket"}</h2>
           <button onClick={onClose} className="p-2 rounded-lg hover:bg-muted transition-colors">
             <X className="h-5 w-5" />
           </button>
         </div>
 
-        <form className="p-6 space-y-4" onSubmit={(e) => { e.preventDefault(); onClose(); }}>
-          <div>
-            <label className="block text-xs font-medium text-muted-foreground mb-1">Title *</label>
-            <input type="text" required className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring" placeholder="Brief description of the issue" />
-          </div>
-
-          <div>
-            <label className="block text-xs font-medium text-muted-foreground mb-1">Description *</label>
-            <textarea rows={3} required className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring resize-none" placeholder="Detailed description..." />
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-xs font-medium text-muted-foreground mb-1">Category *</label>
-              <select required value={category} onChange={(e) => setCategory(e.target.value)} className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring">
-                <option value="">Select...</option>
-                {categories.map((c) => <option key={c.name}>{c.name}</option>)}
-              </select>
+        {editMode ? (
+          <form className="p-6 space-y-4" onSubmit={handleSubmit}>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className={labelClass}>Priority *</label>
+                <select value={priority} onChange={(e) => setPriority(e.target.value)} className={inputClass} required>
+                  <option value="">Select priority</option>
+                  <option value="Critical">Critical</option>
+                  <option value="High">High</option>
+                  <option value="Medium">Medium</option>
+                  <option value="Low">Low</option>
+                </select>
+              </div>
+              <div>
+                <label className={labelClass}>Status *</label>
+                <select value={status} onChange={(e) => setStatus(e.target.value)} className={inputClass} required>
+                  <option value="">Select status</option>
+                  {(userRole === "AOM" || userRole === "Finance") ? (
+                    <>
+                      <option value="Approved">Approved</option>
+                      <option value="Rejected">Rejected</option>
+                      <option value="Follow Up">Follow Up</option>
+                    </>
+                  ) : (
+                    <>
+                      <option value="Awaiting User Inputs">Awaiting User Inputs</option>
+                      <option value="User Inputs Received">User Inputs Received</option>
+                      <option value="Acknowledged">Acknowledged</option>
+                      <option value="Resolved">Resolved</option>
+                      <option value="Closed">Closed</option>
+                    </>
+                  )}
+                </select>
+              </div>
             </div>
-            <div>
-              <label className="block text-xs font-medium text-muted-foreground mb-1">Sub-Category</label>
-              <select className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring">
-                <option value="">Select...</option>
-                {selectedCat?.subs.map((s) => <option key={s}>{s}</option>)}
-              </select>
-            </div>
-          </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-xs font-medium text-muted-foreground mb-1">Priority *</label>
-              <select required className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring">
-                <option value="">Select...</option>
-                <option>Critical</option>
-                <option>High</option>
-                <option>Medium</option>
-                <option>Low</option>
-              </select>
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-muted-foreground mb-1">Center *</label>
-              <select required className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring">
-                <option value="">Select...</option>
-                {centers.map((c) => <option key={c.id}>{c.name}</option>)}
-              </select>
-            </div>
-          </div>
+            {(userRole === "AOM" || userRole === "Finance") && (
+              <div>
+                <label className={labelClass}>Description</label>
+                <textarea rows={3} value={description} onChange={(e) => setDescription(e.target.value)} className={cn(inputClass, "resize-none")} placeholder="Add remarks or comments..." />
+              </div>
+            )}
 
-          <div>
-            <label className="block text-xs font-medium text-muted-foreground mb-1">Attachment</label>
-            <input type="file" className="w-full text-sm text-muted-foreground file:mr-3 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-medium file:bg-muted file:text-foreground hover:file:bg-muted/80" />
-          </div>
+            <div>
+              <label className={labelClass}>Attachment</label>
+              <input type="file" className="w-full text-sm text-muted-foreground file:mr-3 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-medium file:bg-muted file:text-foreground hover:file:bg-muted/80" />
+            </div>
 
-          <div className="flex gap-2 pt-2">
-            <button type="button" onClick={onClose} className="flex-1 px-4 py-2.5 rounded-lg border border-border text-sm font-medium hover:bg-muted transition-colors">
-              Cancel
-            </button>
-            <button type="submit" className="flex-1 px-4 py-2.5 rounded-lg gradient-primary text-primary-foreground text-sm font-medium hover:opacity-90 transition-opacity">
-              Submit Ticket
-            </button>
+            <div className="flex gap-2 pt-2">
+              <button type="button" onClick={onClose} className="px-4 py-2.5 rounded-lg border border-border text-sm font-medium hover:bg-muted transition-colors">
+                Cancel
+              </button>
+              <button type="submit" className="flex-1 px-4 py-2.5 rounded-lg gradient-primary text-primary-foreground text-sm font-medium hover:opacity-90 transition-opacity">
+                Update
+              </button>
+            </div>
+          </form>
+        ) : loadingData ? (
+          <div className="flex items-center justify-center py-16">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
           </div>
-        </form>
+        ) : (
+          <form className="p-6 space-y-4" onSubmit={handleSubmit}>
+            <div>
+              <label className={labelClass}>Title *</label>
+              <input type="text" required value={title} onChange={(e) => setTitle(e.target.value)} className={inputClass} placeholder="Brief description of the issue" />
+            </div>
+
+            <div>
+              <label className={labelClass}>Description *</label>
+              <textarea rows={3} required value={description} onChange={(e) => setDescription(e.target.value)} className={cn(inputClass, "resize-none")} placeholder="Detailed description..." />
+            </div>
+
+            <div>
+              <label className={labelClass}>Department *</label>
+              <ComboBox
+                value={department}
+                onChange={handleDepartmentChange}
+                options={departmentOptions}
+                placeholder="Select department"
+              />
+            </div>
+
+            {/* Category / Sub-Category / Child Category - for ALL departments */}
+            <div className="grid grid-cols-3 gap-3">
+              <div>
+                <label className={labelClass}>Category</label>
+                <ComboBox
+                  value={category}
+                  onChange={handleCategoryChange}
+                  options={categoryOptions}
+                  placeholder="Select category"
+                />
+              </div>
+              <div>
+                <label className={labelClass}>Sub-Category</label>
+                <ComboBox
+                  value={subCategory}
+                  onChange={handleSubCategoryChange2}
+                  options={subCategoryOptions}
+                  placeholder="Select sub-category"
+                />
+              </div>
+              <div>
+                <label className={labelClass}>Child Category</label>
+                <ComboBox
+                  value={childCategory}
+                  onChange={(val) => setChildCategory(val)}
+                  options={childCategoryOptions}
+                  placeholder="Select child category"
+                />
+              </div>
+            </div>
+
+            {/* Zenoti mandatory fields */}
+            {isZenoti && (
+              <div className="rounded-xl border border-amber-200 bg-amber-50/50 p-4 space-y-4">
+                <div className="flex items-center gap-2">
+                  <AlertCircle className="h-4 w-4 text-amber-600" />
+                  <span className="text-xs font-semibold text-amber-700">Zenoti - Mandatory Fields</span>
+                </div>
+
+                {/* Location */}
+                <div>
+                  <label className={labelClass}>Location (Clinic) *</label>
+                  <ComboBox
+                    value={zenotiFields.location}
+                    onChange={(val) => setZenotiFields({ ...zenotiFields, location: val })}
+                    options={centerOptions}
+                    placeholder="Select clinic location"
+                    error={errField(zenotiFields.location)}
+                  />
+                </div>
+
+                {/* Client & Invoice details */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className={labelClass}>Client Mobile No *</label>
+                    <input
+                      type="text"
+                      value={zenotiFields.mobileNumber}
+                      onChange={(e) => setZenotiFields({ ...zenotiFields, mobileNumber: e.target.value })}
+                      className={cn(inputClass, errField(zenotiFields.mobileNumber) && "border-destructive ring-1 ring-destructive/30")}
+                      placeholder="Enter mobile number"
+                    />
+                  </div>
+                  <div>
+                    <label className={labelClass}>Client ID *</label>
+                    <input
+                      type="text"
+                      value={zenotiFields.customerId}
+                      onChange={(e) => setZenotiFields({ ...zenotiFields, customerId: e.target.value })}
+                      className={cn(inputClass, errField(zenotiFields.customerId) && "border-destructive ring-1 ring-destructive/30")}
+                      placeholder="e.g. BN01C2334"
+                    />
+                  </div>
+                  <div>
+                    <label className={labelClass}>Client Name *</label>
+                    <input
+                      type="text"
+                      value={zenotiFields.customerName}
+                      onChange={(e) => setZenotiFields({ ...zenotiFields, customerName: e.target.value })}
+                      className={cn(inputClass, errField(zenotiFields.customerName) && "border-destructive ring-1 ring-destructive/30")}
+                      placeholder="Enter client name"
+                    />
+                  </div>
+                  <div>
+                    <label className={labelClass}>Billed By *</label>
+                    <input
+                      type="text"
+                      value={zenotiFields.billedBy}
+                      onChange={(e) => setZenotiFields({ ...zenotiFields, billedBy: e.target.value })}
+                      className={cn(inputClass, errField(zenotiFields.billedBy) && "border-destructive ring-1 ring-destructive/30")}
+                      placeholder="Enter billed by"
+                    />
+                  </div>
+                  <div>
+                    <label className={labelClass}>Invoice No *</label>
+                    <input
+                      type="text"
+                      value={zenotiFields.invoiceNo}
+                      onChange={(e) => setZenotiFields({ ...zenotiFields, invoiceNo: e.target.value })}
+                      className={cn(inputClass, errField(zenotiFields.invoiceNo) && "border-destructive ring-1 ring-destructive/30")}
+                      placeholder="e.g. HYDBNH7711"
+                    />
+                  </div>
+                  <div>
+                    <label className={labelClass}>Invoice Date *</label>
+                    <input
+                      type="date"
+                      value={zenotiFields.invoiceDate}
+                      onChange={(e) => setZenotiFields({ ...zenotiFields, invoiceDate: e.target.value })}
+                      className={cn(inputClass, errField(zenotiFields.invoiceDate) && "border-destructive ring-1 ring-destructive/30")}
+                    />
+                  </div>
+                  <div>
+                    <label className={labelClass}>Amount *</label>
+                    <input
+                      type="text"
+                      value={zenotiFields.amount}
+                      onChange={(e) => setZenotiFields({ ...zenotiFields, amount: e.target.value })}
+                      className={cn(inputClass, errField(zenotiFields.amount) && "border-destructive ring-1 ring-destructive/30")}
+                      placeholder="Enter amount"
+                    />
+                  </div>
+                </div>
+
+                {/* Zenoti description */}
+                <div>
+                  <label className={labelClass}>Description</label>
+                  <textarea
+                    rows={2}
+                    value={zenotiFields.zenotiDescription}
+                    onChange={(e) => setZenotiFields({ ...zenotiFields, zenotiDescription: e.target.value })}
+                    className={cn(inputClass, "resize-none")}
+                    placeholder="Additional details for Zenoti team..."
+                  />
+                </div>
+              </div>
+            )}
+
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className={labelClass}>Priority *</label>
+                <ComboBox
+                  value={priority}
+                  onChange={(val) => setPriority(val)}
+                  options={["Critical", "High", "Medium", "Low"]}
+                  placeholder={matchingServiceTitle ? `Suggested: ${matchingServiceTitle.priority}` : "Select priority"}
+                />
+              </div>
+              <div>
+                <label className={labelClass}>Center *</label>
+                <ComboBox
+                  value={center}
+                  onChange={(val) => setCenter(val)}
+                  options={centerOptions}
+                  placeholder="Select center"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className={labelClass}>Attachment</label>
+              <input type="file" className="w-full text-sm text-muted-foreground file:mr-3 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-medium file:bg-muted file:text-foreground hover:file:bg-muted/80" />
+            </div>
+
+            {/* Validation alert popup */}
+            {showAlert && (
+              <div className="flex items-center gap-2 px-4 py-3 rounded-lg bg-destructive/10 border border-destructive/20">
+                <AlertCircle className="h-4 w-4 text-destructive shrink-0" />
+                <p className="text-xs font-medium text-destructive">Please fill all mandatory Zenoti fields before submitting.</p>
+                <button type="button" onClick={() => setShowAlert(false)} className="ml-auto text-destructive/60 hover:text-destructive">
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            )}
+
+            <div className="flex gap-2 pt-2">
+              <button type="button" onClick={onClose} className="px-4 py-2.5 rounded-lg border border-border text-sm font-medium hover:bg-muted transition-colors">
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setTitle(""); setDescription(""); setDepartment(""); setCategory("");
+                  setSubCategory(""); setPriority(""); setCenter("");
+                  setZenotiFields(emptyZenotiFields); setShowAlert(false);
+                }}
+                className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-lg border border-border text-sm font-medium hover:bg-muted transition-colors"
+              >
+                <RotateCcw className="h-3.5 w-3.5" /> Clear
+              </button>
+              <button type="submit" className="flex-1 px-4 py-2.5 rounded-lg gradient-primary text-primary-foreground text-sm font-medium hover:opacity-90 transition-opacity">
+                {editMode ? "Modify" : "Submit Ticket"}
+              </button>
+            </div>
+          </form>
+        )}
       </div>
     </div>
   );

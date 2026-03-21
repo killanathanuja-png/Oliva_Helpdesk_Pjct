@@ -4,28 +4,34 @@
 @tailwind components;
 @tailwind utilities;
 
+/*
+  Oliva Brand Colors (extracted from logo):
+  Bright teal (#00B7AE):  176 100% 36%
+  Dark petrol (#1A6B6A):  179 60% 26%
+*/
+
 @layer base {
   :root {
-    --background: 210 20% 98%;
-    --foreground: 200 25% 15%;
+    --background: 176 20% 97%;
+    --foreground: 179 60% 16%;
 
     --card: 0 0% 100%;
-    --card-foreground: 200 25% 15%;
+    --card-foreground: 179 60% 16%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 200 25% 15%;
+    --popover-foreground: 179 60% 16%;
 
-    --primary: 174 100% 32%;
+    --primary: 176 100% 36%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 200 20% 95%;
-    --secondary-foreground: 200 25% 15%;
+    --secondary: 176 20% 94%;
+    --secondary-foreground: 179 60% 26%;
 
-    --muted: 210 15% 93%;
-    --muted-foreground: 200 10% 45%;
+    --muted: 176 12% 93%;
+    --muted-foreground: 179 15% 45%;
 
-    --accent: 174 60% 92%;
-    --accent-foreground: 174 100% 25%;
+    --accent: 176 35% 92%;
+    --accent-foreground: 179 60% 26%;
 
     --destructive: 0 72% 55%;
     --destructive-foreground: 0 0% 100%;
@@ -39,61 +45,65 @@
     --info: 210 80% 55%;
     --info-foreground: 0 0% 100%;
 
-    --border: 210 15% 90%;
-    --input: 210 15% 90%;
-    --ring: 174 100% 32%;
+    --border: 176 15% 89%;
+    --input: 176 15% 89%;
+    --ring: 176 100% 36%;
 
     --radius: 0.625rem;
 
-    --sidebar-background: 200 25% 12%;
-    --sidebar-foreground: 210 15% 85%;
-    --sidebar-primary: 174 100% 40%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 200 20% 18%;
-    --sidebar-accent-foreground: 210 15% 90%;
-    --sidebar-border: 200 20% 20%;
-    --sidebar-ring: 174 100% 40%;
-    --sidebar-muted: 200 15% 40%;
+    /* Sidebar — Oliva teal background */
+    --sidebar-background: 176 100% 34%;
+    --sidebar-foreground: 0 0% 100%;
+    --sidebar-primary: 0 0% 100%;
+    --sidebar-primary-foreground: 176 100% 30%;
+    --sidebar-accent: 176 100% 30%;
+    --sidebar-accent-foreground: 0 0% 100%;
+    --sidebar-border: 176 80% 38%;
+    --sidebar-ring: 0 0% 100%;
+    --sidebar-muted: 176 40% 75%;
 
-    --chart-1: 174 100% 32%;
+    --chart-1: 176 100% 36%;
     --chart-2: 210 80% 55%;
     --chart-3: 38 92% 50%;
     --chart-4: 152 60% 42%;
     --chart-5: 0 72% 55%;
 
-    --gradient-primary: linear-gradient(135deg, hsl(174 100% 32%), hsl(174 80% 40%));
-    --shadow-card: 0 1px 3px 0 hsl(200 25% 15% / 0.06), 0 1px 2px -1px hsl(200 25% 15% / 0.06);
-    --shadow-elevated: 0 4px 12px -2px hsl(200 25% 15% / 0.08), 0 2px 6px -2px hsl(200 25% 15% / 0.04);
+    --gradient-primary: linear-gradient(135deg, hsl(176 100% 36%), hsl(176 80% 42%));
+    --shadow-card: 0 1px 3px 0 hsl(179 60% 16% / 0.06), 0 1px 2px -1px hsl(179 60% 16% / 0.06);
+    --shadow-elevated: 0 4px 12px -2px hsl(179 60% 16% / 0.08), 0 2px 6px -2px hsl(179 60% 16% / 0.04);
   }
 
   .dark {
-    --background: 200 25% 8%;
-    --foreground: 210 15% 93%;
-    --card: 200 25% 11%;
-    --card-foreground: 210 15% 93%;
-    --popover: 200 25% 11%;
-    --popover-foreground: 210 15% 93%;
-    --primary: 174 100% 40%;
+    --background: 179 40% 8%;
+    --foreground: 176 15% 93%;
+    --card: 179 35% 11%;
+    --card-foreground: 176 15% 93%;
+    --popover: 179 35% 11%;
+    --popover-foreground: 176 15% 93%;
+    --primary: 176 100% 42%;
     --primary-foreground: 0 0% 100%;
-    --secondary: 200 20% 16%;
-    --secondary-foreground: 210 15% 93%;
-    --muted: 200 20% 16%;
-    --muted-foreground: 210 10% 55%;
-    --accent: 174 40% 18%;
-    --accent-foreground: 174 100% 60%;
+    --secondary: 179 25% 16%;
+    --secondary-foreground: 176 15% 93%;
+    --muted: 179 25% 16%;
+    --muted-foreground: 176 12% 55%;
+    --accent: 176 30% 18%;
+    --accent-foreground: 176 80% 60%;
     --destructive: 0 62% 40%;
     --destructive-foreground: 0 0% 100%;
-    --border: 200 20% 18%;
-    --input: 200 20% 18%;
-    --ring: 174 100% 40%;
-    --sidebar-background: 200 25% 6%;
-    --sidebar-foreground: 210 15% 85%;
-    --sidebar-primary: 174 100% 45%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 200 20% 12%;
-    --sidebar-accent-foreground: 210 15% 90%;
-    --sidebar-border: 200 20% 14%;
-    --sidebar-ring: 174 100% 45%;
+    --border: 179 25% 18%;
+    --input: 179 25% 18%;
+    --ring: 176 100% 42%;
+
+    /* Sidebar dark — deep Oliva teal */
+    --sidebar-background: 179 60% 26%;
+    --sidebar-foreground: 176 30% 90%;
+    --sidebar-primary: 0 0% 100%;
+    --sidebar-primary-foreground: 179 60% 22%;
+    --sidebar-accent: 179 55% 22%;
+    --sidebar-accent-foreground: 0 0% 100%;
+    --sidebar-border: 179 50% 30%;
+    --sidebar-ring: 0 0% 100%;
+    --sidebar-muted: 176 30% 65%;
   }
 }
 

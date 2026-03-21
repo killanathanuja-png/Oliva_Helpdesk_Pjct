@@ -1,62 +1,695 @@
-import { users } from "@/data/dummyData";
+import { useState, useRef, useEffect } from "react";
+import { centers as dummyCenters, roles as dummyRoles, departments as dummyDepartments } from "@/data/dummyData";
+import type { User } from "@/data/dummyData";
+import { usersApi, departmentsApi, centersApi, rolesApi, designationsApi } from "@/lib/api";
+import type { ApiUser } from "@/lib/api";
 import { cn } from "@/lib/utils";
+import { X, Pencil, Trash2, Loader2, AlertTriangle, Download, Search, Upload } from "lucide-react";
+import { exportToExcel } from "@/lib/exportExcel";
+import { useToast } from "@/lib/toast";
 
-const roleColors: Record<string, string> = {
-  Admin: "bg-destructive/10 text-destructive",
-  Manager: "bg-info/10 text-info",
-  Resolver: "bg-warning/10 text-warning",
-  "End User": "bg-muted text-muted-foreground",
+interface ComboBoxProps {
+  value: string;
+  onChange: (val: string) => void;
+  options: string[];
+  placeholder: string;
+}
+
+const ComboBox = ({ value, onChange, options, placeholder }: ComboBoxProps) => {
+  const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState("");
+  const ref = useRef<HTMLDivElement>(null);
+
+  const filtered = search
+    ? options.filter((o) => o.toLowerCase().includes(search.toLowerCase()))
+    : options;
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) {
+        setOpen(false);
+        setSearch("");
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  const handleSelect = (item: string) => {
+    onChange(item);
+    setSearch("");
+    setOpen(false);
+  };
+
+  const toggleOpen = () => {
+    if (open) {
+      setOpen(false);
+      setSearch("");
+    } else {
+      setOpen(true);
+      setSearch("");
+    }
+  };
+
+  return (
+    <div className="relative" ref={ref}>
+      <div className="relative cursor-pointer" onClick={toggleOpen}>
+        <input
+          type="text"
+          value={open ? search : value}
+          onChange={(e) => { setSearch(e.target.value); if (!open) setOpen(true); }}
+          placeholder={value || placeholder}
+          className="w-full px-3 py-2 pr-8 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 cursor-pointer"
+          readOnly={!open}
+        />
+        <svg className={cn("absolute right-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none transition-transform", open && "rotate-180")} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+      </div>
+      {open && (
+        <div className="absolute z-10 mt-1 w-full bg-card border border-border rounded-lg shadow-lg max-h-48 overflow-y-auto">
+          {filtered.length > 0 ? filtered.map((item) => (
+            <button
+              key={item}
+              type="button"
+              onClick={() => handleSelect(item)}
+              className={cn(
+                "w-full text-left px-3 py-2 text-sm hover:bg-primary/10 transition-colors",
+                item === value && "bg-primary/10 text-primary font-medium"
+              )}
+            >
+              {item}
+            </button>
+          )) : (
+            <div className="px-3 py-2 text-sm text-muted-foreground">No results found</div>
+          )}
+        </div>
+      )}
+    </div>
+  );
 };
 
+
+interface LocalUser extends User {
+  employeeId: string;
+  mapLevelAccess: string;
+  designation: string;
+  entity: string;
+  vertical: string;
+  costcenter: string;
+  gender: string;
+  mobile: string;
+  reportingTo: string;
+  grade: string;
+  employeeType: string;
+  city: string;
+  employeeDob: string;
+  employeeDoj: string;
+  lwd: string;
+  effectiveDate: string;
+  remarks: string;
+}
+
+function apiUserToUser(a: ApiUser): LocalUser {
+  return {
+    id: a.code,
+    employeeId: a.employee_id ?? "",
+    name: a.name,
+    email: a.email,
+    role: (a.role as User["role"]) ?? "Employee",
+    mapLevelAccess: a.map_level_access ?? "",
+    designation: a.designation ?? "",
+    entity: a.entity ?? "",
+    vertical: a.vertical ?? "",
+    costcenter: a.costcenter ?? "",
+    department: a.department ?? "",
+    center: a.center ?? "",
+    gender: a.gender ?? "",
+    mobile: a.mobile ?? "",
+    reportingTo: a.reporting_to ?? "",
+    grade: a.grade ?? "",
+    employeeType: a.employee_type ?? "",
+    city: a.city ?? "",
+    employeeDob: a.employee_dob ?? "",
+    employeeDoj: a.employee_doj ?? "",
+    lwd: a.lwd ?? "",
+    effectiveDate: a.effective_date ?? "",
+    remarks: a.remarks ?? "",
+    avatar: a.avatar ?? a.name.split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase(),
+    status: (a.status as "Active" | "Inactive") ?? "Active",
+    lastLogin: a.last_login ?? "",
+  };
+}
+
 const AdminUsersPage = () => {
+  const { showToast } = useToast();
+  const [data, setData] = useState<LocalUser[]>([]);
+  const [idMap, setIdMap] = useState<Record<string, number>>({});
+  const [loading, setLoading] = useState(true);
+  const [showModal, setShowModal] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [form, setForm] = useState({ name: "", email: "", password: "", role: "", designation: "", center: "", department: "", gender: "", mobile: "", reportingTo: "", employeeId: "", mapLevelAccess: "", entity: "", vertical: "", costcenter: "", grade: "", employeeType: "", city: "", employeeDob: "", employeeDoj: "", lwd: "", effectiveDate: "", remarks: "" });
+  const [formError, setFormError] = useState("");
+  const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
+  const [search, setSearch] = useState("");
+  const [uploading, setUploading] = useState(false);
+  const [uploadMsg, setUploadMsg] = useState("");
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const [roleOptions, setRoleOptions] = useState<string[]>(dummyRoles.map((r) => r.name));
+  const [centerOptions, setCenterOptions] = useState<string[]>(dummyCenters.map((c) => c.name));
+  const [departmentOptions, setDepartmentOptions] = useState<string[]>(dummyDepartments.map((d) => d.name));
+  const [designationOptions, setDesignationOptions] = useState<string[]>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function fetchAll() {
+      setLoading(true);
+
+      // Fetch users
+      try {
+        const apiUsers = await usersApi.list();
+        if (!cancelled) {
+          setData(apiUsers.map(apiUserToUser));
+          const map: Record<string, number> = {};
+          apiUsers.forEach((u) => { map[u.code] = u.id; });
+          setIdMap(map);
+        }
+      } catch {
+        // API failed — keep existing data, only use dummy if we have nothing
+        if (!cancelled) {
+          setData((prev) => prev.length > 0 ? prev : []);
+        }
+      }
+
+      // Fetch departments
+      try {
+        const apiDepts = await departmentsApi.list();
+        if (!cancelled) setDepartmentOptions(apiDepts.length > 0 ? apiDepts.map((d) => d.name) : dummyDepartments.map((d) => d.name));
+      } catch {
+        if (!cancelled) setDepartmentOptions(dummyDepartments.map((d) => d.name));
+      }
+
+      // Fetch centers
+      try {
+        const apiCenters = await centersApi.list();
+        if (!cancelled) setCenterOptions(apiCenters.length > 0 ? apiCenters.map((c) => c.name) : dummyCenters.map((c) => c.name));
+      } catch {
+        if (!cancelled) setCenterOptions(dummyCenters.map((c) => c.name));
+      }
+
+      // Fetch roles
+      try {
+        const apiRoles = await rolesApi.list();
+        if (!cancelled) setRoleOptions(apiRoles.length > 0 ? apiRoles.map((r) => r.name) : dummyRoles.map((r) => r.name));
+      } catch {
+        if (!cancelled) setRoleOptions(dummyRoles.map((r) => r.name));
+      }
+
+      // Fetch designations
+      try {
+        const apiDesigs = await designationsApi.list();
+        if (!cancelled) setDesignationOptions(apiDesigs.map((d) => d.name));
+      } catch {
+        // ignore
+      }
+
+      if (!cancelled) setLoading(false);
+    }
+
+    fetchAll();
+    return () => { cancelled = true; };
+  }, []);
+
+  const handleSave = async () => {
+    const missing: string[] = [];
+    if (!form.name.trim()) missing.push("Name");
+    if (!form.email.trim()) missing.push("Email");
+    if (!editingId && !form.password.trim()) missing.push("Password");
+    if (!form.role) missing.push("Role");
+    if (missing.length > 0) {
+      setFormError(`Please fill: ${missing.join(", ")}`);
+      return;
+    }
+    setFormError("");
+
+    if (editingId) {
+      const numericId = idMap[editingId];
+      if (numericId) {
+        try {
+          const updated = await usersApi.update(numericId, {
+            name: form.name, email: form.email, role: form.role, designation: form.designation,
+            department: form.department, center: form.center, gender: form.gender, mobile: form.mobile,
+            reporting_to: form.reportingTo, map_level_access: form.mapLevelAccess, entity: form.entity,
+            vertical: form.vertical, costcenter: form.costcenter, grade: form.grade,
+            employee_type: form.employeeType, city: form.city, employee_dob: form.employeeDob,
+            employee_doj: form.employeeDoj, lwd: form.lwd, effective_date: form.effectiveDate,
+            remarks: form.remarks,
+          });
+          setData((prev) => prev.map((u) => u.id === editingId ? apiUserToUser(updated) : u));
+          showToast("User updated successfully");
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : "Unknown error";
+          setFormError(`Failed to update user: ${msg}`);
+          showToast("Failed to update User", "error");
+          return;
+        }
+      } else {
+        setFormError("Cannot find user to update. Please refresh and try again.");
+        return;
+      }
+    } else {
+      // New user -> call API
+      try {
+        const created = await usersApi.create({
+          name: form.name, email: form.email, password: form.password,
+          role: form.role, designation: form.designation, department: form.department,
+          center: form.center, gender: form.gender, mobile: form.mobile,
+          reporting_to: form.reportingTo, employee_id: form.employeeId,
+          map_level_access: form.mapLevelAccess, entity: form.entity, vertical: form.vertical,
+          costcenter: form.costcenter, grade: form.grade, employee_type: form.employeeType,
+          city: form.city, employee_dob: form.employeeDob, employee_doj: form.employeeDoj,
+          lwd: form.lwd, effective_date: form.effectiveDate, remarks: form.remarks,
+        });
+        setIdMap((prev) => ({ ...prev, [created.code]: created.id }));
+        setData((prev) => [...prev, apiUserToUser(created)]);
+        showToast("User created successfully");
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : "Unknown error";
+        setFormError(`Failed to create user: ${msg}`);
+        showToast("Failed to create User", "error");
+        return;
+      }
+    }
+
+    setShowModal(false);
+    setEditingId(null);
+    setForm({ name: "", email: "", password: "", role: "", designation: "", center: "", department: "", gender: "", mobile: "", reportingTo: "", employeeId: "", mapLevelAccess: "", entity: "", vertical: "", costcenter: "", grade: "", employeeType: "", city: "", employeeDob: "", employeeDoj: "", lwd: "", effectiveDate: "", remarks: "" });
+  };
+
+  const handleCancel = () => {
+    setShowModal(false);
+    setEditingId(null);
+    setForm({ name: "", email: "", password: "", role: "", designation: "", center: "", department: "", gender: "", mobile: "", reportingTo: "", employeeId: "", mapLevelAccess: "", entity: "", vertical: "", costcenter: "", grade: "", employeeType: "", city: "", employeeDob: "", employeeDoj: "", lwd: "", effectiveDate: "", remarks: "" });
+    setFormError("");
+  };
+
+  const handleEdit = (u: LocalUser) => {
+    setEditingId(u.id);
+    setForm({ name: u.name, email: u.email, password: "", role: u.role, designation: u.designation, center: u.center, department: u.department, gender: u.gender, mobile: u.mobile, reportingTo: u.reportingTo, employeeId: u.employeeId, mapLevelAccess: u.mapLevelAccess, entity: u.entity, vertical: u.vertical, costcenter: u.costcenter, grade: u.grade, employeeType: u.employeeType, city: u.city, employeeDob: u.employeeDob, employeeDoj: u.employeeDoj, lwd: u.lwd, effectiveDate: u.effectiveDate, remarks: u.remarks });
+    setShowModal(true);
+  };
+
+  const handleUploadExcel = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploading(true);
+    setUploadMsg("");
+    try {
+      const result = await usersApi.uploadExcel(file);
+      setUploadMsg(`${result.message}`);
+      showToast(result.message);
+      // Refresh user list from response
+      if (result.users && result.users.length > 0) {
+        setData(result.users.map(apiUserToUser));
+        const map: Record<string, number> = {};
+        result.users.forEach((u) => { map[u.code] = u.id; });
+        setIdMap(map);
+      }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Upload failed";
+      setUploadMsg(`Error: ${msg}`);
+    } finally {
+      setUploading(false);
+      // Reset input so same file can be re-uploaded
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  };
+
+  const handleSoftDelete = async () => {
+    if (!deleteConfirm) return;
+    const numericId = idMap[deleteConfirm];
+    if (numericId) {
+      try {
+        await usersApi.updateStatus(numericId, "Inactive");
+      } catch { /* fall through to local update */ }
+    }
+    setData((prev) => prev.map((u) => u.id === deleteConfirm ? { ...u, status: "Inactive" } : u));
+    showToast("User deleted successfully");
+    setDeleteConfirm(null);
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-4 animate-fade-in">
-      <div className="flex items-center justify-between">
-        <h1 className="text-xl font-bold font-display">User Management</h1>
-        <button className="px-4 py-2.5 rounded-lg gradient-primary text-primary-foreground text-sm font-medium hover:opacity-90 transition-opacity">
-          + Add User
-        </button>
+      <div className="flex items-center justify-between gap-4">
+        <div className="shrink-0">
+          <h1 className="text-xl font-bold font-display">User Management</h1>
+          <p className="text-xs text-muted-foreground mt-0.5">Total Users: <span className="font-semibold text-foreground">{data.filter((u) => u.status !== "Inactive").length}</span></p>
+        </div>
+        <div className="relative flex-1 max-w-sm">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <input
+            type="text"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search by name, email, role, department..."
+            className="w-full pl-9 pr-3 py-2 rounded-lg border border-border bg-card text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 transition-shadow"
+          />
+        </div>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => {
+              const exportData = data.filter((u) => u.status !== "Inactive").map((u) => ({
+                "User ID": u.employeeId || u.id,
+                "User Name": u.name,
+                "Role Name": u.role,
+                "Email ID": u.email,
+                "Map Level Access": u.mapLevelAccess,
+                "Gender": u.gender,
+                "Designation": u.designation,
+                "Entity": u.entity,
+                "Vertical": u.vertical,
+                "Costcenter": u.costcenter,
+                "Location": u.center,
+                "Department": u.department,
+                "Mobile No": u.mobile,
+                "Reporting To": u.reportingTo,
+                "Grade": u.grade,
+                "Employee Type": u.employeeType,
+                "Employee DOB": u.employeeDob,
+                "Employee DOJ": u.employeeDoj,
+                "LWD": u.lwd,
+                "Effective Date": u.effectiveDate,
+                "Remarks": u.remarks,
+                "Status": u.status,
+              }));
+              exportToExcel(exportData, "Users", "Users");
+            }}
+            className="px-4 py-2.5 rounded-lg border border-border bg-card text-sm font-medium hover:bg-muted transition-colors flex items-center gap-2"
+          >
+            <Download className="h-4 w-4" />
+            Export Excel
+          </button>
+          <input type="file" ref={fileInputRef} accept=".xlsx,.xls" onChange={handleUploadExcel} className="hidden" />
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            disabled={uploading}
+            className="px-4 py-2.5 rounded-lg border border-border bg-card text-sm font-medium hover:bg-muted transition-colors flex items-center gap-2 disabled:opacity-50"
+          >
+            {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+            {uploading ? "Uploading..." : "Upload Excel"}
+          </button>
+          <button
+            onClick={() => { setEditingId(null); setForm({ name: "", email: "", password: "", role: "", designation: "", center: "", department: "", gender: "", mobile: "", reportingTo: "", employeeId: "", mapLevelAccess: "", entity: "", vertical: "", costcenter: "", grade: "", employeeType: "", city: "", employeeDob: "", employeeDoj: "", lwd: "", effectiveDate: "", remarks: "" }); setFormError(""); setShowModal(true); }}
+            className="px-4 py-2.5 rounded-lg gradient-primary text-primary-foreground text-sm font-medium hover:opacity-90 transition-opacity"
+          >
+            + Add User
+          </button>
+        </div>
       </div>
+      {uploadMsg && (
+        <div className={cn("px-4 py-3 rounded-lg text-sm font-medium flex items-center justify-between", uploadMsg.startsWith("Error") ? "bg-destructive/10 text-destructive" : "bg-success/10 text-success")}>
+          <span>{uploadMsg}</span>
+          <button onClick={() => setUploadMsg("")} className="ml-2 hover:opacity-70"><X className="h-4 w-4" /></button>
+        </div>
+      )}
       <div className="bg-card rounded-xl card-shadow border border-border overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
-            <tr className="text-left text-xs text-muted-foreground border-b border-border">
-              <th className="px-4 py-3 font-medium">User</th>
-              <th className="px-4 py-3 font-medium">Email</th>
-              <th className="px-4 py-3 font-medium">Role</th>
-              <th className="px-4 py-3 font-medium">Department</th>
-              <th className="px-4 py-3 font-medium">Center</th>
-              <th className="px-4 py-3 font-medium">Status</th>
-              <th className="px-4 py-3 font-medium">Last Login</th>
+            <tr className="text-left text-[11px] uppercase tracking-wider text-muted-foreground border-b border-border bg-muted/30 whitespace-nowrap">
+              <th className="px-3 py-3 font-semibold">User ID</th>
+              <th className="px-3 py-3 font-semibold">User Name</th>
+              <th className="px-3 py-3 font-semibold">Location</th>
+              <th className="px-3 py-3 font-semibold">Role Name</th>
+              <th className="px-3 py-3 font-semibold">Map Level Access</th>
+              <th className="px-3 py-3 font-semibold">Email</th>
+              <th className="px-3 py-3 font-semibold">Designation</th>
+              <th className="px-3 py-3 font-semibold">Employee Type</th>
+              <th className="px-3 py-3 font-semibold">Vertical</th>
+              <th className="px-3 py-3 font-semibold">Costcenter</th>
+              <th className="px-3 py-3 font-semibold">Actions</th>
             </tr>
           </thead>
           <tbody>
-            {users.map((u) => (
-              <tr key={u.id} className="border-b border-border last:border-0 hover:bg-muted/30 transition-colors">
+            {data.filter((u) => {
+              if (u.status === "Inactive") return false;
+              if (!search.trim()) return true;
+              const q = search.toLowerCase();
+              return (
+                u.name.toLowerCase().includes(q) ||
+                u.email.toLowerCase().includes(q) ||
+                u.role.toLowerCase().includes(q) ||
+                u.department.toLowerCase().includes(q) ||
+                u.center.toLowerCase().includes(q) ||
+                u.employeeId.toLowerCase().includes(q) ||
+                u.designation.toLowerCase().includes(q) ||
+                u.city.toLowerCase().includes(q) ||
+                u.mobile.toLowerCase().includes(q)
+              );
+            }).map((u) => (
+              <tr key={u.id} className="border-b border-border last:border-0 hover:bg-muted/20 transition-colors whitespace-nowrap">
+                <td className="px-3 py-2.5 font-mono text-xs text-primary font-semibold">{u.employeeId || u.id}</td>
+                <td className="px-3 py-2.5 text-xs font-medium">{u.name}</td>
+                <td className="px-3 py-2.5 text-xs text-muted-foreground">{u.center || ""}</td>
+                <td className="px-3 py-2.5 text-xs">{u.role}</td>
+                <td className="px-3 py-2.5 text-xs text-muted-foreground">{u.mapLevelAccess || ""}</td>
+                <td className="px-3 py-2.5 text-xs text-muted-foreground">{u.email}</td>
+                <td className="px-3 py-2.5 text-xs text-muted-foreground">{u.designation || ""}</td>
+                <td className="px-3 py-2.5 text-xs text-muted-foreground">{u.employeeType || ""}</td>
+                <td className="px-3 py-2.5 text-xs text-muted-foreground">{u.vertical || ""}</td>
+                <td className="px-3 py-2.5 text-xs text-muted-foreground">{u.costcenter || ""}</td>
                 <td className="px-4 py-3">
-                  <div className="flex items-center gap-2.5">
-                    <div className="h-8 w-8 rounded-full gradient-primary flex items-center justify-center text-[11px] font-bold text-primary-foreground shrink-0">
-                      {u.avatar}
-                    </div>
-                    <span className="font-medium">{u.name}</span>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => handleEdit(u)}
+                      className="p-1.5 rounded-md text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors"
+                      title="Edit"
+                    >
+                      <Pencil className="h-3.5 w-3.5" />
+                    </button>
+                    <button
+                      onClick={() => setDeleteConfirm(u.id)}
+                      className="p-1.5 rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+                      title="Delete"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
                   </div>
                 </td>
-                <td className="px-4 py-3 text-muted-foreground text-xs">{u.email}</td>
-                <td className="px-4 py-3">
-                  <span className={cn("px-2 py-0.5 rounded-full text-[11px] font-medium", roleColors[u.role])}>{u.role}</span>
-                </td>
-                <td className="px-4 py-3 text-xs text-muted-foreground">{u.department}</td>
-                <td className="px-4 py-3 text-xs text-muted-foreground">{u.center}</td>
-                <td className="px-4 py-3">
-                  <span className={cn("inline-block h-2 w-2 rounded-full mr-1.5", u.status === "Active" ? "bg-success" : "bg-muted-foreground")} />
-                  <span className="text-xs">{u.status}</span>
-                </td>
-                <td className="px-4 py-3 text-xs text-muted-foreground">{u.lastLogin}</td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
+
+      {/* Add/Edit User Modal */}
+      {showModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={handleCancel}>
+          <div className="bg-card rounded-xl shadow-xl border border-border w-full max-w-3xl mx-4 animate-fade-in max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-6 py-4 border-b border-border">
+              <h2 className="text-lg font-bold font-display">{editingId ? "Edit User" : "Add User"}</h2>
+              <button onClick={handleCancel} className="text-muted-foreground hover:text-foreground transition-colors">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="px-6 py-5 space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-medium text-muted-foreground mb-1.5">User ID</label>
+                  <input type="text" value={form.employeeId} onChange={(e) => setForm({ ...form, employeeId: e.target.value })} placeholder="Enter user ID"
+                    className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-muted-foreground mb-1.5">User Name <span className="text-destructive">*</span></label>
+                  <input type="text" required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Enter full name"
+                    className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-medium text-muted-foreground mb-1.5">Email <span className="text-destructive">*</span></label>
+                  <input type="email" required value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} placeholder="Enter email address"
+                    className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" />
+                </div>
+                {!editingId && (
+                  <div>
+                    <label className="block text-xs font-medium text-muted-foreground mb-1.5">Password <span className="text-destructive">*</span></label>
+                    <input type="password" required value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} placeholder="Enter password"
+                      className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" />
+                  </div>
+                )}
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-medium text-muted-foreground mb-1.5">Role <span className="text-destructive">*</span></label>
+                  <ComboBox value={form.role} onChange={(val) => setForm({ ...form, role: val })} options={roleOptions} placeholder="Select role" />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-muted-foreground mb-1.5">Map Level Access</label>
+                  <select value={form.mapLevelAccess} onChange={(e) => setForm({ ...form, mapLevelAccess: e.target.value })}
+                    className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/30">
+                    <option value="">-- Select --</option>
+                    <option value="Can View">Can View</option>
+                    <option value="Can View and Edit">Can View and Edit</option>
+                  </select>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-medium text-muted-foreground mb-1.5">Gender</label>
+                  <select value={form.gender} onChange={(e) => setForm({ ...form, gender: e.target.value })}
+                    className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/30">
+                    <option value="">-- Select --</option>
+                    <option value="M">Male</option>
+                    <option value="F">Female</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-muted-foreground mb-1.5">Designation</label>
+                  <ComboBox value={form.designation} onChange={(val) => setForm({ ...form, designation: val })} options={designationOptions} placeholder="Select designation" />
+                </div>
+              </div>
+              <div className="grid grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-xs font-medium text-muted-foreground mb-1.5">Entity</label>
+                  <input type="text" value={form.entity} onChange={(e) => setForm({ ...form, entity: e.target.value })} placeholder="Entity"
+                    className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-muted-foreground mb-1.5">Vertical</label>
+                  <input type="text" value={form.vertical} onChange={(e) => setForm({ ...form, vertical: e.target.value })} placeholder="Vertical"
+                    className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-muted-foreground mb-1.5">Costcenter</label>
+                  <input type="text" value={form.costcenter} onChange={(e) => setForm({ ...form, costcenter: e.target.value })} placeholder="Costcenter"
+                    className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-medium text-muted-foreground mb-1.5">City</label>
+                  <input type="text" value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value })} placeholder="Enter city"
+                    className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-muted-foreground mb-1.5">Location (Center)</label>
+                  <ComboBox value={form.center} onChange={(val) => setForm({ ...form, center: val })} options={centerOptions} placeholder="Select center" />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-medium text-muted-foreground mb-1.5">Department</label>
+                  <ComboBox value={form.department} onChange={(val) => setForm({ ...form, department: val })} options={departmentOptions} placeholder="Select department" />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-muted-foreground mb-1.5">Mobile No</label>
+                  <input type="text" value={form.mobile} onChange={(e) => setForm({ ...form, mobile: e.target.value })} placeholder="Enter mobile number"
+                    className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-medium text-muted-foreground mb-1.5">Reporting To</label>
+                  <input type="text" value={form.reportingTo} onChange={(e) => setForm({ ...form, reportingTo: e.target.value })} placeholder="Reporting manager"
+                    className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-muted-foreground mb-1.5">Grade</label>
+                  <input type="text" value={form.grade} onChange={(e) => setForm({ ...form, grade: e.target.value })} placeholder="Grade"
+                    className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-medium text-muted-foreground mb-1.5">Employee Type</label>
+                  <input type="text" value={form.employeeType} onChange={(e) => setForm({ ...form, employeeType: e.target.value })} placeholder="Employee type"
+                    className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-muted-foreground mb-1.5">Employee DOB</label>
+                  <input type="date" value={form.employeeDob} onChange={(e) => setForm({ ...form, employeeDob: e.target.value })}
+                    className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-medium text-muted-foreground mb-1.5">Employee DOJ</label>
+                  <input type="date" value={form.employeeDoj} onChange={(e) => setForm({ ...form, employeeDoj: e.target.value })}
+                    className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-muted-foreground mb-1.5">LWD</label>
+                  <input type="date" value={form.lwd} onChange={(e) => setForm({ ...form, lwd: e.target.value })}
+                    className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-medium text-muted-foreground mb-1.5">Effective Date</label>
+                  <input type="date" value={form.effectiveDate} onChange={(e) => setForm({ ...form, effectiveDate: e.target.value })}
+                    className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-muted-foreground mb-1.5">Remarks</label>
+                  <input type="text" value={form.remarks} onChange={(e) => setForm({ ...form, remarks: e.target.value })} placeholder="Remarks"
+                    className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" />
+                </div>
+              </div>
+            </div>
+            {formError && (
+              <p className="px-6 text-sm text-destructive font-medium">{formError}</p>
+            )}
+            <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-border">
+              <button
+                onClick={handleCancel}
+                className="px-4 py-2 rounded-lg border border-border text-sm font-medium hover:bg-muted transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSave}
+                className="px-5 py-2 rounded-lg gradient-primary text-primary-foreground text-sm font-medium hover:opacity-90 transition-opacity"
+              >
+                {editingId ? "Update User" : "Create User"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {deleteConfirm && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50">
+          <div className="bg-card rounded-xl shadow-xl border border-border w-full max-w-sm mx-4 p-6 animate-fade-in">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="h-10 w-10 rounded-full bg-destructive/10 flex items-center justify-center">
+                <AlertTriangle className="h-5 w-5 text-destructive" />
+              </div>
+              <div>
+                <h3 className="font-semibold">Delete User</h3>
+                <p className="text-xs text-muted-foreground">This action cannot be undone</p>
+              </div>
+            </div>
+            <p className="text-sm text-muted-foreground mb-5">Are you sure you want to delete this user?</p>
+            <div className="flex gap-2">
+              <button onClick={() => setDeleteConfirm(null)} className="flex-1 px-4 py-2 rounded-lg border border-border text-sm font-medium hover:bg-muted transition-colors">
+                Cancel
+              </button>
+              <button onClick={handleSoftDelete} className="flex-1 px-4 py-2 rounded-lg bg-destructive text-destructive-foreground text-sm font-medium hover:opacity-90 transition-opacity">
+                Yes, Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
