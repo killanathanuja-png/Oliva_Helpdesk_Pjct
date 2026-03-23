@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { isSuperRole, hasAnyRole } from "@/lib/roles";
 import { tickets as dummyTickets, departments as fallbackDepartments } from "@/data/dummyData";
 import type { Ticket } from "@/data/dummyData";
-import { Search, Plus, Eye, AlertTriangle, CheckCircle2, X, FileText, ListChecks, Download } from "lucide-react";
+import { Search, Plus, Eye, AlertTriangle, CheckCircle2, X, FileText, ListChecks, Download, ArrowLeft, RefreshCw, User as UserIcon } from "lucide-react";
 import { exportToExcel } from "@/lib/exportExcel";
 import { cn } from "@/lib/utils";
 import RaiseTicketModal from "@/components/RaiseTicketModal";
@@ -79,7 +79,7 @@ function apiToTicket(t: ApiTicket): Ticket {
   } as Ticket & { _dbId: number };
 }
 
-type TabKey = "all" | "raised" | "resolved";
+type TabKey = "all" | "mytickets" | "raised" | "resolved";
 
 const TicketsPage = () => {
   const navigate = useNavigate();
@@ -126,17 +126,51 @@ const TicketsPage = () => {
       .catch(() => {});
   }, [fetchTickets]);
 
+  // Role-to-department mapping: which roles see which department's tickets
+  const roleDeptMap: Record<string, string[]> = {
+    "Zenoti Team": ["Zenoti"],
+    "Area Operations Manager": ["Zenoti"],
+    "Area Operations Manager Head": ["Zenoti"],
+    "Finance": ["Zenoti"],
+    "Finance Head": ["Zenoti"],
+    "Help Desk Admin": [], // sees all (handled below)
+    "Helpdesk In-charge": [], // sees all
+    "L1 Manager": [], // sees all
+    "L2 Manager": [], // sees all
+  };
+
+  // Determine which departments this user can see
+  const getUserDepts = (): string[] => {
+    const userRoles = currentUserRole.split(",").map((r) => r.trim());
+    const depts = new Set<string>();
+    for (const role of userRoles) {
+      const mapped = roleDeptMap[role];
+      if (mapped) mapped.forEach((d) => depts.add(d));
+    }
+    // If user has a department assigned, include that too
+    if (currentUserDept) depts.add(currentUserDept);
+    return [...depts];
+  };
+
   // Super roles see all tickets; Employee/Others see only their own; other roles see their department's tickets
   const roleFiltered = isSuperRole(currentUserRole)
     ? data
     : hasAnyRole(currentUserRole, ["Employee", "Others"])
       ? data.filter((t) => t.raisedBy === currentUser)
-      : currentUserDept
-        ? data.filter((t) => t.assignedDept === currentUserDept || t.raisedByDept === currentUserDept)
-        : data;
+      : hasAnyRole(currentUserRole, ["Help Desk Admin", "Helpdesk In-charge", "L1 Manager", "L2 Manager"])
+        ? data // these roles see all tickets
+        : (() => {
+            const allowedDepts = getUserDepts();
+            return allowedDepts.length > 0
+              ? data.filter((t) => allowedDepts.includes(t.assignedDept) || t.raisedBy === currentUser)
+              : currentUserDept
+                ? data.filter((t) => t.assignedDept === currentUserDept || t.raisedByDept === currentUserDept || t.raisedBy === currentUser)
+                : data.filter((t) => t.raisedBy === currentUser);
+          })();
 
   // Filter by tab
   const tabFiltered = roleFiltered.filter((t) => {
+    if (activeTab === "mytickets") return t.assignedTo === currentUser;
     if (activeTab === "raised") return t.raisedBy === currentUser;
     if (activeTab === "resolved") return t.status === "Resolved" || t.status === "Closed";
     return true;
@@ -161,7 +195,12 @@ const TicketsPage = () => {
           priority: formData.priority,
           center: formData.center,
           assigned_dept: formData.department,
-          approval_required: formData.department === "Zenoti" && formData.zenotiMainCategory !== "Operational Issues",
+          approval_required: formData.department === "Zenoti" && formData.category !== "Operational Issues",
+          approval_type: formData.department === "Zenoti"
+            ? formData.category === "Zenoti-Finance" ? "aom_finance"
+              : formData.category === "Zenoti-Operational" ? "aom_only"
+              : undefined
+            : undefined,
           zenoti_location: formData.zenotiLocation,
           zenoti_main_category: formData.zenotiMainCategory,
           zenoti_sub_category: formData.zenotiSubCategory,
@@ -298,11 +337,13 @@ const TicketsPage = () => {
     ));
   };
 
+  const myTicketsCount = roleFiltered.filter((t) => t.assignedTo === currentUser).length;
   const raisedCount = roleFiltered.filter((t) => t.raisedBy === currentUser).length;
   const resolvedCount = roleFiltered.filter((t) => t.status === "Resolved" || t.status === "Closed").length;
 
   const tabs: { key: TabKey; label: string; icon: typeof FileText; count: number }[] = [
     { key: "all", label: "All Tickets", icon: ListChecks, count: roleFiltered.length },
+    { key: "mytickets", label: "My Tickets", icon: UserIcon, count: myTicketsCount },
     { key: "raised", label: "Raised Tickets", icon: FileText, count: raisedCount },
     { key: "resolved", label: "Resolved Tickets", icon: CheckCircle2, count: resolvedCount },
   ];
@@ -318,8 +359,18 @@ const TicketsPage = () => {
   return (
     <div className="space-y-4 animate-fade-in">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <h1 className="text-xl font-bold font-display">Ticket Management</h1>
+        <div className="flex items-center gap-3">
+          <button onClick={() => window.history.back()} className="p-2 rounded-lg border border-border hover:bg-muted transition-colors" title="Back"><ArrowLeft className="h-4 w-4" /></button>
+          <h1 className="text-xl font-bold font-display">Ticket Management</h1>
+        </div>
         <div className="flex items-center gap-2">
+          <button
+            onClick={() => window.location.reload()}
+            className="px-4 py-2.5 rounded-lg border border-border bg-card text-sm font-medium hover:bg-muted transition-colors flex items-center gap-2"
+            title="Refresh"
+          >
+            <RefreshCw className="h-4 w-4" /> Refresh
+          </button>
           <button
             onClick={() => {
               const exportData = filtered.map((t) => ({
@@ -438,6 +489,7 @@ const TicketsPage = () => {
               <th className="px-4 py-3 font-medium">Priority</th>
               <th className="px-4 py-3 font-medium">Status</th>
               <th className="px-4 py-3 font-medium">Assigned Dept</th>
+              <th className="px-4 py-3 font-medium">Assigned To</th>
               <th className="px-4 py-3 font-medium">Center</th>
               <th className="px-4 py-3 font-medium">Created</th>
               <th className="px-4 py-3 font-medium">SLA</th>
@@ -466,6 +518,7 @@ const TicketsPage = () => {
                   </span>
                 </td>
                 <td className="px-4 py-3 text-xs text-muted-foreground">{t.assignedDept}</td>
+                <td className="px-4 py-3 text-xs text-muted-foreground">{t.assignedTo || "—"}</td>
                 <td className="px-4 py-3 text-xs text-muted-foreground">{t.center}</td>
                 <td className="px-4 py-3 text-xs text-muted-foreground">{t.createdAt}</td>
                 <td className="px-4 py-3">

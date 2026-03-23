@@ -345,6 +345,7 @@ class TicketBase(BaseModel):
     center: Optional[str] = None
     assigned_dept: Optional[str] = None
     approval_required: Optional[bool] = False
+    approval_type: Optional[str] = None  # "aom_finance", "aom_only", or null
     # Zenoti fields
     zenoti_location: Optional[str] = None
     zenoti_main_category: Optional[str] = None

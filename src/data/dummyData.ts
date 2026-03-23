@@ -61,6 +61,7 @@ export interface Ticket {
   dueDate: string;
   slaBreached: boolean;
   approvalRequired: boolean;
+  approvalType?: string;
   approver?: string;
   approvalStatus?: "Pending" | "Approved" | "Rejected";
   resolution?: string;

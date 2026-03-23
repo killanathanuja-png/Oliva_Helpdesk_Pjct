@@ -8,7 +8,7 @@ const ADMIN_PATHS = [
   "/", "/tickets", "/sla-report",
   "/admin/users", "/admin/departments", "/admin/roles",
   "/admin/centers", "/admin/sla", "/admin/categories",
-  "/admin/subcategories", "/admin/child-categories", "/admin/service-titles", "/admin/designations",
+  "/admin/subcategories", "/admin/child-categories", "/admin/service-titles", "/admin/login-history", "/admin/designations",
 ];
 
 // Which paths each role can access

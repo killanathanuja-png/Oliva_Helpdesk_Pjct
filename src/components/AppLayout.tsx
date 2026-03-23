@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import olivaLogo from "@/assets/oliva-logo.png";
-import { authApi } from "@/lib/api";
+import { authApi, authLogout } from "@/lib/api";
 import {
   LayoutDashboard,
   Ticket,
@@ -52,6 +52,7 @@ const allNavItems = [
       { label: "Subcategory", icon: GitBranch, path: "/admin/subcategories" },
       { label: "Child Category", icon: GitBranch, path: "/admin/child-categories" },
       { label: "Service Title", icon: FileText, path: "/admin/service-titles" },
+      { label: "Login History", icon: Clock, path: "/admin/login-history" },
     ],
   },
 ];
@@ -82,7 +83,8 @@ const AppLayout = ({ children }: AppLayoutProps) => {
     }).catch(() => {});
   }, []);
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    try { await authLogout(); } catch { /* ignore */ }
     localStorage.removeItem("oliva_logged_in");
     localStorage.removeItem("oliva_token");
     localStorage.removeItem("oliva_user");

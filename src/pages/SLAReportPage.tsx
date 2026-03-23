@@ -83,7 +83,18 @@ const SLAReportPage = () => {
   useEffect(() => {
     Promise.all([ticketsApi.list(), slaApi.list()])
       .then(([t, s]) => {
-        const deptTickets = isSuperRole(userRole) ? t : userDept ? t.filter((tk) => tk.assigned_dept === userDept) : t;
+        // Map roles to departments
+        const getRoleDepts = (): string[] => {
+          if (isSuperRole(userRole)) return [];
+          const roles = userRole.split(",").map((r: string) => r.trim());
+          const zenotiRoles = ["Zenoti Team", "Area Operations Manager", "Area Operations Manager Head", "Finance", "Finance Head"];
+          const depts: string[] = [];
+          if (roles.some((r: string) => zenotiRoles.includes(r))) depts.push("Zenoti");
+          if (userDept && !depts.includes(userDept)) depts.push(userDept);
+          return depts;
+        };
+        const allowedDepts = getRoleDepts();
+        const deptTickets = allowedDepts.length === 0 ? t : t.filter((tk) => allowedDepts.includes(tk.assigned_dept || ""));
         setTickets(deptTickets);
         setSlaConfigs(s);
       })

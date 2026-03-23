@@ -23,6 +23,7 @@ import AdminCategoriesPage from "@/pages/admin/AdminCategoriesPage";
 import AdminSubcategoriesPage from "@/pages/admin/AdminSubcategoriesPage";
 import AdminChildCategoriesPage from "@/pages/admin/AdminChildCategoriesPage";
 import AdminServiceTitlesPage from "@/pages/admin/AdminServiceTitlesPage";
+import LoginHistoryPage from "@/pages/admin/LoginHistoryPage";
 import ProfilePage from "@/pages/ProfilePage";
 import NotFound from "./pages/NotFound";
 import { canAccess } from "@/lib/roles";
@@ -202,6 +203,16 @@ const App = () => (
               <ProtectedRoute path="/admin/service-titles">
                 <AppLayout>
                   <AdminServiceTitlesPage />
+                </AppLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/login-history"
+            element={
+              <ProtectedRoute path="/admin/login-history">
+                <AppLayout>
+                  <LoginHistoryPage />
                 </AppLayout>
               </ProtectedRoute>
             }

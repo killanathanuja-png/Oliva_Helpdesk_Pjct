@@ -88,6 +88,7 @@ export interface ApiTicket {
   due_date: string | null;
   sla_breached: boolean;
   approval_required: boolean;
+  approval_type: string | null;
   approver: string | null;
   approval_status: string | null;
   resolution: string | null;
@@ -118,6 +119,7 @@ export interface CreateTicketPayload {
   center?: string;
   assigned_dept?: string;
   approval_required?: boolean;
+  approval_type?: string;
   zenoti_location?: string;
   zenoti_main_category?: string;
   zenoti_sub_category?: string;
@@ -493,3 +495,45 @@ export const slaApi = {
   }) => request<ApiSLAConfig>("/sla", { method: "POST", body: JSON.stringify(data) }),
   delete: (id: number) => request<void>(`/sla/${id}`, { method: "DELETE" }),
 };
+
+// --- Login History ---
+
+export interface ApiLoginHistory {
+  id: number;
+  user_id: number;
+  employee_id: string | null;
+  name: string;
+  email: string;
+  login_time: string | null;
+  logout_time: string | null;
+  duration: string | null;
+  role: string | null;
+  module: string | null;
+  location: string | null;
+  login_source: string | null;
+  remarks: string | null;
+}
+
+export interface ApiEmployeeOption {
+  id: number;
+  employee_id: string;
+  name: string;
+  label: string;
+}
+
+export const loginHistoryApi = {
+  list: (params?: { user_id?: number; from_date?: string; to_date?: string }) => {
+    const qs = new URLSearchParams();
+    if (params?.user_id) qs.set("user_id", String(params.user_id));
+    if (params?.from_date) qs.set("from_date", params.from_date);
+    if (params?.to_date) qs.set("to_date", params.to_date);
+    const q = qs.toString();
+    return request<ApiLoginHistory[]>(`/login-history${q ? `?${q}` : ""}`);
+  },
+  employees: () => request<ApiEmployeeOption[]>("/login-history/employees"),
+};
+
+// --- Auth logout ---
+
+export const authLogout = () =>
+  request<{ message: string }>("/auth/logout/", { method: "POST" });

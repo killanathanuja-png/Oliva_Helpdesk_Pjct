@@ -3,7 +3,7 @@ import { departments as fallbackDepartments } from "@/data/dummyData";
 import type { Department } from "@/data/dummyData";
 import { departmentsApi } from "@/lib/api";
 import type { ApiDepartment } from "@/lib/api";
-import { X, Pencil, Trash2, Loader2, AlertTriangle, Download } from "lucide-react";
+import { X, Pencil, Trash2, Loader2, AlertTriangle, Download, ArrowLeft, RefreshCw } from "lucide-react";
 import { exportToExcel } from "@/lib/exportExcel";
 import { useToast } from "@/lib/toast";
 
@@ -120,8 +120,12 @@ const AdminDepartmentsPage = () => {
   return (
     <div className="space-y-4 animate-fade-in">
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-bold font-display">Department Management</h1>
+        <div className="flex items-center gap-3">
+          <button onClick={() => window.history.back()} className="p-2 rounded-lg border border-border hover:bg-muted transition-colors" title="Back"><ArrowLeft className="h-4 w-4" /></button>
+          <h1 className="text-xl font-bold font-display">Department Management</h1>
+        </div>
         <div className="flex items-center gap-2">
+          <button onClick={() => window.location.reload()} className="px-4 py-2.5 rounded-lg border border-border bg-card text-sm font-medium hover:bg-muted transition-colors flex items-center gap-2" title="Refresh"><RefreshCw className="h-4 w-4" /> Refresh</button>
           <button
             onClick={() => {
               const exportData = data.filter((d) => d.status !== "Inactive").map((d) => ({

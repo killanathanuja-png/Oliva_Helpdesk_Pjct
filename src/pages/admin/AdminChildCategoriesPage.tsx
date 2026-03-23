@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import { childCategoriesApi, subcategoriesApi, categoriesApi } from "@/lib/api";
 import type { ApiChildCategory, ApiSubcategory, ApiCategory } from "@/lib/api";
 import { cn } from "@/lib/utils";
-import { X, Pencil, Trash2, Loader2, AlertTriangle, Download, Search, Upload } from "lucide-react";
+import { X, Pencil, Trash2, Loader2, AlertTriangle, Download, Search, Upload, ArrowLeft, RefreshCw } from "lucide-react";
 import { exportToExcel } from "@/lib/exportExcel";
 import { useToast } from "@/lib/toast";
 
@@ -227,9 +227,12 @@ const AdminChildCategoriesPage = () => {
   return (
     <div className="space-y-4 animate-fade-in">
       <div className="flex items-center justify-between gap-4">
-        <div className="shrink-0">
-          <h1 className="text-xl font-bold font-display">Child Category Management</h1>
-          <p className="text-xs text-muted-foreground mt-0.5">Total: <span className="font-semibold text-foreground">{activeData.length}</span></p>
+        <div className="shrink-0 flex items-center gap-3">
+          <button onClick={() => window.history.back()} className="p-2 rounded-lg border border-border hover:bg-muted transition-colors" title="Back"><ArrowLeft className="h-4 w-4" /></button>
+          <div>
+            <h1 className="text-xl font-bold font-display">Child Category Management</h1>
+            <p className="text-xs text-muted-foreground mt-0.5">Total: <span className="font-semibold text-foreground">{activeData.length}</span></p>
+          </div>
         </div>
         <div className="relative flex-1 max-w-sm">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -238,6 +241,7 @@ const AdminChildCategoriesPage = () => {
             className="w-full pl-9 pr-3 py-2 rounded-lg border border-border bg-card text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 transition-shadow" />
         </div>
         <div className="flex items-center gap-2">
+          <button onClick={() => window.location.reload()} className="px-4 py-2.5 rounded-lg border border-border bg-card text-sm font-medium hover:bg-muted transition-colors flex items-center gap-2" title="Refresh"><RefreshCw className="h-4 w-4" /> Refresh</button>
           <button onClick={() => {
             const exportData = activeData.map((c) => ({
               "Child Category Code": c.id, "Child Category Name": c.name,

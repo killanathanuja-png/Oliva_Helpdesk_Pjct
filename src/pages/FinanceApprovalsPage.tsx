@@ -31,6 +31,7 @@ function apiToTicket(t: ApiTicket): Ticket {
     dueDate: t.due_date ? new Date(t.due_date).toISOString().split("T")[0] : "",
     slaBreached: t.sla_breached,
     approvalRequired: t.approval_required,
+    approvalType: t.approval_type || undefined,
     approver: t.approver || undefined,
     approvalStatus: t.approval_status as Ticket["approvalStatus"],
     resolution: t.resolution || undefined,
@@ -71,10 +72,9 @@ const FinanceApprovalsPage = () => {
     try {
       const apiTickets = await ticketsApi.list();
       const allTickets = apiTickets.map(apiToTicket);
-      // Show only Zenoti-Finance tickets that require approval (AOM already approved, now Finance's turn)
+      // Show only Zenoti-Finance tickets that need finance approval
       setData(allTickets.filter((t) =>
-        t.approvalRequired &&
-        t.approver === "Finance Team"
+        t.approvalRequired && t.approvalType === "aom_finance"
       ));
     } catch {
       setData([]);

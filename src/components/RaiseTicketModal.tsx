@@ -232,8 +232,8 @@ const RaiseTicketModal = ({ onClose, onSuccess, editMode, editTicket, userRole }
     : null;
 
   const zenotiFieldsFilled = () => {
-    const { location, mainCategory, subCategory, childCategory, mobileNumber, customerId, customerName, billedBy, invoiceNo, invoiceDate, amount } = zenotiFields;
-    return [location, mainCategory, subCategory, childCategory, mobileNumber, customerId, customerName, billedBy, invoiceNo, invoiceDate, amount].every((v) => v.trim() !== "");
+    const { location, mobileNumber, customerId, customerName, billedBy, invoiceNo, invoiceDate, amount } = zenotiFields;
+    return [location, category, subCategory, childCategory, mobileNumber, customerId, customerName, billedBy, invoiceNo, invoiceDate, amount].every((v) => v.trim() !== "");
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -260,8 +260,8 @@ const RaiseTicketModal = ({ onClose, onSuccess, editMode, editTicket, userRole }
           zenotiChildCategory: childCategory,
           ...(isZenoti && {
             zenotiLocation: zenotiFields.location,
-            zenotiMainCategory: zenotiFields.mainCategory,
-            zenotiSubCategory: zenotiFields.subCategory,
+            zenotiMainCategory: category,
+            zenotiSubCategory: subCategory,
             zenotiMobileNumber: zenotiFields.mobileNumber,
             zenotiCustomerId: zenotiFields.customerId,
             zenotiCustomerName: zenotiFields.customerName,
@@ -397,36 +397,38 @@ const RaiseTicketModal = ({ onClose, onSuccess, editMode, editTicket, userRole }
               />
             </div>
 
-            {/* Category / Sub-Category / Child Category - for ALL departments */}
-            <div className="grid grid-cols-3 gap-3">
-              <div>
-                <label className={labelClass}>Category</label>
-                <ComboBox
-                  value={category}
-                  onChange={handleCategoryChange}
-                  options={categoryOptions}
-                  placeholder="Select category"
-                />
+            {/* Category / Sub-Category / Child Category - for non-Zenoti departments */}
+            {!isZenoti && (
+              <div className="grid grid-cols-3 gap-3">
+                <div>
+                  <label className={labelClass}>Category</label>
+                  <ComboBox
+                    value={category}
+                    onChange={handleCategoryChange}
+                    options={categoryOptions}
+                    placeholder="Select category"
+                  />
+                </div>
+                <div>
+                  <label className={labelClass}>Sub-Category</label>
+                  <ComboBox
+                    value={subCategory}
+                    onChange={handleSubCategoryChange2}
+                    options={subCategoryOptions}
+                    placeholder="Select sub-category"
+                  />
+                </div>
+                <div>
+                  <label className={labelClass}>Child Category</label>
+                  <ComboBox
+                    value={childCategory}
+                    onChange={(val) => setChildCategory(val)}
+                    options={childCategoryOptions}
+                    placeholder="Select child category"
+                  />
+                </div>
               </div>
-              <div>
-                <label className={labelClass}>Sub-Category</label>
-                <ComboBox
-                  value={subCategory}
-                  onChange={handleSubCategoryChange2}
-                  options={subCategoryOptions}
-                  placeholder="Select sub-category"
-                />
-              </div>
-              <div>
-                <label className={labelClass}>Child Category</label>
-                <ComboBox
-                  value={childCategory}
-                  onChange={(val) => setChildCategory(val)}
-                  options={childCategoryOptions}
-                  placeholder="Select child category"
-                />
-              </div>
-            </div>
+            )}
 
             {/* Zenoti mandatory fields */}
             {isZenoti && (
@@ -434,6 +436,40 @@ const RaiseTicketModal = ({ onClose, onSuccess, editMode, editTicket, userRole }
                 <div className="flex items-center gap-2">
                   <AlertCircle className="h-4 w-4 text-amber-600" />
                   <span className="text-xs font-semibold text-amber-700">Zenoti - Mandatory Fields</span>
+                </div>
+
+                {/* Category / Sub-Category / Child Category inside Zenoti block */}
+                <div className="grid grid-cols-3 gap-3">
+                  <div>
+                    <label className={labelClass}>Category *</label>
+                    <ComboBox
+                      value={category}
+                      onChange={handleCategoryChange}
+                      options={categoryOptions}
+                      placeholder="Select category"
+                      error={errField(category)}
+                    />
+                  </div>
+                  <div>
+                    <label className={labelClass}>Sub-Category *</label>
+                    <ComboBox
+                      value={subCategory}
+                      onChange={handleSubCategoryChange2}
+                      options={subCategoryOptions}
+                      placeholder="Select sub-category"
+                      error={errField(subCategory)}
+                    />
+                  </div>
+                  <div>
+                    <label className={labelClass}>Child Category *</label>
+                    <ComboBox
+                      value={childCategory}
+                      onChange={(val) => setChildCategory(val)}
+                      options={childCategoryOptions}
+                      placeholder="Select child category"
+                      error={errField(childCategory)}
+                    />
+                  </div>
                 </div>
 
                 {/* Location */}

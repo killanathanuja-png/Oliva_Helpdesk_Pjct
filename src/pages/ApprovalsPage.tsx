@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { hasAnyRole } from "@/lib/roles";
 import { tickets as dummyTickets } from "@/data/dummyData";
 import type { Ticket } from "@/data/dummyData";
 import { CheckCircle2, XCircle, Clock, Eye, ShieldCheck } from "lucide-react";
@@ -32,6 +33,7 @@ function apiToTicket(t: ApiTicket): Ticket {
     dueDate: t.due_date ? new Date(t.due_date).toISOString().split("T")[0] : "",
     slaBreached: t.sla_breached,
     approvalRequired: t.approval_required,
+    approvalType: t.approval_type || undefined,
     approver: t.approver || undefined,
     approvalStatus: t.approval_status as Ticket["approvalStatus"],
     resolution: t.resolution || undefined,
@@ -69,17 +71,28 @@ const ApprovalsPage = () => {
   const currentUserName = parsedUser?.name || "User";
   const currentUserRole = parsedUser?.role || "User";
 
+  const isAomRole = hasAnyRole(currentUserRole, ["Area Operations Manager", "Area Operations Manager Head"]);
+  const isFinanceRole = hasAnyRole(currentUserRole, ["Finance", "Finance Head"]);
+
   const fetchTickets = useCallback(async () => {
     try {
       const apiTickets = await ticketsApi.list();
       const allTickets = apiTickets.map(apiToTicket);
-      setData(allTickets.filter((t) => t.approvalRequired));
+      // Filter by approval type based on role:
+      // AOM sees: aom_finance + aom_only tickets
+      // Finance sees: aom_finance tickets only
+      setData(allTickets.filter((t) => {
+        if (!t.approvalRequired) return false;
+        if (isFinanceRole) return t.approvalType === "aom_finance";
+        if (isAomRole) return t.approvalType === "aom_finance" || t.approvalType === "aom_only";
+        return true; // Super admin sees all
+      }));
     } catch {
       setData(dummyTickets.filter((t) => t.approvalRequired));
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [isAomRole, isFinanceRole]);
 
   useEffect(() => {
     fetchTickets();

@@ -4,7 +4,7 @@ from typing import Optional
 from sqlalchemy.orm import Session
 from datetime import datetime, timezone
 from app.database import get_db
-from app.models.models import User, Department, Center
+from app.models.models import User, Department, Center, LoginHistory
 from app.schemas.schemas import LoginRequest, Token, UserResponse
 from app.auth import verify_password, hash_password, create_access_token, get_current_user
 
@@ -20,6 +20,27 @@ def login(req: LoginRequest, db: Session = Depends(get_db)):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials")
 
     user.last_login = datetime.now(timezone.utc)
+
+    # Record login history - one entry per role
+    roles = [r.strip() for r in (user.role or "Employee").split(",") if r.strip()]
+    location = user.center_rel.name if user.center_rel else ""
+    module_map = {
+        "Global Admin": "General", "Super Admin": "General", "Super User": "General",
+        "Help Desk Admin": "Helpdesk", "Helpdesk In-charge": "Helpdesk",
+        "L1 Manager": "Helpdesk", "L2 Manager": "Helpdesk",
+    }
+    for role in roles:
+        module = module_map.get(role, "General")
+        login_entry = LoginHistory(
+            user_id=user.id,
+            login_time=datetime.now(timezone.utc),
+            role=role,
+            module=module,
+            location=location,
+            login_source="Web browser",
+        )
+        db.add(login_entry)
+
     db.commit()
 
     token = create_access_token(data={"sub": str(user.id)})
@@ -41,6 +62,23 @@ def get_me(current_user: User = Depends(get_current_user)):
         last_login=current_user.last_login,
         created_at=current_user.created_at,
     )
+
+
+@router.post("/logout/")
+def logout(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    """Record logout time for the user's active login sessions."""
+    now = datetime.now(timezone.utc)
+    active_sessions = db.query(LoginHistory).filter(
+        LoginHistory.user_id == current_user.id,
+        LoginHistory.logout_time.is_(None),
+    ).all()
+    for session in active_sessions:
+        session.logout_time = now
+        if session.login_time:
+            delta = now - session.login_time.replace(tzinfo=timezone.utc) if session.login_time.tzinfo is None else now - session.login_time
+            session.duration_minutes = max(1, int(delta.total_seconds() / 60))
+    db.commit()
+    return {"message": "Logged out successfully"}
 
 
 class ProfileUpdate(BaseModel):

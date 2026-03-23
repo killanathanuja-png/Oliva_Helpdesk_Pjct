@@ -56,8 +56,10 @@ def create_user(req: UserCreate, db: Session = Depends(get_db)):
     dept = db.query(Department).filter(Department.name == req.department).first() if req.department else None
     center = db.query(Center).filter(Center.name == req.center).first() if req.center else None
 
+    emp_id = getattr(req, 'employee_id', None) or None
+    code = emp_id if emp_id else _next_code(db)
     user = User(
-        code=_next_code(db), employee_id=getattr(req, 'employee_id', None),
+        code=code, employee_id=emp_id,
         name=req.name, email=req.email,
         hashed_password=hash_password(req.password),
         role=req.role or "Employee", map_level_access=req.map_level_access,
@@ -308,7 +310,7 @@ def upload_users_excel(file: UploadFile = File(...), db: Session = Depends(get_d
             updated += 1
         else:
             # Create new user
-            user_code = f"U{code_counter:03d}"
+            user_code = employee_id if employee_id else f"U{code_counter:03d}"
             code_counter += 1
             new_user = User(
                 code=user_code, email=email,

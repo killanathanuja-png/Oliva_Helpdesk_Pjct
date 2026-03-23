@@ -136,8 +136,8 @@ class User(Base):
     __tablename__ = "users"
 
     id = Column(Integer, primary_key=True, index=True)
-    code = Column(String(10), unique=True, nullable=False)
-    employee_id = Column(String(20), nullable=True)
+    code = Column(String(30), nullable=False)
+    employee_id = Column(String(30), nullable=True)
     name = Column(String(100), nullable=False)
     email = Column(String(150), nullable=False)
     hashed_password = Column(String(255), nullable=False)
@@ -170,6 +170,23 @@ class User(Base):
     center_rel = relationship("Center", back_populates="users")
     tickets_raised = relationship("Ticket", back_populates="raised_by_rel", foreign_keys="Ticket.raised_by_id")
     tickets_assigned = relationship("Ticket", back_populates="assigned_to_rel", foreign_keys="Ticket.assigned_to_id")
+
+
+class LoginHistory(Base):
+    __tablename__ = "login_history"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    login_time = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    logout_time = Column(DateTime(timezone=True), nullable=True)
+    duration_minutes = Column(Integer, nullable=True)
+    role = Column(String(100), nullable=True)
+    module = Column(String(50), nullable=True)
+    location = Column(String(100), nullable=True)
+    login_source = Column(String(50), default="Web browser")
+    remarks = Column(String(500), nullable=True)
+
+    user_rel = relationship("User")
 
 
 class Category(Base):
@@ -258,6 +275,7 @@ class Ticket(Base):
     due_date = Column(DateTime(timezone=True))
     sla_breached = Column(Boolean, default=False)
     approval_required = Column(Boolean, default=False)
+    approval_type = Column(String(50), nullable=True)  # "aom_finance", "aom_only", or null (no approval)
     approver = Column(String(100))
     approval_status = Column(SAEnum(ApprovalStatusEnum), nullable=True)
     resolution = Column(Text)

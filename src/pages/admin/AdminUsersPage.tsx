@@ -4,7 +4,7 @@ import type { User } from "@/data/dummyData";
 import { usersApi, departmentsApi, centersApi, rolesApi, designationsApi } from "@/lib/api";
 import type { ApiUser } from "@/lib/api";
 import { cn } from "@/lib/utils";
-import { X, Pencil, Trash2, Loader2, AlertTriangle, Download, Search, Upload } from "lucide-react";
+import { X, Pencil, Trash2, Loader2, AlertTriangle, Download, Search, Upload, Eye, EyeOff, ArrowLeft, RefreshCw } from "lucide-react";
 import { exportToExcel } from "@/lib/exportExcel";
 import { useToast } from "@/lib/toast";
 
@@ -87,6 +87,94 @@ const ComboBox = ({ value, onChange, options, placeholder }: ComboBoxProps) => {
   );
 };
 
+interface MultiSelectProps {
+  value: string; // comma-separated
+  onChange: (val: string) => void;
+  options: string[];
+  placeholder: string;
+}
+
+const MultiSelectComboBox = ({ value, onChange, options, placeholder }: MultiSelectProps) => {
+  const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState("");
+  const ref = useRef<HTMLDivElement>(null);
+
+  const selected = value ? value.split(",").map((v) => v.trim()).filter(Boolean) : [];
+  const filtered = search
+    ? options.filter((o) => o.toLowerCase().includes(search.toLowerCase()))
+    : options;
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) {
+        setOpen(false);
+        setSearch("");
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  const toggleItem = (item: string) => {
+    const newSelected = selected.includes(item)
+      ? selected.filter((s) => s !== item)
+      : [...selected, item];
+    onChange(newSelected.join(", "));
+  };
+
+  const displayText = selected.length > 0 ? selected.join(", ") : "";
+
+  return (
+    <div className="relative" ref={ref}>
+      <div className="relative cursor-pointer" onClick={() => { setOpen(!open); setSearch(""); }}>
+        <input
+          type="text"
+          value={open ? search : displayText}
+          onChange={(e) => { setSearch(e.target.value); if (!open) setOpen(true); }}
+          placeholder={displayText || placeholder}
+          className="w-full px-3 py-2 pr-8 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 cursor-pointer"
+          readOnly={!open}
+        />
+        <svg className={cn("absolute right-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none transition-transform", open && "rotate-180")} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+      </div>
+      {selected.length > 0 && !open && (
+        <div className="flex flex-wrap gap-1 mt-1.5">
+          {selected.map((item) => (
+            <span key={item} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-primary/10 text-primary text-[11px] font-medium">
+              {item}
+              <button type="button" onClick={(e) => { e.stopPropagation(); toggleItem(item); }} className="hover:text-destructive">
+                <X className="h-3 w-3" />
+              </button>
+            </span>
+          ))}
+        </div>
+      )}
+      {open && (
+        <div className="absolute z-10 mt-1 w-full bg-card border border-border rounded-lg shadow-lg max-h-48 overflow-y-auto">
+          {filtered.length > 0 ? filtered.map((item) => (
+            <button
+              key={item}
+              type="button"
+              onClick={() => toggleItem(item)}
+              className={cn(
+                "w-full text-left px-3 py-2 text-sm hover:bg-primary/10 transition-colors flex items-center gap-2",
+                selected.includes(item) && "bg-primary/10 text-primary font-medium"
+              )}
+            >
+              <div className={cn("h-3.5 w-3.5 rounded border flex items-center justify-center shrink-0", selected.includes(item) ? "bg-primary border-primary" : "border-border")}>
+                {selected.includes(item) && <svg className="h-2.5 w-2.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>}
+              </div>
+              {item}
+            </button>
+          )) : (
+            <div className="px-3 py-2 text-sm text-muted-foreground">No results found</div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+};
+
 
 interface LocalUser extends User {
   employeeId: string;
@@ -146,8 +234,9 @@ const AdminUsersPage = () => {
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [form, setForm] = useState({ name: "", email: "", password: "", role: "", designation: "", center: "", department: "", gender: "", mobile: "", reportingTo: "", employeeId: "", mapLevelAccess: "", entity: "", vertical: "", costcenter: "", grade: "", employeeType: "", city: "", employeeDob: "", employeeDoj: "", lwd: "", effectiveDate: "", remarks: "" });
+  const [form, setForm] = useState({ name: "", email: "", password: "", role: "", designation: "", center: "", department: "", gender: "", mobile: "", reportingTo: "", employeeId: "", mapLevelAccess: "", entity: "", vertical: "", costcenter: "", grade: "", employeeType: "", city: "", employeeDob: "", employeeDoj: "", lwd: "", effectiveDate: "", remarks: "", status: "Active" });
   const [formError, setFormError] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [uploading, setUploading] = useState(false);
@@ -220,6 +309,16 @@ const AdminUsersPage = () => {
     return () => { cancelled = true; };
   }, []);
 
+  const refreshUsers = async () => {
+    try {
+      const apiUsers = await usersApi.list();
+      setData(apiUsers.map(apiUserToUser));
+      const map: Record<string, number> = {};
+      apiUsers.forEach((u) => { map[u.code] = u.id; });
+      setIdMap(map);
+    } catch { /* ignore */ }
+  };
+
   const handleSave = async () => {
     const missing: string[] = [];
     if (!form.name.trim()) missing.push("Name");
@@ -236,17 +335,17 @@ const AdminUsersPage = () => {
       const numericId = idMap[editingId];
       if (numericId) {
         try {
-          const updated = await usersApi.update(numericId, {
+          await usersApi.update(numericId, {
             name: form.name, email: form.email, role: form.role, designation: form.designation,
             department: form.department, center: form.center, gender: form.gender, mobile: form.mobile,
             reporting_to: form.reportingTo, map_level_access: form.mapLevelAccess, entity: form.entity,
             vertical: form.vertical, costcenter: form.costcenter, grade: form.grade,
             employee_type: form.employeeType, city: form.city, employee_dob: form.employeeDob,
             employee_doj: form.employeeDoj, lwd: form.lwd, effective_date: form.effectiveDate,
-            remarks: form.remarks,
+            remarks: form.remarks, status: form.status,
           });
-          setData((prev) => prev.map((u) => u.id === editingId ? apiUserToUser(updated) : u));
           showToast("User updated successfully");
+          await refreshUsers();
         } catch (err) {
           const msg = err instanceof Error ? err.message : "Unknown error";
           setFormError(`Failed to update user: ${msg}`);
@@ -260,7 +359,7 @@ const AdminUsersPage = () => {
     } else {
       // New user -> call API
       try {
-        const created = await usersApi.create({
+        await usersApi.create({
           name: form.name, email: form.email, password: form.password,
           role: form.role, designation: form.designation, department: form.department,
           center: form.center, gender: form.gender, mobile: form.mobile,
@@ -268,11 +367,10 @@ const AdminUsersPage = () => {
           map_level_access: form.mapLevelAccess, entity: form.entity, vertical: form.vertical,
           costcenter: form.costcenter, grade: form.grade, employee_type: form.employeeType,
           city: form.city, employee_dob: form.employeeDob, employee_doj: form.employeeDoj,
-          lwd: form.lwd, effective_date: form.effectiveDate, remarks: form.remarks,
+          lwd: form.lwd, effective_date: form.effectiveDate, remarks: form.remarks, status: form.status,
         });
-        setIdMap((prev) => ({ ...prev, [created.code]: created.id }));
-        setData((prev) => [...prev, apiUserToUser(created)]);
         showToast("User created successfully");
+        await refreshUsers();
       } catch (err) {
         const msg = err instanceof Error ? err.message : "Unknown error";
         setFormError(`Failed to create user: ${msg}`);
@@ -283,19 +381,20 @@ const AdminUsersPage = () => {
 
     setShowModal(false);
     setEditingId(null);
-    setForm({ name: "", email: "", password: "", role: "", designation: "", center: "", department: "", gender: "", mobile: "", reportingTo: "", employeeId: "", mapLevelAccess: "", entity: "", vertical: "", costcenter: "", grade: "", employeeType: "", city: "", employeeDob: "", employeeDoj: "", lwd: "", effectiveDate: "", remarks: "" });
+    setForm({ name: "", email: "", password: "", role: "", designation: "", center: "", department: "", gender: "", mobile: "", reportingTo: "", employeeId: "", mapLevelAccess: "", entity: "", vertical: "", costcenter: "", grade: "", employeeType: "", city: "", employeeDob: "", employeeDoj: "", lwd: "", effectiveDate: "", remarks: "", status: "Active" });
   };
 
   const handleCancel = () => {
     setShowModal(false);
     setEditingId(null);
-    setForm({ name: "", email: "", password: "", role: "", designation: "", center: "", department: "", gender: "", mobile: "", reportingTo: "", employeeId: "", mapLevelAccess: "", entity: "", vertical: "", costcenter: "", grade: "", employeeType: "", city: "", employeeDob: "", employeeDoj: "", lwd: "", effectiveDate: "", remarks: "" });
+    setShowPassword(false);
+    setForm({ name: "", email: "", password: "", role: "", designation: "", center: "", department: "", gender: "", mobile: "", reportingTo: "", employeeId: "", mapLevelAccess: "", entity: "", vertical: "", costcenter: "", grade: "", employeeType: "", city: "", employeeDob: "", employeeDoj: "", lwd: "", effectiveDate: "", remarks: "", status: "Active" });
     setFormError("");
   };
 
   const handleEdit = (u: LocalUser) => {
     setEditingId(u.id);
-    setForm({ name: u.name, email: u.email, password: "", role: u.role, designation: u.designation, center: u.center, department: u.department, gender: u.gender, mobile: u.mobile, reportingTo: u.reportingTo, employeeId: u.employeeId, mapLevelAccess: u.mapLevelAccess, entity: u.entity, vertical: u.vertical, costcenter: u.costcenter, grade: u.grade, employeeType: u.employeeType, city: u.city, employeeDob: u.employeeDob, employeeDoj: u.employeeDoj, lwd: u.lwd, effectiveDate: u.effectiveDate, remarks: u.remarks });
+    setForm({ name: u.name, email: u.email, password: "", role: u.role, designation: u.designation, center: u.center, department: u.department, gender: u.gender, mobile: u.mobile, reportingTo: u.reportingTo, employeeId: u.employeeId, mapLevelAccess: u.mapLevelAccess, entity: u.entity, vertical: u.vertical, costcenter: u.costcenter, grade: u.grade, employeeType: u.employeeType, city: u.city, employeeDob: u.employeeDob, employeeDoj: u.employeeDoj, lwd: u.lwd, effectiveDate: u.effectiveDate, remarks: u.remarks, status: u.status });
     setShowModal(true);
   };
 
@@ -333,9 +432,9 @@ const AdminUsersPage = () => {
         await usersApi.updateStatus(numericId, "Inactive");
       } catch { /* fall through to local update */ }
     }
-    setData((prev) => prev.map((u) => u.id === deleteConfirm ? { ...u, status: "Inactive" } : u));
     showToast("User deleted successfully");
     setDeleteConfirm(null);
+    await refreshUsers();
   };
 
   if (loading) {
@@ -349,9 +448,12 @@ const AdminUsersPage = () => {
   return (
     <div className="space-y-4 animate-fade-in">
       <div className="flex items-center justify-between gap-4">
-        <div className="shrink-0">
+        <div className="shrink-0 flex items-center gap-3">
+          <button onClick={() => window.history.back()} className="p-2 rounded-lg border border-border hover:bg-muted transition-colors" title="Back"><ArrowLeft className="h-4 w-4" /></button>
+          <div>
           <h1 className="text-xl font-bold font-display">User Management</h1>
           <p className="text-xs text-muted-foreground mt-0.5">Total Users: <span className="font-semibold text-foreground">{data.filter((u) => u.status !== "Inactive").length}</span></p>
+          </div>
         </div>
         <div className="relative flex-1 max-w-sm">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -364,6 +466,7 @@ const AdminUsersPage = () => {
           />
         </div>
         <div className="flex items-center gap-2">
+          <button onClick={() => window.location.reload()} className="px-4 py-2.5 rounded-lg border border-border bg-card text-sm font-medium hover:bg-muted transition-colors flex items-center gap-2" title="Refresh"><RefreshCw className="h-4 w-4" /> Refresh</button>
           <button
             onClick={() => {
               const exportData = data.filter((u) => u.status !== "Inactive").map((u) => ({
@@ -407,7 +510,7 @@ const AdminUsersPage = () => {
             {uploading ? "Uploading..." : "Upload Excel"}
           </button>
           <button
-            onClick={() => { setEditingId(null); setForm({ name: "", email: "", password: "", role: "", designation: "", center: "", department: "", gender: "", mobile: "", reportingTo: "", employeeId: "", mapLevelAccess: "", entity: "", vertical: "", costcenter: "", grade: "", employeeType: "", city: "", employeeDob: "", employeeDoj: "", lwd: "", effectiveDate: "", remarks: "" }); setFormError(""); setShowModal(true); }}
+            onClick={() => { setEditingId(null); setForm({ name: "", email: "", password: "", role: "", designation: "", center: "", department: "", gender: "", mobile: "", reportingTo: "", employeeId: "", mapLevelAccess: "", entity: "", vertical: "", costcenter: "", grade: "", employeeType: "", city: "", employeeDob: "", employeeDoj: "", lwd: "", effectiveDate: "", remarks: "", status: "Active" }); setFormError(""); setShowModal(true); }}
             className="px-4 py-2.5 rounded-lg gradient-primary text-primary-foreground text-sm font-medium hover:opacity-90 transition-opacity"
           >
             + Add User
@@ -434,6 +537,7 @@ const AdminUsersPage = () => {
               <th className="px-3 py-3 font-semibold">Employee Type</th>
               <th className="px-3 py-3 font-semibold">Vertical</th>
               <th className="px-3 py-3 font-semibold">Costcenter</th>
+              <th className="px-3 py-3 font-semibold">Status</th>
               <th className="px-3 py-3 font-semibold">Actions</th>
             </tr>
           </thead>
@@ -465,6 +569,9 @@ const AdminUsersPage = () => {
                 <td className="px-3 py-2.5 text-xs text-muted-foreground">{u.employeeType || ""}</td>
                 <td className="px-3 py-2.5 text-xs text-muted-foreground">{u.vertical || ""}</td>
                 <td className="px-3 py-2.5 text-xs text-muted-foreground">{u.costcenter || ""}</td>
+                <td className="px-3 py-2.5">
+                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${u.status === "Active" ? "bg-success/10 text-success" : "bg-destructive/10 text-destructive"}`}>{u.status}</span>
+                </td>
                 <td className="px-4 py-3">
                   <div className="flex items-center gap-2">
                     <button
@@ -521,15 +628,21 @@ const AdminUsersPage = () => {
                 {!editingId && (
                   <div>
                     <label className="block text-xs font-medium text-muted-foreground mb-1.5">Password <span className="text-destructive">*</span></label>
-                    <input type="password" required value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} placeholder="Enter password"
-                      className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" />
+                    <div className="relative">
+                      <input type={showPassword ? "text" : "password"} required value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} placeholder="Enter password"
+                        className="w-full px-3 py-2 pr-10 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" />
+                      <button type="button" onClick={() => setShowPassword(!showPassword)}
+                        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors">
+                        {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      </button>
+                    </div>
                   </div>
                 )}
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-medium text-muted-foreground mb-1.5">Role <span className="text-destructive">*</span></label>
-                  <ComboBox value={form.role} onChange={(val) => setForm({ ...form, role: val })} options={roleOptions} placeholder="Select role" />
+                  <MultiSelectComboBox value={form.role} onChange={(val) => setForm({ ...form, role: val })} options={roleOptions} placeholder="Select role(s)" />
                 </div>
                 <div>
                   <label className="block text-xs font-medium text-muted-foreground mb-1.5">Map Level Access</label>
@@ -581,7 +694,7 @@ const AdminUsersPage = () => {
                 </div>
                 <div>
                   <label className="block text-xs font-medium text-muted-foreground mb-1.5">Location (Center)</label>
-                  <ComboBox value={form.center} onChange={(val) => setForm({ ...form, center: val })} options={centerOptions} placeholder="Select center" />
+                  <MultiSelectComboBox value={form.center} onChange={(val) => setForm({ ...form, center: val })} options={centerOptions} placeholder="Select location(s)" />
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-4">
@@ -641,6 +754,16 @@ const AdminUsersPage = () => {
                   <label className="block text-xs font-medium text-muted-foreground mb-1.5">Remarks</label>
                   <input type="text" value={form.remarks} onChange={(e) => setForm({ ...form, remarks: e.target.value })} placeholder="Remarks"
                     className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-medium text-muted-foreground mb-1.5">Status</label>
+                  <select value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })}
+                    className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/30">
+                    <option value="Active">Active</option>
+                    <option value="Inactive">Inactive</option>
+                  </select>
                 </div>
               </div>
             </div>

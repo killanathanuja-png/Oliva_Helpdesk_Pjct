@@ -5,7 +5,7 @@ from app.seed import seed
 from app.routers import (
     auth, departments, centers, users, roles, designations,
     categories, subcategories, child_categories, service_titles,
-    tickets, sla, notifications, dashboard,
+    tickets, sla, notifications, dashboard, login_history,
 )
 
 # Create tables
@@ -41,6 +41,7 @@ app.include_router(tickets.router)
 app.include_router(sla.router)
 app.include_router(notifications.router)
 app.include_router(designations.router)
+app.include_router(login_history.router)
 
 
 @app.on_event("startup")

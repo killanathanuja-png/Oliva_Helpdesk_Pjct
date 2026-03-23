@@ -101,7 +101,15 @@ const Dashboard = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const dept = isSuperRole(userRole) ? undefined : (userDept || undefined);
+    // Map roles to departments for filtering
+    const getRoleDept = (): string | undefined => {
+      if (isSuperRole(userRole)) return undefined; // see all
+      const roles = userRole.split(",").map((r: string) => r.trim());
+      const zenotiRoles = ["Zenoti Team", "Area Operations Manager", "Area Operations Manager Head", "Finance", "Finance Head"];
+      if (roles.some((r: string) => zenotiRoles.includes(r))) return "Zenoti";
+      return userDept || undefined;
+    };
+    const dept = getRoleDept();
     dashboardApi.stats(dept)
       .then((data) => setStats(data))
       .catch(() => {})
