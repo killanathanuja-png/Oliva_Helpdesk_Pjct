@@ -205,7 +205,7 @@ const ApprovalsPage = () => {
         <TicketDetailModal
           ticket={selectedTicket}
           onClose={() => setSelectedTicket(null)}
-          canApprove={["Area Operations Manager", "Area Operations Manager Head", "Manager", "L1 Manager", "L2 Manager", "Finance", "Finance Head"].includes(currentUserRole)}
+          canApprove={hasAnyRole(currentUserRole, ["Area Operations Manager", "Area Operations Manager Head", "Manager", "L1 Manager", "L2 Manager", "Finance", "Finance Head", "Super Admin", "Global Admin", "Super User", "Help Desk Admin", "Helpdesk In-charge"])}
           currentUserName={currentUserName}
           onApprovalDone={() => { fetchTickets(); setSelectedTicket(null); }}
         />
