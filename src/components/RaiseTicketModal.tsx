@@ -425,7 +425,7 @@ const RaiseTicketModal = ({ onClose, onSuccess, editMode, editTicket, userRole }
               <label className={labelClass}>Title *</label>
               <input type="text" required value={title} onChange={(e) => setTitle(e.target.value)} className={inputClass} placeholder="Brief description of the issue" />
             </div>
-
+ 
             <div>
               <label className={labelClass}>Description *</label>
               <textarea rows={3} required value={description} onChange={(e) => setDescription(e.target.value)} className={cn(inputClass, "resize-none")} placeholder="Detailed description..." />

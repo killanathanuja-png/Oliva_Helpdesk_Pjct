@@ -8,10 +8,10 @@ from app.schemas.schemas import TicketCreate, TicketUpdate, TicketResponse, Tick
 from app.auth import get_current_user
 from app.config import DEPT_EMAIL_MAP
 from app.email_utils import send_ticket_notification
-
+ 
 router = APIRouter(prefix="/api/tickets", tags=["Tickets"])
-
-
+ 
+ 
 def _next_code(db: Session) -> str:
     from sqlalchemy import func as sa_func
     max_code = db.query(sa_func.max(Ticket.code)).scalar()
@@ -20,8 +20,8 @@ def _next_code(db: Session) -> str:
     else:
         num = 1
     return f"TKT{num:04d}"
-
-
+ 
+ 
 def _ticket_to_response(t: Ticket) -> TicketResponse:
     return TicketResponse(
         id=t.id, code=t.code, title=t.title, description=t.description,
@@ -54,14 +54,14 @@ def _ticket_to_response(t: Ticket) -> TicketResponse:
         ],
         created_at=t.created_at, updated_at=t.updated_at,
     )
-
-
+ 
+ 
 @router.get("/", response_model=list[TicketResponse])
 def list_tickets(db: Session = Depends(get_db)):
     tickets = db.query(Ticket).order_by(Ticket.created_at.desc()).all()
     return [_ticket_to_response(t) for t in tickets]
-
-
+ 
+ 
 @router.post("/", response_model=TicketResponse, status_code=201)
 def create_ticket(req: TicketCreate, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     ticket = Ticket(
@@ -91,7 +91,7 @@ def create_ticket(req: TicketCreate, current_user: User = Depends(get_current_us
     db.add(ticket)
     db.commit()
     db.refresh(ticket)
-
+ 
     # Send email notification if department has a mapped email
     dept_email = DEPT_EMAIL_MAP.get(req.assigned_dept)
     if dept_email:
@@ -106,18 +106,18 @@ def create_ticket(req: TicketCreate, current_user: User = Depends(get_current_us
             priority=req.priority or "Medium",
             category=req.category or "",
         )
-
+ 
     return _ticket_to_response(ticket)
-
-
+ 
+ 
 @router.get("/{ticket_id}", response_model=TicketResponse)
 def get_ticket(ticket_id: int, db: Session = Depends(get_db)):
     t = db.query(Ticket).filter(Ticket.id == ticket_id).first()
     if not t:
         raise HTTPException(status_code=404, detail="Ticket not found")
     return _ticket_to_response(t)
-
-
+ 
+ 
 @router.patch("/{ticket_id}", response_model=TicketResponse)
 def update_ticket(ticket_id: int, req: TicketUpdate, db: Session = Depends(get_db)):
     t = db.query(Ticket).filter(Ticket.id == ticket_id).first()
@@ -133,8 +133,8 @@ def update_ticket(ticket_id: int, req: TicketUpdate, db: Session = Depends(get_d
     db.commit()
     db.refresh(t)
     return _ticket_to_response(t)
-
-
+ 
+ 
 @router.patch("/{ticket_id}/status")
 def update_ticket_status(ticket_id: int, status: str, db: Session = Depends(get_db)):
     t = db.query(Ticket).filter(Ticket.id == ticket_id).first()
@@ -143,8 +143,8 @@ def update_ticket_status(ticket_id: int, status: str, db: Session = Depends(get_
     t.status = TicketStatusEnum(status)
     db.commit()
     return {"message": "Status updated"}
-
-
+ 
+ 
 @router.post("/{ticket_id}/comments", response_model=TicketCommentResponse, status_code=201)
 def add_comment(ticket_id: int, req: TicketCommentCreate, db: Session = Depends(get_db)):
     t = db.query(Ticket).filter(Ticket.id == ticket_id).first()
@@ -158,24 +158,24 @@ def add_comment(ticket_id: int, req: TicketCommentCreate, db: Session = Depends(
     db.commit()
     db.refresh(comment)
     return TicketCommentResponse(id=comment.id, user=comment.user, message=comment.message, type=comment.type.value, created_at=comment.created_at)
-
-
+ 
+ 
 # --- Approval workflow ---
-
+ 
 class ApprovalRequest(BaseModel):
     action: str  # "Approve" | "Follow-up" | "Reject"
     comment: Optional[str] = None
     approver_name: Optional[str] = None
-
-
+ 
+ 
 @router.patch("/{ticket_id}/approve", response_model=TicketResponse)
 def approve_ticket(ticket_id: int, req: ApprovalRequest, db: Session = Depends(get_db)):
     t = db.query(Ticket).filter(Ticket.id == ticket_id).first()
     if not t:
         raise HTTPException(status_code=404, detail="Ticket not found")
-
+ 
     approver = req.approver_name or "AOM"
-
+ 
     if req.action == "Follow-up":
         # AOM needs more info – set status to Follow Up, add comment
         t.status = TicketStatusEnum.FollowUp
@@ -186,14 +186,14 @@ def approve_ticket(ticket_id: int, req: ApprovalRequest, db: Session = Depends(g
             ticket_id=ticket_id, user=approver, message=comment_msg,
             type=CommentTypeEnum.approval,
         ))
-
+ 
     elif req.action == "Approve":
         cat = (t.category or "").lower()
         main_cat = (t.zenoti_main_category or "").lower()
         is_zenoti_finance = cat == "zenoti-finance" or main_cat == "zenoti-finance"
         is_zenoti_operational = cat == "zenoti-operational" or main_cat == "zenoti-operational"
         finance_already_involved = t.approver == "Finance Team"
-
+ 
         if is_zenoti_finance and not finance_already_involved:
             # Flow I: Zenoti-Finance — AOM approving → escalate to Finance team
             comment_msg = f"Approved by {approver} (AOM). Escalated to Finance team for final approval."
@@ -206,7 +206,7 @@ def approve_ticket(ticket_id: int, req: ApprovalRequest, db: Session = Depends(g
             t.approver = "Finance Team"
             t.approval_status = ApprovalStatusEnum.Pending
             t.status = TicketStatusEnum.PendingApproval
-
+ 
         elif is_zenoti_finance and finance_already_involved:
             # Flow I: Zenoti-Finance — Finance approving → send to Zenoti team
             t.approval_status = ApprovalStatusEnum.Approved
@@ -220,7 +220,7 @@ def approve_ticket(ticket_id: int, req: ApprovalRequest, db: Session = Depends(g
                 ticket_id=ticket_id, user=approver, message=comment_msg,
                 type=CommentTypeEnum.approval,
             ))
-
+ 
         elif is_zenoti_operational:
             # Flow II: Zenoti-Operational — AOM approving → send directly to Zenoti team
             t.approval_status = ApprovalStatusEnum.Approved
@@ -234,7 +234,7 @@ def approve_ticket(ticket_id: int, req: ApprovalRequest, db: Session = Depends(g
                 ticket_id=ticket_id, user=approver, message=comment_msg,
                 type=CommentTypeEnum.approval,
             ))
-
+ 
         else:
             # Non-Zenoti: direct approval → In Progress
             t.approval_status = ApprovalStatusEnum.Approved
@@ -247,7 +247,7 @@ def approve_ticket(ticket_id: int, req: ApprovalRequest, db: Session = Depends(g
                 ticket_id=ticket_id, user=approver, message=comment_msg,
                 type=CommentTypeEnum.approval,
             ))
-
+ 
     elif req.action == "Reject":
         t.approval_status = ApprovalStatusEnum.Rejected
         t.approver = approver
@@ -261,28 +261,28 @@ def approve_ticket(ticket_id: int, req: ApprovalRequest, db: Session = Depends(g
         ))
     else:
         raise HTTPException(status_code=400, detail="Invalid action. Use 'Approve', 'Follow-up', or 'Reject'.")
-
+ 
     db.commit()
     db.refresh(t)
     return _ticket_to_response(t)
-
-
+ 
+ 
 # --- Zenoti Team resolve/close ---
-
+ 
 class ResolveRequest(BaseModel):
     resolution: Optional[str] = None
     action: str  # "Resolve" | "Close"
     user_name: Optional[str] = None
-
-
+ 
+ 
 @router.patch("/{ticket_id}/resolve", response_model=TicketResponse)
 def resolve_ticket(ticket_id: int, req: ResolveRequest, db: Session = Depends(get_db)):
     t = db.query(Ticket).filter(Ticket.id == ticket_id).first()
     if not t:
         raise HTTPException(status_code=404, detail="Ticket not found")
-
+ 
     user = req.user_name or "Zenoti Team"
-
+ 
     if req.action == "Resolve":
         t.status = TicketStatusEnum.Resolved
         t.resolution = req.resolution or ""
@@ -305,7 +305,8 @@ def resolve_ticket(ticket_id: int, req: ResolveRequest, db: Session = Depends(ge
         ))
     else:
         raise HTTPException(status_code=400, detail="Invalid action. Use 'Resolve' or 'Close'.")
-
+ 
     db.commit()
     db.refresh(t)
     return _ticket_to_response(t)
+ 

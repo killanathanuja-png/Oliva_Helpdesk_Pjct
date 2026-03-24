@@ -436,16 +436,16 @@ const SLAReportPage = () => {
         </div>
       )}
 
-      {/* Breached Tickets */}
+      {/* Resolved / Closed Tickets with Resolution Time */}
       <div className="bg-card rounded-2xl card-shadow border border-border overflow-hidden">
-        <div className="px-6 py-4 border-b border-border bg-gradient-to-r from-destructive/5 to-transparent flex items-center justify-between">
+        <div className="px-6 py-4 border-b border-border bg-gradient-to-r from-success/5 to-transparent flex items-center justify-between">
           <h2 className="font-semibold text-sm flex items-center gap-2">
-            <ShieldAlert className="h-4 w-4 text-destructive" />
-            SLA Breached Tickets
+            <CheckCircle className="h-4 w-4 text-success" />
+            Resolved / Closed Tickets
           </h2>
-          {breachedTickets.length > 0 && (
-            <span className="px-2.5 py-1 rounded-full text-[11px] font-bold bg-destructive/10 text-destructive border border-destructive/20 tabular-nums">
-              {breachedTickets.length}
+          {resolvedTickets.length > 0 && (
+            <span className="px-2.5 py-1 rounded-full text-[11px] font-bold bg-success/10 text-success border border-success/20 tabular-nums">
+              {resolvedTickets.length}
             </span>
           )}
         </div>
@@ -460,36 +460,61 @@ const SLAReportPage = () => {
                 <th className="px-6 py-3.5 font-semibold">Status</th>
                 <th className="px-6 py-3.5 font-semibold">Assigned To</th>
                 <th className="px-6 py-3.5 font-semibold">Created</th>
+                <th className="px-6 py-3.5 font-semibold">Closed Time</th>
+                <th className="px-6 py-3.5 font-semibold">Total Time</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
-              {breachedTickets.length > 0 ? breachedTickets.map((t) => (
-                <tr key={t.id} className="hover:bg-destructive/[0.02] transition-colors">
-                  <td className="px-6 py-3.5 font-mono text-xs text-primary font-semibold">{t.code}</td>
-                  <td className="px-6 py-3.5 text-xs font-medium max-w-[220px] truncate">{t.title}</td>
-                  <td className="px-6 py-3.5">
-                    <span className={cn("px-2.5 py-0.5 rounded-full text-[11px] font-semibold border", priorityColors[t.priority || "Medium"])}>
-                      {t.priority}
-                    </span>
-                  </td>
-                  <td className="px-6 py-3.5 text-xs text-muted-foreground">{t.assigned_dept || "—"}</td>
-                  <td className="px-6 py-3.5">
-                    <span className="px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-destructive/10 text-destructive border border-destructive/20">
-                      {t.status}
-                    </span>
-                  </td>
-                  <td className="px-6 py-3.5 text-xs text-muted-foreground">{t.assigned_to || "Unassigned"}</td>
-                  <td className="px-6 py-3.5 text-xs text-muted-foreground tabular-nums">
-                    {t.created_at ? new Date(t.created_at).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "—"}
-                  </td>
-                </tr>
-              )) : (
+              {resolvedTickets.length > 0 ? resolvedTickets.map((t) => {
+                const created = new Date(t.created_at!);
+                const closed = new Date(t.updated_at!);
+                const diffMs = closed.getTime() - created.getTime();
+                const diffHrs = Math.floor(diffMs / (1000 * 60 * 60));
+                const diffMins = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+                const totalTime = diffHrs > 0 ? `${diffHrs}h ${diffMins}m` : `${diffMins}m`;
+                return (
+                  <tr key={t.id} className="hover:bg-muted/20 transition-colors">
+                    <td className="px-6 py-3.5 font-mono text-xs text-primary font-semibold">{t.code}</td>
+                    <td className="px-6 py-3.5 text-xs font-medium max-w-[200px] truncate">{t.title}</td>
+                    <td className="px-6 py-3.5">
+                      <span className={cn("px-2.5 py-0.5 rounded-full text-[11px] font-semibold border", priorityColors[t.priority || "Medium"])}>
+                        {t.priority}
+                      </span>
+                    </td>
+                    <td className="px-6 py-3.5 text-xs text-muted-foreground">{t.assigned_dept || "—"}</td>
+                    <td className="px-6 py-3.5">
+                      <span className={cn("px-2.5 py-0.5 rounded-full text-[11px] font-semibold",
+                        t.status === "Closed" ? "bg-muted text-muted-foreground" : "bg-success/10 text-success border border-success/20"
+                      )}>
+                        {t.status}
+                      </span>
+                    </td>
+                    <td className="px-6 py-3.5 text-xs text-muted-foreground">{t.assigned_to || "Unassigned"}</td>
+                    <td className="px-6 py-3.5 text-xs text-muted-foreground tabular-nums">
+                      {created.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}
+                      <br />
+                      <span className="text-[10px]">{created.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })}</span>
+                    </td>
+                    <td className="px-6 py-3.5 text-xs text-muted-foreground tabular-nums">
+                      {closed.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}
+                      <br />
+                      <span className="text-[10px]">{closed.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })}</span>
+                    </td>
+                    <td className="px-6 py-3.5">
+                      <span className={cn("px-2.5 py-1 rounded-lg text-xs font-bold tabular-nums",
+                        diffHrs >= 24 ? "bg-destructive/10 text-destructive" : diffHrs >= 8 ? "bg-warning/10 text-warning" : "bg-success/10 text-success"
+                      )}>
+                        {totalTime}
+                      </span>
+                    </td>
+                  </tr>
+                );
+              }) : (
                 <tr>
-                  <td colSpan={7} className="px-6 py-12 text-center">
+                  <td colSpan={9} className="px-6 py-12 text-center">
                     <div className="flex flex-col items-center gap-2">
-                      <CheckCircle className="h-8 w-8 text-success/60" />
-                      <p className="text-sm font-medium text-muted-foreground">No SLA breached tickets</p>
-                      <p className="text-xs text-muted-foreground/60">All tickets are within SLA targets</p>
+                      <Clock className="h-8 w-8 text-muted-foreground/40" />
+                      <p className="text-sm font-medium text-muted-foreground">No resolved tickets yet</p>
                     </div>
                   </td>
                 </tr>
