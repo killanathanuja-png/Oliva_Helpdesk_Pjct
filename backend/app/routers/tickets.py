@@ -13,8 +13,12 @@ router = APIRouter(prefix="/api/tickets", tags=["Tickets"])
 
 
 def _next_code(db: Session) -> str:
-    last = db.query(Ticket).order_by(Ticket.id.desc()).first()
-    num = (last.id + 1) if last else 1
+    from sqlalchemy import func as sa_func
+    max_code = db.query(sa_func.max(Ticket.code)).scalar()
+    if max_code:
+        num = int(max_code.replace("TKT", "")) + 1
+    else:
+        num = 1
     return f"TKT{num:04d}"
 
 
@@ -173,8 +177,8 @@ def approve_ticket(ticket_id: int, req: ApprovalRequest, db: Session = Depends(g
     approver = req.approver_name or "AOM"
 
     if req.action == "Follow-up":
-        # AOM needs more info – set status to Pending Approval, add comment
-        t.status = TicketStatusEnum.PendingApproval
+        # AOM needs more info – set status to Follow Up, add comment
+        t.status = TicketStatusEnum.FollowUp
         t.approval_status = ApprovalStatusEnum.Pending
         t.approver = approver
         comment_msg = f"Follow-up requested by {approver}: {req.comment}" if req.comment else f"Follow-up requested by {approver}"

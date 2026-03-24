@@ -5,7 +5,7 @@ import type { Ticket } from "@/data/dummyData";
 import { cn } from "@/lib/utils";
 import { departmentsApi, centersApi, categoriesApi, subcategoriesApi, childCategoriesApi, serviceTitlesApi } from "@/lib/api";
 import type { ApiDepartment, ApiCenter, ApiCategory, ApiSubcategory, ApiChildCategory, ApiServiceTitle } from "@/lib/api";
-
+ 
 export interface TicketFormData {
   title: string;
   description: string;
@@ -29,7 +29,7 @@ export interface TicketFormData {
   zenotiAmount?: string;
   zenotiDescription?: string;
 }
-
+ 
 interface Props {
   onClose: () => void;
   onSuccess?: (formData: TicketFormData) => void;
@@ -37,7 +37,7 @@ interface Props {
   editTicket?: Ticket;
   userRole?: string;
 }
-
+ 
 interface ComboBoxProps {
   value: string;
   onChange: (val: string) => void;
@@ -45,16 +45,16 @@ interface ComboBoxProps {
   placeholder: string;
   error?: boolean;
 }
-
+ 
 const ComboBox = ({ value, onChange, options, placeholder, error }: ComboBoxProps) => {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
   const ref = useRef<HTMLDivElement>(null);
-
+ 
   const filtered = search
     ? options.filter((o) => o.toLowerCase().includes(search.toLowerCase()))
     : options;
-
+ 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
       if (ref.current && !ref.current.contains(e.target as Node)) {
@@ -65,13 +65,13 @@ const ComboBox = ({ value, onChange, options, placeholder, error }: ComboBoxProp
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
   }, []);
-
+ 
   const handleSelect = (item: string) => {
     onChange(item);
     setSearch("");
     setOpen(false);
   };
-
+ 
   const toggleOpen = () => {
     if (open) {
       setOpen(false);
@@ -81,7 +81,7 @@ const ComboBox = ({ value, onChange, options, placeholder, error }: ComboBoxProp
       setSearch("");
     }
   };
-
+ 
   return (
     <div className="relative" ref={ref}>
       <div className="relative cursor-pointer" onClick={toggleOpen}>
@@ -120,7 +120,7 @@ const ComboBox = ({ value, onChange, options, placeholder, error }: ComboBoxProp
     </div>
   );
 };
-
+ 
 const emptyZenotiFields = {
   location: "",
   mainCategory: "",
@@ -135,7 +135,7 @@ const emptyZenotiFields = {
   amount: "",
   zenotiDescription: "",
 };
-
+ 
 const RaiseTicketModal = ({ onClose, onSuccess, editMode, editTicket, userRole }: Props) => {
   const [department, setDepartment] = useState(editTicket?.assignedDept || "");
   const [category, setCategory] = useState(editTicket?.category || "");
@@ -147,7 +147,7 @@ const RaiseTicketModal = ({ onClose, onSuccess, editMode, editTicket, userRole }
   const [subCategory, setSubCategory] = useState(editTicket?.subCategory || "");
   const [center, setCenter] = useState(editTicket?.center || "");
   const [status, setStatus] = useState(editTicket?.status || "");
-
+ 
   // API-fetched master data
   const [apiDepartments, setApiDepartments] = useState<ApiDepartment[]>([]);
   const [apiCenters, setApiCenters] = useState<ApiCenter[]>([]);
@@ -157,7 +157,7 @@ const RaiseTicketModal = ({ onClose, onSuccess, editMode, editTicket, userRole }
   const [apiChildCategories, setApiChildCategories] = useState<ApiChildCategory[]>([]);
   const [childCategory, setChildCategory] = useState(editTicket?.zenotiChildCategory || "");
   const [loadingData, setLoadingData] = useState(true);
-
+ 
   // Fetch all master data on mount
   useEffect(() => {
     const fetchAll = async () => {
@@ -171,7 +171,7 @@ const RaiseTicketModal = ({ onClose, onSuccess, editMode, editTicket, userRole }
           childCategoriesApi.list().catch(() => null),
           serviceTitlesApi.list().catch(() => null),
         ]);
-
+ 
         if (depts && depts.length > 0) {
           setApiDepartments(depts);
         } else {
@@ -182,7 +182,7 @@ const RaiseTicketModal = ({ onClose, onSuccess, editMode, editTicket, userRole }
             active_tickets: d.activeTickets, status: null, created_at: null,
           })));
         }
-
+ 
         if (ctrs && ctrs.length > 0) {
           setApiCenters(ctrs);
         } else {
@@ -193,7 +193,7 @@ const RaiseTicketModal = ({ onClose, onSuccess, editMode, editTicket, userRole }
             longitude: null, zone: null, country: c.country, status: c.status, created_at: null,
           })));
         }
-
+ 
         if (cats) setApiCategories(cats);
         if (subs) setApiSubcategories(subs);
         if (childCats) setApiChildCategories(childCats);
@@ -204,12 +204,12 @@ const RaiseTicketModal = ({ onClose, onSuccess, editMode, editTicket, userRole }
     };
     fetchAll();
   }, []);
-
+ 
   const isZenoti = department === "Zenoti";
-
+ 
   // Department options from API
   const departmentOptions = apiDepartments.map((d) => d.name);
-
+ 
   // Categories filtered by selected department
   // If a department is selected: show categories assigned to that department + unassigned categories
   // Exception: if department has dedicated categories (like Zenoti), show only those
@@ -224,34 +224,46 @@ const RaiseTicketModal = ({ onClose, onSuccess, editMode, editTicket, userRole }
       })
       .map((c) => c.name)
   )].sort();
-
+ 
   // Subcategories filtered by selected category
   const subCategoryOptions = [...new Set(
     apiSubcategories
-      .filter((s) => s.status !== "Inactive" && (!category || s.category === category))
+      .filter((s) => {
+        if (s.status === "Inactive") return false;
+        if (!category) return true;
+        // If category has linked subcategories, show those; otherwise show all
+        const hasLinked = apiSubcategories.some((x) => x.status !== "Inactive" && x.category === category);
+        return hasLinked ? s.category === category : !s.category;
+      })
       .map((s) => s.name)
   )].sort();
-
+ 
   // Child categories filtered by selected subcategory
   const childCategoryOptions = [...new Set(
     apiChildCategories
-      .filter((c) => c.status !== "Inactive" && (!subCategory || c.subcategory === subCategory))
+      .filter((c) => {
+        if (c.status === "Inactive") return false;
+        if (!subCategory) return true;
+        // If subcategory has linked children, show those; otherwise show all
+        const hasLinked = apiChildCategories.some((x) => x.status !== "Inactive" && x.subcategory === subCategory);
+        return hasLinked ? c.subcategory === subCategory : !c.subcategory;
+      })
       .map((c) => c.name)
   )].sort();
-
+ 
   // Centers from API
   const centerOptions = apiCenters.map((c) => c.name);
-
+ 
   // Service titles filtered by subcategory (for priority lookup)
   const matchingServiceTitle = subCategory
     ? apiServiceTitles.find((st) => st.subcategory === subCategory)
     : null;
-
+ 
   const zenotiFieldsFilled = () => {
-    const { location, mobileNumber, customerId, customerName, billedBy, invoiceNo, invoiceDate, zenotiDescription } = zenotiFields;
-    return [location, category, subCategory, childCategory, mobileNumber, customerId, customerName, billedBy, invoiceNo, invoiceDate, zenotiDescription].every((v) => v.trim() !== "");
+    const { location, mobileNumber, customerId, customerName, billedBy, invoiceNo, invoiceDate } = zenotiFields;
+    return [location, category, subCategory, childCategory, mobileNumber, customerId, customerName, billedBy, invoiceNo, invoiceDate].every((v) => v.trim() !== "");
   };
-
+ 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (editMode) {
@@ -272,7 +284,7 @@ const RaiseTicketModal = ({ onClose, onSuccess, editMode, editTicket, userRole }
       }
       if (onSuccess) {
         onSuccess({
-          title, description, department, category, subCategory, priority, center,
+          title, description, department, category, subCategory, priority, center: isZenoti ? zenotiFields.location : center,
           zenotiChildCategory: childCategory,
           ...(isZenoti && {
             zenotiLocation: zenotiFields.location,
@@ -292,7 +304,7 @@ const RaiseTicketModal = ({ onClose, onSuccess, editMode, editTicket, userRole }
     }
     if (!onSuccess) onClose();
   };
-
+ 
   const handleDepartmentChange = (val: string) => {
     setDepartment(val);
     setCategory("");
@@ -303,7 +315,7 @@ const RaiseTicketModal = ({ onClose, onSuccess, editMode, editTicket, userRole }
       setShowAlert(false);
     }
   };
-
+ 
   const handleCategoryChange = (val: string) => {
     setCategory(val);
     setSubCategory("");
@@ -315,16 +327,16 @@ const RaiseTicketModal = ({ onClose, onSuccess, editMode, editTicket, userRole }
       setPriority("");
     }
   };
-
+ 
   const handleSubCategoryChange2 = (val: string) => {
     setSubCategory(val);
     setChildCategory("");
   };
-
+ 
   const inputClass = "w-full px-3 py-2 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/30";
   const labelClass = "block text-xs font-medium text-muted-foreground mb-1";
   const errField = (field: string) => showAlert && !field.trim();
-
+ 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
       <div className="fixed inset-0 bg-foreground/30" onClick={onClose} />
@@ -335,7 +347,7 @@ const RaiseTicketModal = ({ onClose, onSuccess, editMode, editTicket, userRole }
             <X className="h-5 w-5" />
           </button>
         </div>
-
+ 
         {editMode ? (
           <form className="p-6 space-y-4" onSubmit={handleSubmit}>
             <div className="grid grid-cols-2 gap-3">
@@ -371,19 +383,19 @@ const RaiseTicketModal = ({ onClose, onSuccess, editMode, editTicket, userRole }
                 </select>
               </div>
             </div>
-
+ 
             {(userRole === "AOM" || userRole === "Finance") && (
               <div>
                 <label className={labelClass}>Description</label>
                 <textarea rows={3} value={description} onChange={(e) => setDescription(e.target.value)} className={cn(inputClass, "resize-none")} placeholder="Add remarks or comments..." />
               </div>
             )}
-
+ 
             <div>
               <label className={labelClass}>Attachment</label>
               <input type="file" className="w-full text-sm text-muted-foreground file:mr-3 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-medium file:bg-muted file:text-foreground hover:file:bg-muted/80" />
             </div>
-
+ 
             <div className="flex gap-2 pt-2">
               <button type="button" onClick={onClose} className="px-4 py-2.5 rounded-lg border border-border text-sm font-medium hover:bg-muted transition-colors">
                 Cancel
@@ -408,21 +420,17 @@ const RaiseTicketModal = ({ onClose, onSuccess, editMode, editTicket, userRole }
                 placeholder="Select department"
               />
             </div>
+ 
+            <div>
+              <label className={labelClass}>Title *</label>
+              <input type="text" required value={title} onChange={(e) => setTitle(e.target.value)} className={inputClass} placeholder="Brief description of the issue" />
+            </div>
 
-            {!isZenoti && (
-              <div>
-                <label className={labelClass}>Title *</label>
-                <input type="text" required value={title} onChange={(e) => setTitle(e.target.value)} className={inputClass} placeholder="Brief description of the issue" />
-              </div>
-            )}
-
-            {!isZenoti && (
-              <div>
-                <label className={labelClass}>Description *</label>
-                <textarea rows={3} required value={description} onChange={(e) => setDescription(e.target.value)} className={cn(inputClass, "resize-none")} placeholder="Detailed description..." />
-              </div>
-            )}
-
+            <div>
+              <label className={labelClass}>Description *</label>
+              <textarea rows={3} required value={description} onChange={(e) => setDescription(e.target.value)} className={cn(inputClass, "resize-none")} placeholder="Detailed description..." />
+            </div>
+ 
             {/* Category / Sub-Category / Child Category - for non-Zenoti departments */}
             {!isZenoti && (
               <div className="grid grid-cols-3 gap-3">
@@ -455,7 +463,7 @@ const RaiseTicketModal = ({ onClose, onSuccess, editMode, editTicket, userRole }
                 </div>
               </div>
             )}
-
+ 
             {/* Zenoti mandatory fields */}
             {isZenoti && (
               <div className="rounded-xl border border-amber-200 bg-amber-50/50 p-4 space-y-4">
@@ -463,7 +471,7 @@ const RaiseTicketModal = ({ onClose, onSuccess, editMode, editTicket, userRole }
                   <AlertCircle className="h-4 w-4 text-amber-600" />
                   <span className="text-xs font-semibold text-amber-700">Zenoti - Mandatory Fields</span>
                 </div>
-
+ 
                 {/* Category / Sub-Category / Child Category inside Zenoti block */}
                 <div className="grid grid-cols-3 gap-3">
                   <div>
@@ -497,7 +505,7 @@ const RaiseTicketModal = ({ onClose, onSuccess, editMode, editTicket, userRole }
                     />
                   </div>
                 </div>
-
+ 
                 {/* Location */}
                 <div>
                   <label className={labelClass}>Location (Clinic) *</label>
@@ -509,7 +517,7 @@ const RaiseTicketModal = ({ onClose, onSuccess, editMode, editTicket, userRole }
                     error={errField(zenotiFields.location)}
                   />
                 </div>
-
+ 
                 {/* Client & Invoice details */}
                 <div className="grid grid-cols-2 gap-3">
                   <div>
@@ -582,22 +590,11 @@ const RaiseTicketModal = ({ onClose, onSuccess, editMode, editTicket, userRole }
                     />
                   </div>
                 </div>
-
-                {/* Zenoti description */}
-                <div>
-                  <label className={labelClass}>Description *</label>
-                  <textarea
-                    rows={2}
-                    value={zenotiFields.zenotiDescription}
-                    onChange={(e) => setZenotiFields({ ...zenotiFields, zenotiDescription: e.target.value })}
-                    className={cn(inputClass, "resize-none", errField(zenotiFields.zenotiDescription) && "border-destructive ring-1 ring-destructive/30")}
-                    placeholder="Additional details for Zenoti team..."
-                  />
-                </div>
+ 
               </div>
             )}
-
-
+ 
+ 
             <div className={cn("grid gap-3", isZenoti ? "grid-cols-1" : "grid-cols-2")}>
               <div>
                 <label className={labelClass}>Priority *</label>
@@ -620,12 +617,12 @@ const RaiseTicketModal = ({ onClose, onSuccess, editMode, editTicket, userRole }
                 </div>
               )}
             </div>
-
+ 
             <div>
               <label className={labelClass}>Attachment</label>
               <input type="file" className="w-full text-sm text-muted-foreground file:mr-3 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-medium file:bg-muted file:text-foreground hover:file:bg-muted/80" />
             </div>
-
+ 
             {/* Validation alert popup */}
             {showAlert && (
               <div className="flex items-center gap-2 px-4 py-3 rounded-lg bg-destructive/10 border border-destructive/20">
@@ -636,7 +633,7 @@ const RaiseTicketModal = ({ onClose, onSuccess, editMode, editTicket, userRole }
                 </button>
               </div>
             )}
-
+ 
             <div className="flex gap-2 pt-2">
               <button type="button" onClick={onClose} className="px-4 py-2.5 rounded-lg border border-border text-sm font-medium hover:bg-muted transition-colors">
                 Cancel
@@ -662,5 +659,5 @@ const RaiseTicketModal = ({ onClose, onSuccess, editMode, editTicket, userRole }
     </div>
   );
 };
-
+ 
 export default RaiseTicketModal;
