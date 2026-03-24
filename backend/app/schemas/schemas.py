@@ -168,6 +168,7 @@ class UserResponse(UserBase):
     status: Optional[str] = "Active"
     last_login: Optional[datetime] = None
     created_at: Optional[datetime] = None
+    managed_centers: Optional[list[str]] = None
 
     class Config:
         from_attributes = True

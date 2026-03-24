@@ -1,10 +1,19 @@
 import enum
 from sqlalchemy import (
-    Column, Integer, String, Boolean, Float, Text, DateTime, ForeignKey, Enum as SAEnum
+    Column, Integer, String, Boolean, Float, Text, DateTime, ForeignKey, Enum as SAEnum, Table
 )
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from app.database import Base
+
+
+# Many-to-many: users <-> centers (for AOM managing multiple locations)
+user_centers = Table(
+    "user_centers",
+    Base.metadata,
+    Column("user_id", Integer, ForeignKey("users.id"), primary_key=True),
+    Column("center_id", Integer, ForeignKey("centers.id"), primary_key=True),
+)
 
 
 # --- Enums ---
@@ -168,6 +177,7 @@ class User(Base):
 
     department_rel = relationship("Department", back_populates="users")
     center_rel = relationship("Center", back_populates="users")
+    managed_centers = relationship("Center", secondary=user_centers, backref="managed_by_users")
     tickets_raised = relationship("Ticket", back_populates="raised_by_rel", foreign_keys="Ticket.raised_by_id")
     tickets_assigned = relationship("Ticket", back_populates="assigned_to_rel", foreign_keys="Ticket.assigned_to_id")
 

@@ -69,21 +69,28 @@ const ApprovalsPage = () => {
   const storedUser = localStorage.getItem("oliva_user");
   const parsedUser = storedUser ? JSON.parse(storedUser) : null;
   const currentUserRole = parsedUser?.role || "User";
- 
+  // All centers this AOM manages (from managed_centers or fallback to single center)
+  const userManagedCenters: string[] = parsedUser?.managed_centers || (parsedUser?.center ? [parsedUser.center] : []);
+
   const isAomRole = hasAnyRole(currentUserRole, ["Area Operations Manager", "Area Operations Manager Head"]);
   const isFinanceRole = hasAnyRole(currentUserRole, ["Finance", "Finance Head"]);
- 
+
   const fetchTickets = useCallback(async () => {
     try {
       const apiTickets = await ticketsApi.list();
       const allTickets = apiTickets.map(apiToTicket);
-      // Filter by approval type based on role:
-      // AOM sees: aom_finance + aom_only tickets
-      // Finance sees: aom_finance tickets only
       setData(allTickets.filter((t) => {
         if (!t.approvalRequired) return false;
         if (isFinanceRole) return t.approvalType === "aom_finance";
-        if (isAomRole) return t.approvalType === "aom_finance" || t.approvalType === "aom_only";
+        if (isAomRole) {
+          const matchType = t.approvalType === "aom_finance" || t.approvalType === "aom_only";
+          if (!matchType) return false;
+          // Location-based: AOM only sees tickets from their managed centers
+          // No managed centers = no tickets visible
+          if (userManagedCenters.length === 0) return false;
+          const ticketCenter = (t.center || t.zenotiLocation || "").toLowerCase();
+          return userManagedCenters.some((c) => c.toLowerCase() === ticketCenter);
+        }
         return true; // Super admin sees all
       }));
     } catch {
@@ -91,7 +98,7 @@ const ApprovalsPage = () => {
     } finally {
       setLoading(false);
     }
-  }, [isAomRole, isFinanceRole]);
+  }, [isAomRole, isFinanceRole, userManagedCenters]);
  
   useEffect(() => {
     fetchTickets();

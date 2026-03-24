@@ -221,6 +221,7 @@ export interface ApiUser {
   status: string | null;
   last_login: string | null;
   created_at: string | null;
+  managed_centers: string[] | null;
 }
 
 export interface ApiDesignation {

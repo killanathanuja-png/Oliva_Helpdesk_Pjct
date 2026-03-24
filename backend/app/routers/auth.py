@@ -49,6 +49,12 @@ def login(req: LoginRequest, db: Session = Depends(get_db)):
 
 @router.get("/me/", response_model=UserResponse)
 def get_me(current_user: User = Depends(get_current_user)):
+    # Collect all centers this user manages (many-to-many)
+    managed = [c.name for c in current_user.managed_centers] if current_user.managed_centers else []
+    # Include primary center if not already in list
+    primary_center = current_user.center_rel.name if current_user.center_rel else None
+    if primary_center and primary_center not in managed:
+        managed.insert(0, primary_center)
     return UserResponse(
         id=current_user.id,
         code=current_user.code,
@@ -61,6 +67,7 @@ def get_me(current_user: User = Depends(get_current_user)):
         status=current_user.status.value if current_user.status else None,
         last_login=current_user.last_login,
         created_at=current_user.created_at,
+        managed_centers=managed if managed else None,
     )
 
 

@@ -175,8 +175,13 @@ const TicketDetailPage = () => {
   const parsedUser = storedUser ? JSON.parse(storedUser) : null;
   const currentUser = parsedUser?.name || "User";
   const currentUserRole = parsedUser?.role || "User";
+  const userManagedCenters: string[] = parsedUser?.managed_centers || (parsedUser?.center ? [parsedUser.center] : []);
+  const isAomRole = hasAnyRole(currentUserRole, ["Area Operations Manager", "Area Operations Manager Head"]);
   const approverRoles = ["Area Operations Manager", "Area Operations Manager Head", "Manager", "L1 Manager", "L2 Manager", "Finance", "Finance Head"];
-  const canApprove = hasAnyRole(currentUserRole, approverRoles);
+  const canApproveRole = hasAnyRole(currentUserRole, approverRoles);
+  // AOM can only approve tickets from their managed centers (location-based)
+  // No managed centers = no approval permission for AOM
+  const canApprove = canApproveRole && (!isAomRole || (userManagedCenters.length > 0 && userManagedCenters.some((c) => c.toLowerCase() === (ticket?.center || "").toLowerCase())));
   // Roles that can always edit (even resolved/closed tickets)
   const alwaysEditRoleList = ["Employee", "Others", "Help Desk Admin", "Helpdesk In-charge", "Super Admin", "Global Admin", "Super User", "Zenoti Team"];
   const alwaysEdit = hasAnyRole(currentUserRole, alwaysEditRoleList);

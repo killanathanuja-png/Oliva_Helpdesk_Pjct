@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from sqlalchemy.orm import Session, joinedload
 from app.database import get_db
-from app.models.models import User, Department, Center, StatusEnum
+from app.models.models import User, Department, Center, StatusEnum, user_centers
 from app.schemas.schemas import UserCreate, UserUpdate, UserResponse
 from app.auth import hash_password
 import io
@@ -342,3 +342,24 @@ def upload_users_excel(file: UploadFile = File(...), db: Session = Depends(get_d
         "errors": errors[:10],
         "users": user_list,
     }
+
+
+# --- Managed Centers (AOM multi-location) ---
+
+@router.get("/{user_id}/managed-centers")
+def get_managed_centers(user_id: int, db: Session = Depends(get_db)):
+    u = db.query(User).filter(User.id == user_id).first()
+    if not u:
+        raise HTTPException(status_code=404, detail="User not found")
+    return [{"id": c.id, "name": c.name} for c in u.managed_centers]
+
+
+@router.put("/{user_id}/managed-centers")
+def set_managed_centers(user_id: int, center_ids: list[int], db: Session = Depends(get_db)):
+    u = db.query(User).filter(User.id == user_id).first()
+    if not u:
+        raise HTTPException(status_code=404, detail="User not found")
+    centers = db.query(Center).filter(Center.id.in_(center_ids)).all()
+    u.managed_centers = centers
+    db.commit()
+    return [{"id": c.id, "name": c.name} for c in u.managed_centers]

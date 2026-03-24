@@ -13,13 +13,17 @@ router = APIRouter(prefix="/api/tickets", tags=["Tickets"])
  
  
 def _next_code(db: Session) -> str:
-    from sqlalchemy import func as sa_func
-    max_code = db.query(sa_func.max(Ticket.code)).scalar()
-    if max_code:
-        num = int(max_code.replace("TKT", "")) + 1
-    else:
-        num = 1
-    return f"TKT{num:04d}"
+    # Get all ticket codes, extract numbers, and find the true max
+    all_codes = db.query(Ticket.code).all()
+    max_num = 0
+    for (code,) in all_codes:
+        try:
+            num = int(code.replace("TKT", "").replace("tkt", ""))
+            if num > max_num:
+                max_num = num
+        except (ValueError, AttributeError):
+            continue
+    return f"TKT{(max_num + 1):04d}"
  
  
 def _ticket_to_response(t: Ticket) -> TicketResponse:
@@ -64,34 +68,49 @@ def list_tickets(db: Session = Depends(get_db)):
  
 @router.post("/", response_model=TicketResponse, status_code=201)
 def create_ticket(req: TicketCreate, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    ticket = Ticket(
-        code=_next_code(db), title=req.title, description=req.description,
-        category=req.category, sub_category=req.sub_category,
-        priority=PriorityEnum(req.priority) if req.priority else PriorityEnum.Medium,
-        status=TicketStatusEnum.Open,
-        raised_by_id=current_user.id,
-        raised_by_dept=req.assigned_dept,
-        assigned_dept=req.assigned_dept,
-        center=req.center,
-        approval_required=req.approval_required or False,
-        approval_type=req.approval_type if hasattr(req, 'approval_type') else None,
-        zenoti_location=req.zenoti_location,
-        zenoti_main_category=req.zenoti_main_category,
-        zenoti_sub_category=req.zenoti_sub_category,
-        zenoti_child_category=req.zenoti_child_category,
-        zenoti_mobile_number=req.zenoti_mobile_number,
-        zenoti_customer_id=req.zenoti_customer_id,
-        zenoti_customer_name=req.zenoti_customer_name,
-        zenoti_billed_by=req.zenoti_billed_by,
-        zenoti_invoice_no=req.zenoti_invoice_no,
-        zenoti_invoice_date=req.zenoti_invoice_date,
-        zenoti_amount=req.zenoti_amount,
-        zenoti_description=req.zenoti_description,
-    )
-    db.add(ticket)
-    db.commit()
-    db.refresh(ticket)
- 
+    import traceback
+    try:
+        code = _next_code(db)
+        print(f"[CREATE TICKET] code={code}, title={req.title}, dept={req.assigned_dept}, center={req.center}")
+        ticket = Ticket(
+            code=code, title=req.title, description=req.description,
+            category=req.category, sub_category=req.sub_category,
+            priority=PriorityEnum(req.priority) if req.priority else PriorityEnum.Medium,
+            status=TicketStatusEnum.Open,
+            raised_by_id=current_user.id,
+            raised_by_dept=req.assigned_dept,
+            assigned_dept=req.assigned_dept,
+            center=req.center,
+            approval_required=req.approval_required or False,
+            approval_type=req.approval_type if hasattr(req, 'approval_type') else None,
+            zenoti_location=req.zenoti_location,
+            zenoti_main_category=req.zenoti_main_category,
+            zenoti_sub_category=req.zenoti_sub_category,
+            zenoti_child_category=req.zenoti_child_category,
+            zenoti_mobile_number=req.zenoti_mobile_number,
+            zenoti_customer_id=req.zenoti_customer_id,
+            zenoti_customer_name=req.zenoti_customer_name,
+            zenoti_billed_by=req.zenoti_billed_by,
+            zenoti_invoice_no=req.zenoti_invoice_no,
+            zenoti_invoice_date=req.zenoti_invoice_date,
+            zenoti_amount=req.zenoti_amount,
+            zenoti_description=req.zenoti_description,
+        )
+        db.add(ticket)
+        try:
+            db.commit()
+        except Exception as e1:
+            print(f"[CREATE TICKET] First commit failed: {e1}")
+            db.rollback()
+            ticket.code = _next_code(db)
+            db.add(ticket)
+            db.commit()
+        db.refresh(ticket)
+        print(f"[CREATE TICKET] SUCCESS: {ticket.code}, id={ticket.id}")
+    except Exception as e:
+        print(f"[CREATE TICKET] FAILED: {traceback.format_exc()}")
+        raise
+
     # Send email notification if department has a mapped email
     dept_email = DEPT_EMAIL_MAP.get(req.assigned_dept)
     if dept_email:
