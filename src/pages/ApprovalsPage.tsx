@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
 import { hasAnyRole } from "@/lib/roles";
 import { tickets as dummyTickets } from "@/data/dummyData";
 import type { Ticket } from "@/data/dummyData";
@@ -6,7 +7,6 @@ import { CheckCircle2, XCircle, Clock, Eye, ShieldCheck } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ticketsApi } from "@/lib/api";
 import type { ApiTicket } from "@/lib/api";
-import TicketDetailModal from "@/components/TicketDetailModal";
 
 const statusColors: Record<string, string> = {
   Pending: "bg-warning/10 text-warning",
@@ -61,14 +61,13 @@ function apiToTicket(t: ApiTicket): Ticket {
 }
 
 const ApprovalsPage = () => {
+  const navigate = useNavigate();
   const [data, setData] = useState<Ticket[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null);
   const [filterTab, setFilterTab] = useState<"pending" | "approved" | "rejected" | "all">("pending");
 
   const storedUser = localStorage.getItem("oliva_user");
   const parsedUser = storedUser ? JSON.parse(storedUser) : null;
-  const currentUserName = parsedUser?.name || "User";
   const currentUserRole = parsedUser?.role || "User";
 
   const isAomRole = hasAnyRole(currentUserRole, ["Area Operations Manager", "Area Operations Manager Head"]);
@@ -153,63 +152,75 @@ const ApprovalsPage = () => {
 
       <p className="text-xs text-muted-foreground">{filtered.length} request{filtered.length !== 1 && "s"} found</p>
 
-      <div className="grid gap-3">
-        {filtered.length > 0 ? filtered.map((t) => (
-          <div
-            key={t.id}
-            className="bg-card rounded-xl p-5 card-shadow border border-border hover:elevated-shadow transition-shadow cursor-pointer"
-            onClick={() => setSelectedTicket(t)}
-          >
-            <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 mb-1">
-                  <span className="text-xs font-mono text-primary font-medium">{t.id}</span>
-                  <span className={cn("px-2 py-0.5 rounded-full text-[11px] font-medium", statusColors[t.approvalStatus || "Pending"])}>
-                    {t.approvalStatus || "Pending"}
-                  </span>
-                  {(t.category?.toLowerCase() === "zenoti-finance" || t.zenotiMainCategory?.toLowerCase() === "zenoti-finance") && (
-                    <span className="px-2 py-0.5 rounded-full text-[11px] font-medium bg-amber-100 text-amber-700">
-                      Zenoti-Finance
-                    </span>
-                  )}
-                </div>
-                <h3 className="font-semibold">{t.title}</h3>
-                <p className="text-sm text-muted-foreground mt-1 line-clamp-2">{t.description}</p>
-                <div className="flex flex-wrap gap-4 mt-3 text-xs text-muted-foreground">
-                  <span>Raised by: <span className="text-foreground font-medium">{t.raisedBy}</span></span>
-                  <span>Department: <span className="text-foreground font-medium">{t.assignedDept}</span></span>
-                  <span>Center: <span className="text-foreground font-medium">{t.center}</span></span>
-                  {t.approver && <span>Approver: <span className="text-foreground font-medium">{t.approver}</span></span>}
-                </div>
-              </div>
-              <div className="flex gap-2 shrink-0">
-                <button
-                  onClick={(e) => { e.stopPropagation(); setSelectedTicket(t); }}
-                  className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-border text-xs font-medium hover:bg-muted transition-colors"
-                >
-                  <Eye className="h-3.5 w-3.5" /> View Details
-                </button>
-              </div>
-            </div>
-          </div>
-        )) : (
-          <div className="bg-card rounded-xl p-8 card-shadow border border-border text-center">
-            <ShieldCheck className="h-10 w-10 text-muted-foreground mx-auto mb-3" />
-            <p className="text-sm text-muted-foreground">No {filterTab !== "all" ? filterTab : ""} approval requests found.</p>
-          </div>
-        )}
+      {/* Approvals Table */}
+      <div className="bg-card rounded-xl card-shadow border border-border overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="bg-muted/30 border-b border-border text-left text-xs text-muted-foreground uppercase tracking-wider">
+                <th className="px-4 py-3 font-semibold">Ticket ID</th>
+                <th className="px-4 py-3 font-semibold">Title</th>
+                <th className="px-4 py-3 font-semibold">Category</th>
+                <th className="px-4 py-3 font-semibold">Raised By</th>
+                <th className="px-4 py-3 font-semibold">Department</th>
+                <th className="px-4 py-3 font-semibold">Center</th>
+                <th className="px-4 py-3 font-semibold">Priority</th>
+                <th className="px-4 py-3 font-semibold">Approval Status</th>
+                <th className="px-4 py-3 font-semibold">Approver</th>
+                <th className="px-4 py-3 font-semibold">Created</th>
+                <th className="px-4 py-3 font-semibold text-center">Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.length > 0 ? filtered.map((t) => {
+                const priorityColor = t.priority === "Critical" ? "bg-destructive/10 text-destructive" : t.priority === "High" ? "bg-warning/10 text-warning" : t.priority === "Medium" ? "bg-info/10 text-info" : "bg-muted text-muted-foreground";
+                return (
+                  <tr
+                    key={t.id}
+                    className="border-b border-border hover:bg-muted/20 transition-colors cursor-pointer"
+                    onClick={() => navigate(`/tickets/${(t as Ticket & { _dbId: number })._dbId}`)}
+                  >
+                    <td className="px-4 py-3 font-mono text-xs text-primary font-medium whitespace-nowrap">{t.id}</td>
+                    <td className="px-4 py-3 font-medium max-w-[200px] truncate">{t.title}</td>
+                    <td className="px-4 py-3 text-xs text-muted-foreground whitespace-nowrap">{t.category || "—"}</td>
+                    <td className="px-4 py-3 text-xs whitespace-nowrap">{t.raisedBy}</td>
+                    <td className="px-4 py-3 text-xs whitespace-nowrap">{t.assignedDept || "—"}</td>
+                    <td className="px-4 py-3 text-xs whitespace-nowrap">{t.center || "—"}</td>
+                    <td className="px-4 py-3 whitespace-nowrap">
+                      <span className={cn("px-2 py-0.5 rounded-full text-[11px] font-medium", priorityColor)}>
+                        {t.priority}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 whitespace-nowrap">
+                      <span className={cn("px-2 py-0.5 rounded-full text-[11px] font-medium", statusColors[t.approvalStatus || "Pending"])}>
+                        {t.approvalStatus || "Pending"}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-xs whitespace-nowrap">{t.approver || "—"}</td>
+                    <td className="px-4 py-3 text-xs text-muted-foreground whitespace-nowrap">{t.createdAt || "—"}</td>
+                    <td className="px-4 py-3 text-center">
+                      <button
+                        onClick={(e) => { e.stopPropagation(); navigate(`/tickets/${(t as Ticket & { _dbId: number })._dbId}`); }}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border text-xs font-medium hover:bg-muted transition-colors"
+                      >
+                        <Eye className="h-3.5 w-3.5" /> View
+                      </button>
+                    </td>
+                  </tr>
+                );
+              }) : (
+                <tr>
+                  <td colSpan={11} className="px-4 py-12 text-center">
+                    <ShieldCheck className="h-10 w-10 text-muted-foreground mx-auto mb-3" />
+                    <p className="text-sm text-muted-foreground">No {filterTab !== "all" ? filterTab : ""} approval requests found.</p>
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
 
-      {/* Ticket Detail Modal with approval actions */}
-      {selectedTicket && (
-        <TicketDetailModal
-          ticket={selectedTicket}
-          onClose={() => setSelectedTicket(null)}
-          canApprove={["Area Operations Manager", "Area Operations Manager Head", "Manager", "L1 Manager", "L2 Manager", "Finance", "Finance Head"].includes(currentUserRole)}
-          currentUserName={currentUserName}
-          onApprovalDone={() => { fetchTickets(); setSelectedTicket(null); }}
-        />
-      )}
     </div>
   );
 };

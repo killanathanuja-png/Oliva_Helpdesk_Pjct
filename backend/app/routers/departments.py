@@ -1,7 +1,8 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
+from sqlalchemy import text
 from app.database import get_db
-from app.models.models import Department, Ticket, TicketStatusEnum, StatusEnum
+from app.models.models import Department, StatusEnum
 from app.schemas.schemas import DepartmentCreate, DepartmentResponse
 
 router = APIRouter(prefix="/api/departments", tags=["Departments"])
@@ -13,15 +14,25 @@ def _next_code(db: Session) -> str:
     return f"D{num:03d}"
 
 
+def _active_ticket_count(db: Session, dept_name: str) -> int:
+    """Count active tickets for a department using raw SQL to avoid schema mismatch issues."""
+    try:
+        result = db.execute(
+            text("SELECT COUNT(*) FROM tickets WHERE assigned_dept = :dept AND status NOT IN ('Closed', 'Resolved')"),
+            {"dept": dept_name},
+        )
+        return result.scalar() or 0
+    except Exception:
+        db.rollback()
+        return 0
+
+
 @router.get("/", response_model=list[DepartmentResponse])
 def list_departments(db: Session = Depends(get_db)):
     depts = db.query(Department).order_by(Department.id).all()
     results = []
     for d in depts:
-        active = db.query(Ticket).filter(
-            Ticket.assigned_dept == d.name,
-            Ticket.status.notin_([TicketStatusEnum.Closed, TicketStatusEnum.Resolved])
-        ).count()
+        active = _active_ticket_count(db, d.name)
         results.append(DepartmentResponse(
             id=d.id, code=d.code, name=d.name, head=d.head,
             sla_hours=d.sla_hours, center_count=len(d.users),

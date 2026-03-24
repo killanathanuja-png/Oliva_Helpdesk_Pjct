@@ -28,7 +28,7 @@ const roleAccess: Record<string, string[]> = {
   "Clinic Incharge": ["/tickets", "/sla-report"],
   "Clinic Manager": ["/tickets", "/sla-report"],
   "QA": ["/tickets", "/sla-report"],
-  "Zenoti Team": ["/tickets", "/zenoti-requests", "/sla-report"],
+  "Zenoti Team": ["/tickets", "/zenoti-requests", "/finance-approvals", "/sla-report"],
   "Employee": ["/tickets"],
   "Others": ["/tickets"],
 };
