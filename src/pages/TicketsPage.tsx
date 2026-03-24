@@ -449,6 +449,7 @@ const TicketsPage = () => {
           <option>Open</option>
           <option>In Progress</option>
           <option>Pending Approval</option>
+          <option>Follow Up</option>
           <option>Resolved</option>
           <option>Closed</option>
           <option>Cancelled</option>

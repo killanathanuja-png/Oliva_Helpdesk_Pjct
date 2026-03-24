@@ -210,17 +210,33 @@ const RaiseTicketModal = ({ onClose, onSuccess, editMode, editTicket, userRole }
   // Department options from API
   const departmentOptions = apiDepartments.map((d) => d.name);
 
-  // All categories (no department filtering)
-  const categoryOptions = [...new Set(apiCategories.filter((c) => c.status !== "Inactive").map((c) => c.name))].sort();
-
-  // Subcategories - show all (sorted, deduplicated)
-  const subCategoryOptions = [...new Set(
-    apiSubcategories.filter((s) => s.status !== "Inactive").map((s) => s.name)
+  // Categories filtered by selected department
+  // If a department is selected: show categories assigned to that department + unassigned categories
+  // Exception: if department has dedicated categories (like Zenoti), show only those
+  const deptHasDedicatedCategories = department && apiCategories.some((c) => c.status !== "Inactive" && c.department === department);
+  const categoryOptions = [...new Set(
+    apiCategories
+      .filter((c) => {
+        if (c.status === "Inactive") return false;
+        if (!department) return true;
+        if (deptHasDedicatedCategories) return c.department === department;
+        return !c.department || c.department === department;
+      })
+      .map((c) => c.name)
   )].sort();
 
-  // Child categories - show all (sorted, deduplicated)
+  // Subcategories filtered by selected category
+  const subCategoryOptions = [...new Set(
+    apiSubcategories
+      .filter((s) => s.status !== "Inactive" && (!category || s.category === category))
+      .map((s) => s.name)
+  )].sort();
+
+  // Child categories filtered by selected subcategory
   const childCategoryOptions = [...new Set(
-    apiChildCategories.filter((c) => c.status !== "Inactive").map((c) => c.name)
+    apiChildCategories
+      .filter((c) => c.status !== "Inactive" && (!subCategory || c.subcategory === subCategory))
+      .map((c) => c.name)
   )].sort();
 
   // Centers from API
@@ -292,6 +308,12 @@ const RaiseTicketModal = ({ onClose, onSuccess, editMode, editTicket, userRole }
     setCategory(val);
     setSubCategory("");
     setChildCategory("");
+    // Auto-set priority to Critical for Zenoti-Finance
+    if (val.toLowerCase() === "zenoti-finance") {
+      setPriority("Critical");
+    } else {
+      setPriority("");
+    }
   };
 
   const handleSubCategoryChange2 = (val: string) => {
@@ -304,9 +326,9 @@ const RaiseTicketModal = ({ onClose, onSuccess, editMode, editTicket, userRole }
   const errField = (field: string) => showAlert && !field.trim();
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center pt-10 px-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
       <div className="fixed inset-0 bg-foreground/30" onClick={onClose} />
-      <div className="relative z-10 w-full max-w-2xl bg-card rounded-2xl border border-border shadow-xl animate-slide-in max-h-[85vh] overflow-y-auto">
+      <div className="relative z-10 w-full max-w-2xl bg-card rounded-2xl border border-border shadow-2xl animate-slide-in max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between px-6 py-4 border-b border-border sticky top-0 bg-card z-10 rounded-t-2xl">
           <h2 className="text-lg font-bold font-display">{editMode ? "Edit Ticket" : "Raise New Ticket"}</h2>
           <button onClick={onClose} className="p-2 rounded-lg hover:bg-muted transition-colors">
@@ -578,7 +600,7 @@ const RaiseTicketModal = ({ onClose, onSuccess, editMode, editTicket, userRole }
                 <ComboBox
                   value={priority}
                   onChange={(val) => setPriority(val)}
-                  options={["Critical", "High", "Medium", "Low"]}
+                  options={category.toLowerCase() === "zenoti-finance" ? ["Critical"] : ["High", "Medium", "Low"]}
                   placeholder={matchingServiceTitle ? `Suggested: ${matchingServiceTitle.priority}` : "Select priority"}
                 />
               </div>

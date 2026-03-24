@@ -6,6 +6,8 @@ from app.database import get_db
 from app.models.models import Ticket, TicketComment, User, TicketStatusEnum, PriorityEnum, CommentTypeEnum, ApprovalStatusEnum
 from app.schemas.schemas import TicketCreate, TicketUpdate, TicketResponse, TicketCommentCreate, TicketCommentResponse
 from app.auth import get_current_user
+from app.config import DEPT_EMAIL_MAP
+from app.email_utils import send_ticket_notification
 
 router = APIRouter(prefix="/api/tickets", tags=["Tickets"])
 
@@ -85,6 +87,22 @@ def create_ticket(req: TicketCreate, current_user: User = Depends(get_current_us
     db.add(ticket)
     db.commit()
     db.refresh(ticket)
+
+    # Send email notification if department has a mapped email
+    dept_email = DEPT_EMAIL_MAP.get(req.assigned_dept)
+    if dept_email:
+        send_ticket_notification(
+            to_email=dept_email,
+            ticket_code=ticket.code,
+            title=ticket.title,
+            description=ticket.description or "",
+            raised_by=current_user.name,
+            department=req.assigned_dept or "",
+            center=req.center or "",
+            priority=req.priority or "Medium",
+            category=req.category or "",
+        )
+
     return _ticket_to_response(ticket)
 
 
