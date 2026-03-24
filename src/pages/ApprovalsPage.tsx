@@ -7,13 +7,13 @@ import { CheckCircle2, XCircle, Clock, Eye, ShieldCheck } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ticketsApi } from "@/lib/api";
 import type { ApiTicket } from "@/lib/api";
-
+ 
 const statusColors: Record<string, string> = {
   Pending: "bg-warning/10 text-warning",
   Approved: "bg-success/10 text-success",
   Rejected: "bg-destructive/10 text-destructive",
 };
-
+ 
 function apiToTicket(t: ApiTicket): Ticket {
   return {
     id: t.code,
@@ -59,20 +59,20 @@ function apiToTicket(t: ApiTicket): Ticket {
     _dbId: t.id,
   } as Ticket & { _dbId: number };
 }
-
+ 
 const ApprovalsPage = () => {
   const navigate = useNavigate();
   const [data, setData] = useState<Ticket[]>([]);
   const [loading, setLoading] = useState(true);
   const [filterTab, setFilterTab] = useState<"pending" | "approved" | "rejected" | "all">("pending");
-
+ 
   const storedUser = localStorage.getItem("oliva_user");
   const parsedUser = storedUser ? JSON.parse(storedUser) : null;
   const currentUserRole = parsedUser?.role || "User";
-
+ 
   const isAomRole = hasAnyRole(currentUserRole, ["Area Operations Manager", "Area Operations Manager Head"]);
   const isFinanceRole = hasAnyRole(currentUserRole, ["Finance", "Finance Head"]);
-
+ 
   const fetchTickets = useCallback(async () => {
     try {
       const apiTickets = await ticketsApi.list();
@@ -92,22 +92,22 @@ const ApprovalsPage = () => {
       setLoading(false);
     }
   }, [isAomRole, isFinanceRole]);
-
+ 
   useEffect(() => {
     fetchTickets();
   }, [fetchTickets]);
-
+ 
   const filtered = data.filter((t) => {
     if (filterTab === "pending") return t.approvalStatus === "Pending" || !t.approvalStatus;
     if (filterTab === "approved") return t.approvalStatus === "Approved";
     if (filterTab === "rejected") return t.approvalStatus === "Rejected";
     return true;
   });
-
+ 
   const pendingCount = data.filter((t) => t.approvalStatus === "Pending" || !t.approvalStatus).length;
   const approvedCount = data.filter((t) => t.approvalStatus === "Approved").length;
   const rejectedCount = data.filter((t) => t.approvalStatus === "Rejected").length;
-
+ 
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -115,11 +115,11 @@ const ApprovalsPage = () => {
       </div>
     );
   }
-
+ 
   return (
     <div className="space-y-4 animate-fade-in">
       <h1 className="text-xl font-bold font-display">Pending Approvals</h1>
-
+ 
       {/* Filter tabs */}
       <div className="flex gap-1 bg-muted/50 rounded-lg p-1">
         {([
@@ -149,9 +149,9 @@ const ApprovalsPage = () => {
           </button>
         ))}
       </div>
-
+ 
       <p className="text-xs text-muted-foreground">{filtered.length} request{filtered.length !== 1 && "s"} found</p>
-
+ 
       {/* Approvals Table */}
       <div className="bg-card rounded-xl card-shadow border border-border overflow-hidden">
         <div className="overflow-x-auto">
@@ -220,9 +220,10 @@ const ApprovalsPage = () => {
           </table>
         </div>
       </div>
-
+ 
     </div>
   );
 };
-
+ 
 export default ApprovalsPage;
+ 
