@@ -48,8 +48,8 @@ function apiToTicket(t: ApiTicket): Ticket {
     assignedTo: t.assigned_to || "Unassigned",
     assignedDept: t.assigned_dept || "",
     center: t.center || "",
-    createdAt: t.created_at ? new Date(t.created_at).toISOString().split("T")[0] : "",
-    updatedAt: t.updated_at ? new Date(t.updated_at).toISOString().split("T")[0] : "",
+    createdAt: t.created_at ? new Date(t.created_at).toLocaleString() : "",
+    updatedAt: t.updated_at ? new Date(t.updated_at).toLocaleString() : "",
     dueDate: t.due_date ? new Date(t.due_date).toISOString().split("T")[0] : "",
     slaBreached: t.sla_breached,
     approvalRequired: t.approval_required,
@@ -177,7 +177,8 @@ const TicketsPage = () => {
   });
 
   const filtered = tabFiltered.filter((t) => {
-    const matchSearch = t.title.toLowerCase().includes(search.toLowerCase()) || t.id.toLowerCase().includes(search.toLowerCase());
+    const q = search.toLowerCase();
+    const matchSearch = t.title.toLowerCase().includes(q) || t.id.toLowerCase().includes(q) || ((t as Ticket & { zenotiCustomerId?: string }).zenotiCustomerId || "").toLowerCase().includes(q);
     const matchStatus = statusFilter === "All" || t.status === statusFilter;
     const matchPriority = priorityFilter === "All" || t.priority === priorityFilter;
     const matchDept = deptFilter === "All" || t.assignedDept === deptFilter;
@@ -377,13 +378,16 @@ const TicketsPage = () => {
                 "Ticket ID": t.id,
                 "Title": t.title,
                 "Category": t.category,
+                "Sub-Category": t.subCategory || "",
+                "Child Category": (t as Ticket & { zenotiChildCategory?: string }).zenotiChildCategory || "",
                 "Priority": t.priority,
                 "Status": t.status,
                 "Raised By": t.raisedBy,
                 "Assigned To": t.assignedTo,
                 "Department": t.assignedDept,
                 "Center": t.center,
-                "Created": t.createdAt,
+                "Created Timestamp": t.createdAt,
+                "Closed Timestamp": (t.status === "Closed" || t.status === "Resolved") ? t.updatedAt : "",
                 "SLA Breached": t.slaBreached ? "Yes" : "No",
               }));
               exportToExcel(exportData, "Tickets", "Tickets");

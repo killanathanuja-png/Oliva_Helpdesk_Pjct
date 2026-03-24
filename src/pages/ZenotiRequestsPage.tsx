@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import type { Ticket } from "@/data/dummyData";
-import { CheckCircle2, Eye, Wrench, Clock, XCircle, PackageCheck } from "lucide-react";
+import { CheckCircle2, Eye, Wrench, Clock, XCircle, PackageCheck, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ticketsApi } from "@/lib/api";
 import type { ApiTicket } from "@/lib/api";
@@ -63,6 +63,7 @@ const ZenotiRequestsPage = () => {
   const [data, setData] = useState<(Ticket & { _dbId: number })[]>([]);
   const [loading, setLoading] = useState(true);
   const [filterTab, setFilterTab] = useState<"active" | "resolved" | "closed" | "all">("active");
+  const [searchQuery, setSearchQuery] = useState("");
 
   const fetchTickets = useCallback(async () => {
     try {
@@ -90,9 +91,18 @@ const ZenotiRequestsPage = () => {
   }, [fetchTickets]);
 
   const filtered = data.filter((t) => {
-    if (filterTab === "active") return t.status === "In Progress" || t.status === "Open";
-    if (filterTab === "resolved") return t.status === "Resolved";
-    if (filterTab === "closed") return t.status === "Closed";
+    const matchTab = filterTab === "active" ? (t.status === "In Progress" || t.status === "Open")
+      : filterTab === "resolved" ? t.status === "Resolved"
+      : filterTab === "closed" ? t.status === "Closed"
+      : true;
+    if (!matchTab) return false;
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      return (t.id || "").toLowerCase().includes(q) ||
+        (t.title || "").toLowerCase().includes(q) ||
+        (t.zenotiCustomerId || "").toLowerCase().includes(q) ||
+        (t.raisedBy || "").toLowerCase().includes(q);
+    }
     return true;
   });
 
@@ -150,6 +160,18 @@ const ZenotiRequestsPage = () => {
         ))}
       </div>
 
+      {/* Search */}
+      <div className="relative max-w-sm">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        <input
+          type="text"
+          placeholder="Search by Ticket ID, Title, Client ID..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          className="w-full pl-9 pr-3 py-2 rounded-lg border border-border bg-card text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+        />
+      </div>
+
       <p className="text-xs text-muted-foreground">{filtered.length} request{filtered.length !== 1 && "s"} found</p>
 
       {/* Requests Table */}
@@ -160,6 +182,7 @@ const ZenotiRequestsPage = () => {
               <tr className="bg-muted/30 border-b border-border text-left text-xs text-muted-foreground uppercase tracking-wider">
                 <th className="px-4 py-3 font-semibold">Ticket ID</th>
                 <th className="px-4 py-3 font-semibold">Title</th>
+                <th className="px-4 py-3 font-semibold">Client ID</th>
                 <th className="px-4 py-3 font-semibold">Category</th>
                 <th className="px-4 py-3 font-semibold">Priority</th>
                 <th className="px-4 py-3 font-semibold">Status</th>
@@ -181,6 +204,7 @@ const ZenotiRequestsPage = () => {
                   >
                     <td className="px-4 py-3 font-mono text-xs text-primary font-medium whitespace-nowrap">{t.id}</td>
                     <td className="px-4 py-3 font-medium max-w-[200px] truncate">{t.title}</td>
+                    <td className="px-4 py-3 text-xs font-mono whitespace-nowrap">{t.zenotiCustomerId || "—"}</td>
                     <td className="px-4 py-3 text-xs whitespace-nowrap">
                       {(t.category?.toLowerCase().startsWith("zenoti") || t.zenotiMainCategory?.toLowerCase().startsWith("zenoti")) ? (
                         <span className="px-2 py-0.5 rounded-full text-[11px] font-medium bg-purple-100 text-purple-700">
@@ -220,7 +244,7 @@ const ZenotiRequestsPage = () => {
                 );
               }) : (
                 <tr>
-                  <td colSpan={10} className="px-4 py-12 text-center">
+                  <td colSpan={11} className="px-4 py-12 text-center">
                     <Wrench className="h-10 w-10 text-muted-foreground mx-auto mb-3" />
                     <p className="text-sm text-muted-foreground">No {filterTab !== "all" ? filterTab : ""} Zenoti requests found.</p>
                   </td>

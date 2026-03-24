@@ -248,8 +248,8 @@ const RaiseTicketModal = ({ onClose, onSuccess, editMode, editTicket, userRole }
     : null;
 
   const zenotiFieldsFilled = () => {
-    const { location, mobileNumber, customerId, customerName, billedBy, invoiceNo, invoiceDate, amount } = zenotiFields;
-    return [location, category, subCategory, childCategory, mobileNumber, customerId, customerName, billedBy, invoiceNo, invoiceDate, amount].every((v) => v.trim() !== "");
+    const { location, mobileNumber, customerId, customerName, billedBy, invoiceNo, invoiceDate, zenotiDescription } = zenotiFields;
+    return [location, category, subCategory, childCategory, mobileNumber, customerId, customerName, billedBy, invoiceNo, invoiceDate, zenotiDescription].every((v) => v.trim() !== "");
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -400,16 +400,6 @@ const RaiseTicketModal = ({ onClose, onSuccess, editMode, editTicket, userRole }
         ) : (
           <form className="p-6 space-y-4" onSubmit={handleSubmit}>
             <div>
-              <label className={labelClass}>Title *</label>
-              <input type="text" required value={title} onChange={(e) => setTitle(e.target.value)} className={inputClass} placeholder="Brief description of the issue" />
-            </div>
-
-            <div>
-              <label className={labelClass}>Description *</label>
-              <textarea rows={3} required value={description} onChange={(e) => setDescription(e.target.value)} className={cn(inputClass, "resize-none")} placeholder="Detailed description..." />
-            </div>
-
-            <div>
               <label className={labelClass}>Department *</label>
               <ComboBox
                 value={department}
@@ -418,6 +408,20 @@ const RaiseTicketModal = ({ onClose, onSuccess, editMode, editTicket, userRole }
                 placeholder="Select department"
               />
             </div>
+
+            {!isZenoti && (
+              <div>
+                <label className={labelClass}>Title *</label>
+                <input type="text" required value={title} onChange={(e) => setTitle(e.target.value)} className={inputClass} placeholder="Brief description of the issue" />
+              </div>
+            )}
+
+            {!isZenoti && (
+              <div>
+                <label className={labelClass}>Description *</label>
+                <textarea rows={3} required value={description} onChange={(e) => setDescription(e.target.value)} className={cn(inputClass, "resize-none")} placeholder="Detailed description..." />
+              </div>
+            )}
 
             {/* Category / Sub-Category / Child Category - for non-Zenoti departments */}
             {!isZenoti && (
@@ -568,12 +572,12 @@ const RaiseTicketModal = ({ onClose, onSuccess, editMode, editTicket, userRole }
                     />
                   </div>
                   <div>
-                    <label className={labelClass}>Amount *</label>
+                    <label className={labelClass}>Amount</label>
                     <input
                       type="text"
                       value={zenotiFields.amount}
                       onChange={(e) => setZenotiFields({ ...zenotiFields, amount: e.target.value })}
-                      className={cn(inputClass, errField(zenotiFields.amount) && "border-destructive ring-1 ring-destructive/30")}
+                      className={inputClass}
                       placeholder="Enter amount"
                     />
                   </div>
@@ -581,12 +585,12 @@ const RaiseTicketModal = ({ onClose, onSuccess, editMode, editTicket, userRole }
 
                 {/* Zenoti description */}
                 <div>
-                  <label className={labelClass}>Description</label>
+                  <label className={labelClass}>Description *</label>
                   <textarea
                     rows={2}
                     value={zenotiFields.zenotiDescription}
                     onChange={(e) => setZenotiFields({ ...zenotiFields, zenotiDescription: e.target.value })}
-                    className={cn(inputClass, "resize-none")}
+                    className={cn(inputClass, "resize-none", errField(zenotiFields.zenotiDescription) && "border-destructive ring-1 ring-destructive/30")}
                     placeholder="Additional details for Zenoti team..."
                   />
                 </div>
@@ -594,7 +598,7 @@ const RaiseTicketModal = ({ onClose, onSuccess, editMode, editTicket, userRole }
             )}
 
 
-            <div className="grid grid-cols-2 gap-3">
+            <div className={cn("grid gap-3", isZenoti ? "grid-cols-1" : "grid-cols-2")}>
               <div>
                 <label className={labelClass}>Priority *</label>
                 <ComboBox
@@ -604,15 +608,17 @@ const RaiseTicketModal = ({ onClose, onSuccess, editMode, editTicket, userRole }
                   placeholder={matchingServiceTitle ? `Suggested: ${matchingServiceTitle.priority}` : "Select priority"}
                 />
               </div>
-              <div>
-                <label className={labelClass}>Center *</label>
-                <ComboBox
-                  value={center}
-                  onChange={(val) => setCenter(val)}
-                  options={centerOptions}
-                  placeholder="Select center"
-                />
-              </div>
+              {!isZenoti && (
+                <div>
+                  <label className={labelClass}>Center *</label>
+                  <ComboBox
+                    value={center}
+                    onChange={(val) => setCenter(val)}
+                    options={centerOptions}
+                    placeholder="Select center"
+                  />
+                </div>
+              )}
             </div>
 
             <div>
