@@ -243,10 +243,9 @@ const RaiseTicketModal = ({ onClose, onSuccess, editMode, editTicket, userRole }
     apiChildCategories
       .filter((c) => {
         if (c.status === "Inactive") return false;
-        if (!subCategory) return true;
-        // If subcategory has linked children, show those; otherwise show all
-        const hasLinked = apiChildCategories.some((x) => x.status !== "Inactive" && x.subcategory === subCategory);
-        return hasLinked ? c.subcategory === subCategory : !c.subcategory;
+        if (!subCategory) return false;
+        // Show children linked to selected subcategory
+        return c.subcategory === subCategory;
       })
       .map((c) => c.name)
   )].sort();
@@ -523,9 +522,13 @@ const RaiseTicketModal = ({ onClose, onSuccess, editMode, editTicket, userRole }
                   <div>
                     <label className={labelClass}>Client Mobile No *</label>
                     <input
-                      type="text"
+                      type="tel"
+                      maxLength={10}
                       value={zenotiFields.mobileNumber}
-                      onChange={(e) => setZenotiFields({ ...zenotiFields, mobileNumber: e.target.value })}
+                      onChange={(e) => {
+                        const val = e.target.value.replace(/\D/g, "").slice(0, 10);
+                        setZenotiFields({ ...zenotiFields, mobileNumber: val });
+                      }}
                       className={cn(inputClass, errField(zenotiFields.mobileNumber) && "border-destructive ring-1 ring-destructive/30")}
                       placeholder="Enter mobile number"
                     />

@@ -102,6 +102,7 @@ const TicketsPage = () => {
   const currentUser = parsedUser?.name || "User";
   const currentUserRole = parsedUser?.role || "User";
   const currentUserDept = parsedUser?.department || "";
+  const currentUserCenter = parsedUser?.center || "";
 
   const fetchTickets = useCallback(async () => {
     try {
@@ -161,8 +162,15 @@ const TicketsPage = () => {
         ? data // these roles see all tickets
         : (() => {
             const allowedDepts = getUserDepts();
+            const isAom = hasAnyRole(currentUserRole, ["Area Operations Manager", "Area Operations Manager Head"]);
             return allowedDepts.length > 0
-              ? data.filter((t) => allowedDepts.includes(t.assignedDept) || t.raisedBy === currentUser)
+              ? data.filter((t) => {
+                  if (t.raisedBy === currentUser) return true;
+                  if (!allowedDepts.includes(t.assignedDept)) return false;
+                  // AOM only sees tickets from their own center
+                  if (isAom && currentUserCenter && t.center && t.center !== currentUserCenter) return false;
+                  return true;
+                })
               : currentUserDept
                 ? data.filter((t) => t.assignedDept === currentUserDept || t.raisedByDept === currentUserDept || t.raisedBy === currentUser)
                 : data.filter((t) => t.raisedBy === currentUser);
