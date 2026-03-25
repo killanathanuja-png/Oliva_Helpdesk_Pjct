@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { isSuperRole } from "@/lib/roles";
+import { isSuperRole, hasAnyRole } from "@/lib/roles";
 import { ticketsApi, slaApi } from "@/lib/api";
 import type { ApiTicket, ApiSLAConfig } from "@/lib/api";
 import { cn } from "@/lib/utils";
@@ -72,6 +72,7 @@ const SLAReportPage = () => {
   const storedUser = localStorage.getItem("oliva_user");
   const parsedUser = storedUser ? JSON.parse(storedUser) : null;
   const userRole = parsedUser?.role || "User";
+  const userName = parsedUser?.name || "";
   const userDept = parsedUser?.department || "";
 
   const [tickets, setTickets] = useState<ApiTicket[]>([]);
@@ -94,7 +95,12 @@ const SLAReportPage = () => {
           return depts;
         };
         const allowedDepts = getRoleDepts();
-        const deptTickets = allowedDepts.length === 0 ? t : t.filter((tk) => allowedDepts.includes(tk.assigned_dept || ""));
+        const isEmployeeRole = hasAnyRole(userRole, ["Employee", "Others"]);
+        const deptTickets = isEmployeeRole
+          ? t.filter((tk) => tk.raised_by === userName)
+          : allowedDepts.length === 0
+            ? t
+            : t.filter((tk) => allowedDepts.includes(tk.assigned_dept || ""));
         setTickets(deptTickets);
         setSlaConfigs(s);
       })
@@ -155,7 +161,7 @@ const SLAReportPage = () => {
       return order.indexOf(a.priority) - order.indexOf(b.priority);
     });
 
-  const breachedTickets = filtered.filter((t) => t.sla_breached);
+
   const departments = [...new Set(tickets.map((t) => t.assigned_dept).filter(Boolean))] as string[];
 
   // Average resolution time

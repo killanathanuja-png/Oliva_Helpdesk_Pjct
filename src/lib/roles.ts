@@ -16,25 +16,25 @@ const roleAccess: Record<string, string[]> = {
   "Super Admin": ADMIN_PATHS,
   "Global Admin": ADMIN_PATHS,
   "Super User": ADMIN_PATHS,
-  "Help Desk Admin": ["/", "/tickets", "/sla-report", "/admin/users", "/admin/departments", "/admin/centers", "/admin/categories", "/admin/subcategories", "/admin/service-titles"],
-  "Helpdesk In-charge": ["/", "/tickets", "/sla-report", "/admin/users", "/admin/departments", "/admin/centers"],
+  "Help Desk Admin": ["/tickets", "/sla-report", "/admin/users", "/admin/departments", "/admin/centers", "/admin/categories", "/admin/subcategories", "/admin/service-titles"],
+  "Helpdesk In-charge": ["/tickets", "/sla-report", "/admin/users", "/admin/departments", "/admin/centers"],
   "Area Operations Manager": ["/tickets", "/approvals", "/sla-report"],
-  "Area Operations Manager Head": ["/", "/tickets", "/approvals", "/sla-report"],
+  "Area Operations Manager Head": ["/tickets", "/approvals", "/sla-report"],
   "Manager": ["/tickets", "/sla-report", "/approvals"],
   "L1 Manager": ["/tickets", "/sla-report", "/approvals"],
   "L2 Manager": ["/tickets", "/sla-report", "/approvals"],
   "Finance": ["/tickets", "/finance-approvals", "/sla-report"],
-  "Finance Head": ["/", "/tickets", "/finance-approvals", "/sla-report"],
+  "Finance Head": ["/tickets", "/finance-approvals", "/sla-report"],
   "Clinic Incharge": ["/tickets", "/sla-report"],
   "Clinic Manager": ["/tickets", "/sla-report"],
   "QA": ["/tickets", "/sla-report"],
   "Zenoti Team": ["/tickets", "/zenoti-requests", "/finance-approvals", "/sla-report"],
-  "Employee": ["/tickets"],
-  "Others": ["/tickets"],
+  "Employee": ["/tickets", "/sla-report"],
+  "Others": ["/tickets", "/sla-report"],
 };
 
 // Default access for unknown roles
-const DEFAULT_ACCESS = ["/tickets"];
+const DEFAULT_ACCESS = ["/", "/tickets", "/sla-report"];
 
 /**
  * Check if a user's role string (possibly comma-separated) includes any of the given roles.
@@ -45,7 +45,7 @@ export function hasAnyRole(userRole: string, roles: string[]): boolean {
 }
 
 const SUPER_ROLES = ["Super Admin", "Global Admin", "Super User"];
-const ADMIN_LIKE_ROLES = [...SUPER_ROLES, "Help Desk Admin", "Helpdesk In-charge", "Area Operations Manager Head", "Finance Head"];
+const ADMIN_LIKE_ROLES = [...SUPER_ROLES];
 
 export function isSuperRole(userRole: string): boolean {
   return hasAnyRole(userRole, SUPER_ROLES);
