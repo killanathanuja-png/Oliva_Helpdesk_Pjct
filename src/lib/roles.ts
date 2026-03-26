@@ -16,25 +16,25 @@ const roleAccess: Record<string, string[]> = {
   "Super Admin": ADMIN_PATHS,
   "Global Admin": ADMIN_PATHS,
   "Super User": ADMIN_PATHS,
-  "Help Desk Admin": ["/tickets", "/sla-report", "/admin/users", "/admin/departments", "/admin/centers", "/admin/categories", "/admin/subcategories", "/admin/service-titles"],
-  "Helpdesk In-charge": ["/tickets", "/sla-report", "/admin/users", "/admin/departments", "/admin/centers"],
-  "Area Operations Manager": ["/tickets", "/approvals", "/sla-report"],
-  "Area Operations Manager Head": ["/tickets", "/approvals", "/sla-report"],
-  "Manager": ["/tickets", "/sla-report", "/approvals"],
-  "L1 Manager": ["/tickets", "/sla-report", "/approvals"],
-  "L2 Manager": ["/tickets", "/sla-report", "/approvals"],
-  "Finance": ["/tickets", "/finance-approvals", "/sla-report"],
-  "Finance Head": ["/tickets", "/finance-approvals", "/sla-report"],
-  "Clinic Incharge": ["/tickets", "/sla-report"],
-  "Clinic Manager": ["/tickets", "/sla-report"],
-  "QA": ["/tickets", "/sla-report"],
-  "Zenoti Team": ["/tickets", "/zenoti-requests", "/finance-approvals", "/sla-report"],
-  "Employee": ["/tickets", "/sla-report"],
-  "Others": ["/tickets", "/sla-report"],
+  "Help Desk Admin": ["/", "/tickets", "/sla-report", "/admin/users", "/admin/departments", "/admin/centers", "/admin/categories", "/admin/subcategories", "/admin/service-titles"],
+  "Helpdesk In-charge": ["/", "/tickets", "/sla-report", "/admin/users", "/admin/departments", "/admin/centers"],
+  "Area Operations Manager": ["/", "/tickets", "/approvals", "/sla-report"],
+  "Area Operations Manager Head": ["/", "/tickets", "/approvals", "/sla-report"],
+  "Manager": ["/", "/tickets", "/sla-report", "/approvals"],
+  "L1 Manager": ["/", "/tickets", "/sla-report", "/approvals"],
+  "L2 Manager": ["/", "/tickets", "/sla-report", "/approvals"],
+  "Finance": ["/", "/tickets", "/finance-approvals", "/sla-report"],
+  "Finance Head": ["/", "/tickets", "/finance-approvals", "/sla-report"],
+  "Clinic Incharge": ["/", "/tickets", "/sla-report"],
+  "Clinic Manager": ["/", "/tickets", "/sla-report"],
+  "QA": ["/", "/tickets", "/sla-report"],
+  "Zenoti Team": ["/", "/tickets", "/zenoti-requests", "/finance-approvals", "/sla-report"],
+  "Employee": ["/", "/tickets", "/sla-report"],
+  "Others": ["/", "/tickets", "/sla-report"],
 };
 
 // Default access for unknown roles
-const DEFAULT_ACCESS = ["/tickets", "/sla-report"];
+const DEFAULT_ACCESS = ["/", "/tickets", "/sla-report"];
 
 /**
  * Check if a user's role string (possibly comma-separated) includes any of the given roles.

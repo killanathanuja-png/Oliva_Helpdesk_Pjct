@@ -207,8 +207,8 @@ const RaiseTicketModal = ({ onClose, onSuccess, editMode, editTicket, userRole }
  
   const isZenoti = department === "Zenoti";
  
-  // Department options from API
-  const departmentOptions = apiDepartments.map((d) => d.name);
+  // Department options from API + "Others"
+  const departmentOptions = [...apiDepartments.map((d) => d.name), "Others"];
  
   // Categories filtered by selected department
   // If a department is selected: show categories assigned to that department + unassigned categories
@@ -251,7 +251,7 @@ const RaiseTicketModal = ({ onClose, onSuccess, editMode, editTicket, userRole }
   )].sort();
  
   // Centers from API
-  const centerOptions = apiCenters.map((c) => c.name);
+  const centerOptions = ["Select All", ...apiCenters.map((c) => c.name)];
  
   // Service titles filtered by subcategory (for priority lookup)
   const matchingServiceTitle = subCategory
@@ -432,7 +432,7 @@ const RaiseTicketModal = ({ onClose, onSuccess, editMode, editTicket, userRole }
  
             {/* Category / Sub-Category / Child Category - for non-Zenoti departments */}
             {!isZenoti && (
-              <div className="grid grid-cols-3 gap-3">
+              <div className={cn("grid gap-3", department === "Quality" ? "grid-cols-2" : "grid-cols-3")}>
                 <div>
                   <label className={labelClass}>Category</label>
                   <ComboBox
@@ -451,6 +451,7 @@ const RaiseTicketModal = ({ onClose, onSuccess, editMode, editTicket, userRole }
                     placeholder="Select sub-category"
                   />
                 </div>
+                {department !== "Quality" && (
                 <div>
                   <label className={labelClass}>Child Category</label>
                   <ComboBox
@@ -460,6 +461,7 @@ const RaiseTicketModal = ({ onClose, onSuccess, editMode, editTicket, userRole }
                     placeholder="Select child category"
                   />
                 </div>
+                )}
               </div>
             )}
  
@@ -613,7 +615,7 @@ const RaiseTicketModal = ({ onClose, onSuccess, editMode, editTicket, userRole }
                   <label className={labelClass}>Center <span className="text-destructive">*</span></label>
                   <ComboBox
                     value={center}
-                    onChange={(val) => setCenter(val)}
+                    onChange={(val) => setCenter(val === "Select All" ? "All Centers" : val)}
                     options={centerOptions}
                     placeholder="Select center"
                   />

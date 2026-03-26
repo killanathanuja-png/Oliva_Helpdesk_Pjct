@@ -462,10 +462,13 @@ export interface ApiDashboardStats {
 }
 
 export const dashboardApi = {
-  stats: (department?: string) =>
-    request<ApiDashboardStats>(
-      department ? `/dashboard/stats?department=${encodeURIComponent(department)}` : "/dashboard/stats"
-    ),
+  stats: (params?: { department?: string; user_id?: number }) => {
+    const qs = new URLSearchParams();
+    if (params?.department) qs.set("department", params.department);
+    if (params?.user_id) qs.set("user_id", String(params.user_id));
+    const q = qs.toString();
+    return request<ApiDashboardStats>(`/dashboard/stats${q ? `?${q}` : ""}`);
+  },
 };
 
 // --- SLA Config ---

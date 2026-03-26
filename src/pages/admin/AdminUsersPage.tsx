@@ -273,17 +273,17 @@ const AdminUsersPage = () => {
       // Fetch departments
       try {
         const apiDepts = await departmentsApi.list();
-        if (!cancelled) setDepartmentOptions(apiDepts.length > 0 ? apiDepts.map((d) => d.name) : dummyDepartments.map((d) => d.name));
+        if (!cancelled) setDepartmentOptions(apiDepts.length > 0 ? [...apiDepts.map((d) => d.name), "Others"] : [...dummyDepartments.map((d) => d.name), "Others"]);
       } catch {
-        if (!cancelled) setDepartmentOptions(dummyDepartments.map((d) => d.name));
+        if (!cancelled) setDepartmentOptions([...dummyDepartments.map((d) => d.name), "Others"]);
       }
 
       // Fetch centers
       try {
         const apiCenters = await centersApi.list();
-        if (!cancelled) setCenterOptions(apiCenters.length > 0 ? apiCenters.map((c) => c.name) : dummyCenters.map((c) => c.name));
+        if (!cancelled) setCenterOptions(apiCenters.length > 0 ? ["Select All", ...apiCenters.map((c) => c.name)] : ["Select All", ...dummyCenters.map((c) => c.name)]);
       } catch {
-        if (!cancelled) setCenterOptions(dummyCenters.map((c) => c.name));
+        if (!cancelled) setCenterOptions(["Select All", ...dummyCenters.map((c) => c.name)]);
       }
 
       // Fetch roles

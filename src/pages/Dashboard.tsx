@@ -100,21 +100,23 @@ const Dashboard = () => {
   const [stats, setStats] = useState<ApiDashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
 
+  const userId = user?.id;
+
   useEffect(() => {
-    // Map roles to departments for filtering
-    const getRoleDept = (): string | undefined => {
-      if (isSuperRole(userRole)) return undefined; // see all
-      const roles = userRole.split(",").map((r: string) => r.trim());
-      const zenotiRoles = ["Zenoti Team", "Area Operations Manager", "Area Operations Manager Head", "Finance", "Finance Head"];
-      if (roles.some((r: string) => zenotiRoles.includes(r))) return "Zenoti";
-      return userDept || undefined;
-    };
-    const dept = getRoleDept();
-    dashboardApi.stats(dept)
-      .then((data) => setStats(data))
-      .catch(() => {})
-      .finally(() => setLoading(false));
-  }, [userRole, userDept]);
+    if (isSuperRole(userRole)) {
+      // Super admin sees all
+      dashboardApi.stats()
+        .then((data) => setStats(data))
+        .catch(() => {})
+        .finally(() => setLoading(false));
+    } else {
+      // All other users see their own tickets (raised by or assigned to them)
+      dashboardApi.stats({ user_id: userId })
+        .then((data) => setStats(data))
+        .catch(() => {})
+        .finally(() => setLoading(false));
+    }
+  }, [userRole, userId]);
 
   if (loading) {
     return (
@@ -141,7 +143,6 @@ const Dashboard = () => {
     { label: "Total Tickets", value: stats.total_tickets, icon: Ticket, color: "text-primary", bgColor: "bg-primary/10", borderColor: "border-l-primary" },
     { label: "Active", value: activeTickets, icon: Activity, color: "text-info", bgColor: "bg-info/10", borderColor: "border-l-info" },
     { label: "Resolved", value: stats.resolved + stats.closed, icon: CheckCircle2, color: "text-success", bgColor: "bg-success/10", borderColor: "border-l-success" },
-    { label: "SLA Breached", value: stats.sla_breached, icon: AlertTriangle, color: "text-destructive", bgColor: "bg-destructive/10", borderColor: "border-l-destructive" },
   ];
 
   const statusCards = [
@@ -156,7 +157,6 @@ const Dashboard = () => {
     { label: "Resolved", value: stats.resolved, icon: CheckCircle2, color: "text-success", bgColor: "bg-success/10" },
     { label: "Closed", value: stats.closed, icon: XCircle, color: "text-muted-foreground", bgColor: "bg-muted" },
     { label: "Rejected", value: stats.rejected, icon: Ban, color: "text-destructive", bgColor: "bg-destructive/10" },
-    { label: "SLA Breached", value: stats.sla_breached, icon: RotateCcw, color: "text-destructive", bgColor: "bg-destructive/10" },
   ];
 
   return (
@@ -211,35 +211,8 @@ const Dashboard = () => {
         ))}
       </div>
 
-      {/* ── SLA Overview + Priority Pie + Status Distribution ── */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        {/* SLA Overview */}
-        <div className="bg-card rounded-xl p-5 card-shadow border border-border">
-          <div className="flex items-center gap-2 mb-4">
-            <ShieldCheck className="h-4 w-4 text-primary" />
-            <h3 className="font-semibold text-sm">SLA Overview</h3>
-          </div>
-          <div className="flex items-center justify-center mb-4">
-            <SLAGauge pct={stats.sla_compliance_pct} />
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="rounded-lg bg-success/10 p-3 text-center">
-              <p className="text-lg font-bold text-success">{stats.total_tickets - stats.sla_breached}</p>
-              <p className="text-[10px] text-muted-foreground font-medium">On Track</p>
-            </div>
-            <div className="rounded-lg bg-destructive/10 p-3 text-center">
-              <p className="text-lg font-bold text-destructive">{stats.sla_breached}</p>
-              <p className="text-[10px] text-muted-foreground font-medium">Breached</p>
-            </div>
-          </div>
-          {stats.avg_resolution_hours != null && (
-            <div className="mt-3 rounded-lg bg-primary/5 p-3 text-center">
-              <p className="text-lg font-bold text-primary">{stats.avg_resolution_hours}h</p>
-              <p className="text-[10px] text-muted-foreground font-medium">Avg Resolution Time</p>
-            </div>
-          )}
-        </div>
-
+      {/* ── Priority Pie + Status Distribution ── */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {/* Priority Distribution */}
         <div className="bg-card rounded-xl p-5 card-shadow border border-border">
           <div className="flex items-center gap-2 mb-4">
@@ -305,7 +278,7 @@ const Dashboard = () => {
         </div>
       </div>
 
-      {/* ── Department Bar Chart + Department SLA Compliance ── */}
+      {/* ── Department Bar Chart + Top Centers ── */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {/* Department-wise Tickets */}
         <div className="bg-card rounded-xl p-5 card-shadow border border-border">
@@ -319,87 +292,6 @@ const Dashboard = () => {
               <Bar dataKey="count" fill="hsl(var(--chart-1))" radius={[4, 4, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
-        </div>
-
-        {/* Department SLA Compliance */}
-        <div className="bg-card rounded-xl p-5 card-shadow border border-border">
-          <h3 className="font-semibold text-sm mb-4">Department SLA Compliance</h3>
-          {(stats.dept_sla_compliance || []).length > 0 ? (
-            <div className="space-y-4">
-              {(stats.dept_sla_compliance || []).map((dept) => (
-                <div key={dept.name}>
-                  <div className="flex items-center justify-between mb-1.5">
-                    <span className="text-sm font-medium">{dept.name}</span>
-                    <div className="flex items-center gap-3 text-xs">
-                      <span className="text-muted-foreground">{dept.total} tickets</span>
-                      <span className={cn("font-bold", dept.compliance_pct >= 90 ? "text-success" : dept.compliance_pct >= 70 ? "text-warning" : "text-destructive")}>
-                        {dept.compliance_pct}%
-                      </span>
-                    </div>
-                  </div>
-                  <div className="w-full h-2.5 bg-muted rounded-full overflow-hidden">
-                    <div className="h-full rounded-full transition-all duration-700"
-                      style={{
-                        width: `${dept.compliance_pct}%`,
-                        backgroundColor: dept.compliance_pct >= 90 ? "hsl(145, 65%, 42%)" : dept.compliance_pct >= 70 ? "hsl(38, 92%, 50%)" : "hsl(0, 72%, 55%)",
-                      }}
-                    />
-                  </div>
-                  <div className="flex items-center gap-3 mt-1 text-[10px] text-muted-foreground">
-                    <span className="text-success">{dept.on_track} on track</span>
-                    <span className="text-destructive">{dept.breached} breached</span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="flex items-center justify-center h-[200px] text-sm text-muted-foreground">No data</div>
-          )}
-        </div>
-      </div>
-
-      {/* ── Priority SLA Compliance + Top Centers ── */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {/* Priority SLA Compliance */}
-        <div className="bg-card rounded-xl p-5 card-shadow border border-border">
-          <h3 className="font-semibold text-sm mb-4">Priority SLA Compliance</h3>
-          {(stats.priority_sla_compliance || []).length > 0 ? (
-            <div className="space-y-4">
-              {(stats.priority_sla_compliance || []).map((pri) => {
-                const dotColor = pri.name === "Critical" ? "bg-destructive" : pri.name === "High" ? "bg-warning" : pri.name === "Medium" ? "bg-info" : "bg-muted-foreground";
-                return (
-                  <div key={pri.name}>
-                    <div className="flex items-center justify-between mb-1.5">
-                      <div className="flex items-center gap-2">
-                        <span className={cn("h-2.5 w-2.5 rounded-full", dotColor)} />
-                        <span className="text-sm font-medium">{pri.name}</span>
-                      </div>
-                      <div className="flex items-center gap-3 text-xs">
-                        <span className="text-muted-foreground">{pri.total} tickets</span>
-                        <span className={cn("font-bold", pri.compliance_pct >= 90 ? "text-success" : pri.compliance_pct >= 70 ? "text-warning" : "text-destructive")}>
-                          {pri.compliance_pct}%
-                        </span>
-                      </div>
-                    </div>
-                    <div className="w-full h-2.5 bg-muted rounded-full overflow-hidden">
-                      <div className="h-full rounded-full transition-all duration-700"
-                        style={{
-                          width: `${pri.compliance_pct}%`,
-                          backgroundColor: pri.compliance_pct >= 90 ? "hsl(145, 65%, 42%)" : pri.compliance_pct >= 70 ? "hsl(38, 92%, 50%)" : "hsl(0, 72%, 55%)",
-                        }}
-                      />
-                    </div>
-                    <div className="flex items-center gap-3 mt-1 text-[10px] text-muted-foreground">
-                      <span className="text-success">{pri.on_track} on track</span>
-                      <span className="text-destructive">{pri.breached} breached</span>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          ) : (
-            <div className="flex items-center justify-center h-[200px] text-sm text-muted-foreground">No data</div>
-          )}
         </div>
 
         {/* Top Centers */}

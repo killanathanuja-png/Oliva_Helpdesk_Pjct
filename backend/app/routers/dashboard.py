@@ -12,11 +12,14 @@ router = APIRouter(prefix="/api/dashboard", tags=["Dashboard"])
 @router.get("/stats", response_model=DashboardStats)
 def get_dashboard_stats(
     department: Optional[str] = Query(None, description="Filter by department"),
+    user_id: Optional[int] = Query(None, description="Filter by user (raised_by)"),
     db: Session = Depends(get_db),
 ):
-    # Base query — optionally filtered by department
+    # Base query — optionally filtered by department or user
     base = db.query(Ticket)
-    if department:
+    if user_id:
+        base = base.filter((Ticket.raised_by_id == user_id) | (Ticket.assigned_to_id == user_id))
+    elif department:
         base = base.filter(Ticket.assigned_dept == department)
 
     total = base.count()
