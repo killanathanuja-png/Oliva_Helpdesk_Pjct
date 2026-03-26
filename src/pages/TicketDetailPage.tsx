@@ -212,10 +212,21 @@ const TicketDetailPage = () => {
 
   useEffect(() => { fetchTicket(); }, [fetchTicket]);
 
+  // Zenoti department ticket assignees
+  const ZENOTI_ASSIGNEE_IDS = [707, 816, 823, 811]; // Kalyani Thadoju, Ramya Janagam, Swapna M, Poornima Oliva
+
   // Fetch team members for "Assign To" dropdown
   useEffect(() => {
-    usersApi.list().then((users) => setTeamMembers(users.filter((u) => u.status === "Active"))).catch(() => {});
-  }, []);
+    usersApi.list().then((users) => {
+      const active = users.filter((u) => u.status === "Active");
+      if (hasAnyRole(currentUserRole, ["Zenoti Team"])) {
+        const zenotiMembers = active.filter((u) => ZENOTI_ASSIGNEE_IDS.includes(u.id));
+        setTeamMembers(zenotiMembers);
+      } else {
+        setTeamMembers(active);
+      }
+    }).catch(() => {});
+  }, [currentUserRole]);
 
   const handleApproval = async () => {
     if (!approvalAction || !ticket) return;

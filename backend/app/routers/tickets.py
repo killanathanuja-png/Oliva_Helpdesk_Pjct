@@ -147,10 +147,29 @@ def update_ticket(ticket_id: int, req: TicketUpdate, db: Session = Depends(get_d
         update_data["status"] = TicketStatusEnum(update_data["status"])
     if "priority" in update_data:
         update_data["priority"] = PriorityEnum(update_data["priority"])
+    # Track if assigned_to changed
+    new_assignee_id = update_data.get("assigned_to_id")
     for key, value in update_data.items():
         setattr(t, key, value)
     db.commit()
     db.refresh(t)
+
+    # Send email notification if ticket was assigned to someone
+    if new_assignee_id:
+        assignee = db.query(User).filter(User.id == new_assignee_id).first()
+        if assignee and assignee.email:
+            send_ticket_notification(
+                to_email=assignee.email,
+                ticket_code=t.code,
+                title=t.title,
+                description=t.description or "",
+                raised_by=t.raised_by_rel.name if t.raised_by_rel else "Unknown",
+                department=t.assigned_dept or "",
+                center=t.center or "",
+                priority=t.priority.value if t.priority else "Medium",
+                category=t.category or "",
+            )
+
     return _ticket_to_response(t)
  
  

@@ -351,7 +351,7 @@ const RaiseTicketModal = ({ onClose, onSuccess, editMode, editTicket, userRole }
           <form className="p-6 space-y-4" onSubmit={handleSubmit}>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className={labelClass}>Priority *</label>
+                <label className={labelClass}>Priority <span className="text-destructive">*</span></label>
                 <select value={priority} onChange={(e) => setPriority(e.target.value)} className={inputClass} required>
                   <option value="">Select priority</option>
                   <option value="Critical">Critical</option>
@@ -361,7 +361,7 @@ const RaiseTicketModal = ({ onClose, onSuccess, editMode, editTicket, userRole }
                 </select>
               </div>
               <div>
-                <label className={labelClass}>Status *</label>
+                <label className={labelClass}>Status <span className="text-destructive">*</span></label>
                 <select value={status} onChange={(e) => setStatus(e.target.value)} className={inputClass} required>
                   <option value="">Select status</option>
                   {(userRole === "AOM" || userRole === "Finance") ? (
@@ -411,7 +411,7 @@ const RaiseTicketModal = ({ onClose, onSuccess, editMode, editTicket, userRole }
         ) : (
           <form className="p-6 space-y-4" onSubmit={handleSubmit}>
             <div>
-              <label className={labelClass}>Department *</label>
+              <label className={labelClass}>Department <span className="text-destructive">*</span></label>
               <ComboBox
                 value={department}
                 onChange={handleDepartmentChange}
@@ -421,12 +421,12 @@ const RaiseTicketModal = ({ onClose, onSuccess, editMode, editTicket, userRole }
             </div>
  
             <div>
-              <label className={labelClass}>Title *</label>
+              <label className={labelClass}>Title <span className="text-destructive">*</span></label>
               <input type="text" required value={title} onChange={(e) => setTitle(e.target.value)} className={inputClass} placeholder="Brief description of the issue" />
             </div>
  
             <div>
-              <label className={labelClass}>Description *</label>
+              <label className={labelClass}>Description <span className="text-destructive">*</span></label>
               <textarea rows={3} required value={description} onChange={(e) => setDescription(e.target.value)} className={cn(inputClass, "resize-none")} placeholder="Detailed description..." />
             </div>
  
@@ -474,7 +474,7 @@ const RaiseTicketModal = ({ onClose, onSuccess, editMode, editTicket, userRole }
                 {/* Category / Sub-Category / Child Category inside Zenoti block */}
                 <div className="grid grid-cols-3 gap-3">
                   <div>
-                    <label className={labelClass}>Category *</label>
+                    <label className={labelClass}>Category <span className="text-destructive">*</span></label>
                     <ComboBox
                       value={category}
                       onChange={handleCategoryChange}
@@ -484,7 +484,7 @@ const RaiseTicketModal = ({ onClose, onSuccess, editMode, editTicket, userRole }
                     />
                   </div>
                   <div>
-                    <label className={labelClass}>Sub-Category *</label>
+                    <label className={labelClass}>Sub-Category <span className="text-destructive">*</span></label>
                     <ComboBox
                       value={subCategory}
                       onChange={handleSubCategoryChange2}
@@ -494,7 +494,7 @@ const RaiseTicketModal = ({ onClose, onSuccess, editMode, editTicket, userRole }
                     />
                   </div>
                   <div>
-                    <label className={labelClass}>Child Category *</label>
+                    <label className={labelClass}>Child Category <span className="text-destructive">*</span></label>
                     <ComboBox
                       value={childCategory}
                       onChange={(val) => setChildCategory(val)}
@@ -507,7 +507,7 @@ const RaiseTicketModal = ({ onClose, onSuccess, editMode, editTicket, userRole }
  
                 {/* Location */}
                 <div>
-                  <label className={labelClass}>Location (Clinic) *</label>
+                  <label className={labelClass}>Location (Clinic) <span className="text-destructive">*</span></label>
                   <ComboBox
                     value={zenotiFields.location}
                     onChange={(val) => setZenotiFields({ ...zenotiFields, location: val })}
@@ -520,7 +520,7 @@ const RaiseTicketModal = ({ onClose, onSuccess, editMode, editTicket, userRole }
                 {/* Client & Invoice details */}
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className={labelClass}>Client Mobile No *</label>
+                    <label className={labelClass}>Client Mobile No <span className="text-destructive">*</span></label>
                     <input
                       type="tel"
                       maxLength={10}
@@ -534,7 +534,7 @@ const RaiseTicketModal = ({ onClose, onSuccess, editMode, editTicket, userRole }
                     />
                   </div>
                   <div>
-                    <label className={labelClass}>Client ID *</label>
+                    <label className={labelClass}>Client ID <span className="text-destructive">*</span></label>
                     <input
                       type="text"
                       value={zenotiFields.customerId}
@@ -544,7 +544,7 @@ const RaiseTicketModal = ({ onClose, onSuccess, editMode, editTicket, userRole }
                     />
                   </div>
                   <div>
-                    <label className={labelClass}>Client Name *</label>
+                    <label className={labelClass}>Client Name <span className="text-destructive">*</span></label>
                     <input
                       type="text"
                       value={zenotiFields.customerName}
@@ -554,7 +554,7 @@ const RaiseTicketModal = ({ onClose, onSuccess, editMode, editTicket, userRole }
                     />
                   </div>
                   <div>
-                    <label className={labelClass}>Billed By *</label>
+                    <label className={labelClass}>Billed By <span className="text-destructive">*</span></label>
                     <input
                       type="text"
                       value={zenotiFields.billedBy}
@@ -564,7 +564,7 @@ const RaiseTicketModal = ({ onClose, onSuccess, editMode, editTicket, userRole }
                     />
                   </div>
                   <div>
-                    <label className={labelClass}>Invoice No *</label>
+                    <label className={labelClass}>Invoice No <span className="text-destructive">*</span></label>
                     <input
                       type="text"
                       value={zenotiFields.invoiceNo}
@@ -574,7 +574,7 @@ const RaiseTicketModal = ({ onClose, onSuccess, editMode, editTicket, userRole }
                     />
                   </div>
                   <div>
-                    <label className={labelClass}>Invoice Date *</label>
+                    <label className={labelClass}>Invoice Date <span className="text-destructive">*</span></label>
                     <input
                       type="date"
                       value={zenotiFields.invoiceDate}
@@ -600,7 +600,7 @@ const RaiseTicketModal = ({ onClose, onSuccess, editMode, editTicket, userRole }
  
             <div className={cn("grid gap-3", isZenoti ? "grid-cols-1" : "grid-cols-2")}>
               <div>
-                <label className={labelClass}>Priority *</label>
+                <label className={labelClass}>Priority <span className="text-destructive">*</span></label>
                 <ComboBox
                   value={priority}
                   onChange={(val) => setPriority(val)}
@@ -610,7 +610,7 @@ const RaiseTicketModal = ({ onClose, onSuccess, editMode, editTicket, userRole }
               </div>
               {!isZenoti && (
                 <div>
-                  <label className={labelClass}>Center *</label>
+                  <label className={labelClass}>Center <span className="text-destructive">*</span></label>
                   <ComboBox
                     value={center}
                     onChange={(val) => setCenter(val)}

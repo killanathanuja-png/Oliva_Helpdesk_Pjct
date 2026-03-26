@@ -93,7 +93,10 @@ const TicketsPage = () => {
   const [deptFilter, setDeptFilter] = useState<string>("All");
   const [showRaise, setShowRaise] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
-  const [activeTab, setActiveTab] = useState<TabKey>("all");
+  const ZENOTI_ASSIGNEE_IDS = [707, 816, 823, 811];
+  const storedUserId = JSON.parse(localStorage.getItem("oliva_user") || "{}")?.id;
+  const isZenotiAssignee = ZENOTI_ASSIGNEE_IDS.includes(storedUserId);
+  const [activeTab, setActiveTab] = useState<TabKey>(isZenotiAssignee ? "mytickets" : "all");
   const [editingTicket, setEditingTicket] = useState<Ticket | null>(null);
 
   // Current user from localStorage

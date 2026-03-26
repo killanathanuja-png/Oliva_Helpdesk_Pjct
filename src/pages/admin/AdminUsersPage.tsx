@@ -325,6 +325,10 @@ const AdminUsersPage = () => {
     if (!form.email.trim()) missing.push("Email");
     if (!editingId && !form.password.trim()) missing.push("Password");
     if (!form.role) missing.push("Role");
+    if (!form.department.trim()) missing.push("Department");
+    if (!form.gender.trim()) missing.push("Gender");
+    if (!form.center.trim()) missing.push("Location");
+    if (!form.city.trim()) missing.push("City");
     if (missing.length > 0) {
       setFormError(`Please fill: ${missing.join(", ")}`);
       return;
@@ -616,21 +620,21 @@ const AdminUsersPage = () => {
                 <div>
                   <label className="block text-xs font-medium text-muted-foreground mb-1.5">User Name <span className="text-destructive">*</span></label>
                   <input type="text" required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Enter full name"
-                    className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" />
+                    autoComplete="off" className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" />
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-medium text-muted-foreground mb-1.5">Email <span className="text-destructive">*</span></label>
-                  <input type="email" required value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} placeholder="Enter email address"
-                    className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" />
+                  <input type="text" required value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} placeholder="Enter email address"
+                    autoComplete="off" className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" />
                 </div>
                 {!editingId && (
                   <div>
                     <label className="block text-xs font-medium text-muted-foreground mb-1.5">Password <span className="text-destructive">*</span></label>
                     <div className="relative">
                       <input type={showPassword ? "text" : "password"} required value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} placeholder="Enter password"
-                        className="w-full px-3 py-2 pr-10 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" />
+                        autoComplete="new-password" className="w-full px-3 py-2 pr-10 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" />
                       <button type="button" onClick={() => setShowPassword(!showPassword)}
                         className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors">
                         {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
@@ -656,7 +660,7 @@ const AdminUsersPage = () => {
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-medium text-muted-foreground mb-1.5">Gender</label>
+                  <label className="block text-xs font-medium text-muted-foreground mb-1.5">Gender <span className="text-destructive">*</span></label>
                   <select value={form.gender} onChange={(e) => setForm({ ...form, gender: e.target.value })}
                     className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/30">
                     <option value="">-- Select --</option>
@@ -688,18 +692,18 @@ const AdminUsersPage = () => {
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-medium text-muted-foreground mb-1.5">City</label>
+                  <label className="block text-xs font-medium text-muted-foreground mb-1.5">City <span className="text-destructive">*</span></label>
                   <input type="text" value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value })} placeholder="Enter city"
                     className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-muted-foreground mb-1.5">Location (Center)</label>
+                  <label className="block text-xs font-medium text-muted-foreground mb-1.5">Location (Center) <span className="text-destructive">*</span></label>
                   <MultiSelectComboBox value={form.center} onChange={(val) => setForm({ ...form, center: val })} options={centerOptions} placeholder="Select location(s)" />
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-medium text-muted-foreground mb-1.5">Department</label>
+                  <label className="block text-xs font-medium text-muted-foreground mb-1.5">Department <span className="text-destructive">*</span></label>
                   <ComboBox value={form.department} onChange={(val) => setForm({ ...form, department: val })} options={departmentOptions} placeholder="Select department" />
                 </div>
                 <div>

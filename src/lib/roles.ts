@@ -34,7 +34,7 @@ const roleAccess: Record<string, string[]> = {
 };
 
 // Default access for unknown roles
-const DEFAULT_ACCESS = ["/", "/tickets", "/sla-report"];
+const DEFAULT_ACCESS = ["/tickets", "/sla-report"];
 
 /**
  * Check if a user's role string (possibly comma-separated) includes any of the given roles.
