@@ -63,6 +63,7 @@ function apiToTicket(t: ApiTicket): Ticket & { _dbId: number; rawCreatedAt: stri
     dueDate: t.due_date ? new Date(t.due_date).toISOString().split("T")[0] : "",
     slaBreached: t.sla_breached,
     approvalRequired: t.approval_required,
+    approvalType: t.approval_type || undefined,
     approver: t.approver || undefined,
     approvalStatus: t.approval_status as Ticket["approvalStatus"],
     resolution: t.resolution || undefined,
@@ -190,8 +191,12 @@ const TicketDetailPage = () => {
   const noEdit = hasAnyRole(currentUserRole, noEditRoleList);
   // AOM can edit only when ticket is Pending Approval (for approve/reject/follow-up)
   const aomCanEdit = isAomRole && ticket && (ticket.status === "Pending Approval" || ticket.status === "Follow Up");
+  // Zenoti Team cannot edit/assign if the ticket requires finance approval and finance hasn't approved yet
+  const isZenotiTeamRole = hasAnyRole(currentUserRole, ["Zenoti Team", "Zenoti Team Manager"]);
+  const zenotiBlockedByFinance = isZenotiTeamRole && ticket && ticket.approvalType === "aom_finance" && ticket.approvalStatus !== "Approved";
   const canEdit = ticket
-    ? aomCanEdit || (!noEdit && (
+    ? zenotiBlockedByFinance ? false
+    : aomCanEdit || (!noEdit && (
         alwaysEdit ||
         (ticket.status !== "Resolved" && ticket.status !== "Closed" && (ticket.status as string) !== "Cancelled")
       ))
@@ -333,8 +338,9 @@ const TicketDetailPage = () => {
       // TODO: File upload will be added when backend endpoint is ready
       await fetchTicket();
       handleCancelEdit();
-    } catch {
-      alert("Failed to save changes.");
+    } catch (err) {
+      console.error("Save failed:", err);
+      alert("Failed to save changes. " + (err instanceof Error ? err.message : ""));
     } finally {
       setEditSaving(false);
     }
@@ -399,6 +405,11 @@ const TicketDetailPage = () => {
             </div>
           </div>
         </div>
+        {zenotiBlockedByFinance && (
+          <div className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-amber-50 border border-amber-200 text-amber-700 text-xs font-medium">
+            <Clock className="h-3.5 w-3.5" /> Awaiting Finance Approval — editing disabled
+          </div>
+        )}
         {canEdit && (
           <div className="flex items-center gap-2">
             {!inlineEditing ? (
