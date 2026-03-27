@@ -55,8 +55,14 @@ const allNavItems = [
   { label: "Approvals", icon: ShieldCheck, path: "/approvals" },
   { label: "Finance Approvals", icon: DollarSign, path: "/finance-approvals" },
   { label: "Zenoti Requests", icon: Wrench, path: "/zenoti-requests" },
-  { label: "SLA Report", icon: BarChart3, path: "/sla-report" },
-  { label: "Analytics", icon: TrendingUp, path: "/analytics" },
+  {
+    label: "Reports",
+    icon: BarChart3,
+    children: [
+      { label: "SLA Report", icon: BarChart3, path: "/sla-report" },
+      { label: "SLA Analytics", icon: TrendingUp, path: "/analytics" },
+    ],
+  },
   {
     label: "Masters",
     icon: Settings,
@@ -78,7 +84,7 @@ const allNavItems = [
 const AppLayout = ({ children }: AppLayoutProps) => {
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [openMenus, setOpenMenus] = useState<Record<string, boolean>>({ Masters: true, Tickets: true });
+  const [openMenus, setOpenMenus] = useState<Record<string, boolean>>({ Masters: true, Tickets: true, Reports: true });
   const [notifOpen, setNotifOpen] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
@@ -112,6 +118,7 @@ const AppLayout = ({ children }: AppLayoutProps) => {
   const isActive = (path: string) => location.pathname === path;
   const isAdminActive = location.pathname.startsWith("/admin");
   const isTicketsActive = location.pathname.startsWith("/tickets");
+  const isReportsActive = location.pathname === "/sla-report" || location.pathname === "/analytics";
 
   // Filter nav items based on role
   const allowed = getAllowedPaths();
@@ -170,7 +177,7 @@ const AppLayout = ({ children }: AppLayoutProps) => {
                   }}
                   className={cn(
                     "flex items-center w-full gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
-                    (item.label === "Masters" ? isAdminActive : isTicketsActive)
+                    (item.label === "Masters" ? isAdminActive : item.label === "Reports" ? isReportsActive : isTicketsActive)
                       ? "text-white bg-white/15"
                       : "text-white/80 hover:bg-white/10 hover:text-white"
                   )}
@@ -252,8 +259,8 @@ const AppLayout = ({ children }: AppLayoutProps) => {
               {location.pathname === "/approvals" && "Pending Approvals"}
               {location.pathname === "/finance-approvals" && "Finance Approvals"}
               {location.pathname === "/zenoti-requests" && "Zenoti Requests"}
-              {location.pathname === "/sla-report" && "SLA Report"}
-              {location.pathname === "/analytics" && "Analytics"}
+              {location.pathname === "/sla-report" && "Reports / SLA Report"}
+              {location.pathname === "/analytics" && "Reports / SLA Analytics"}
               {location.pathname === "/admin/users" && "Masters / Users"}
               {location.pathname === "/admin/departments" && "Masters / Departments"}
               {location.pathname === "/admin/roles" && "Masters / Roles"}
