@@ -103,20 +103,36 @@ const Dashboard = () => {
   const userId = user?.id;
 
   useEffect(() => {
-    if (isSuperRole(userRole)) {
-      // Super admin sees all
-      dashboardApi.stats()
-        .then((data) => setStats(data))
-        .catch(() => {})
-        .finally(() => setLoading(false));
-    } else {
-      // All other users see their own tickets (raised by or assigned to them)
-      dashboardApi.stats({ user_id: userId })
-        .then((data) => setStats(data))
-        .catch(() => {})
-        .finally(() => setLoading(false));
-    }
-  }, [userRole, userId]);
+    // Determine dashboard filter based on role
+    const getParams = (): { department?: string; user_id?: number } | undefined => {
+      if (isSuperRole(userRole)) return undefined; // see all
+
+      const roles = userRole.split(",").map((r: string) => r.trim());
+
+      // Zenoti-related roles see Zenoti department
+      const zenotiRoles = ["Zenoti Team", "Area Operations Manager", "Area Operations Manager Head", "Finance", "Finance Head"];
+      if (roles.some((r: string) => zenotiRoles.includes(r))) return { department: "Zenoti" };
+
+      // Department heads/managers see their department tickets
+      const deptManagerRoles = ["Help Desk Admin", "Helpdesk In-charge", "L1 Manager", "L2 Manager", "Manager"];
+      if (roles.some((r: string) => deptManagerRoles.includes(r))) return undefined; // see all
+
+      // Users with a department (like Quality & Audit) see department tickets
+      if (userDept) {
+        // Quality & Audit also sees "Quality" department
+        if (userDept.toLowerCase().includes("quality")) return { department: "Quality" };
+        return { department: userDept };
+      }
+
+      // Employee/Others see only their own tickets
+      return { user_id: userId };
+    };
+
+    dashboardApi.stats(getParams())
+      .then((data) => setStats(data))
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, [userRole, userDept, userId]);
 
   if (loading) {
     return (

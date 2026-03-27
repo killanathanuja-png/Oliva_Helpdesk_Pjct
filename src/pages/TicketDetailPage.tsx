@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { hasAnyRole } from "@/lib/roles";
+import { hasAnyRole, isSuperRole } from "@/lib/roles";
 import type { Ticket } from "@/data/dummyData";
 import {
   ArrowLeft, Clock, User, Building2, MapPin, MessageSquare, CheckCircle2,
@@ -185,14 +185,16 @@ const TicketDetailPage = () => {
   // Roles that can always edit (even resolved/closed tickets)
   const alwaysEditRoleList = ["Employee", "Others", "Help Desk Admin", "Helpdesk In-charge", "Super Admin", "Global Admin", "Super User", "Zenoti Team"];
   const alwaysEdit = hasAnyRole(currentUserRole, alwaysEditRoleList);
-  // Roles that cannot edit at all
-  const noEditRoleList = ["Area Operations Manager", "Area Operations Manager Head", "Finance", "Finance Head"];
+  // Roles that cannot edit at all (except for approval actions)
+  const noEditRoleList = ["Finance", "Finance Head"];
   const noEdit = hasAnyRole(currentUserRole, noEditRoleList);
+  // AOM can edit only when ticket is Pending Approval (for approve/reject/follow-up)
+  const aomCanEdit = isAomRole && ticket && (ticket.status === "Pending Approval" || ticket.status === "Follow Up");
   const canEdit = ticket
-    ? !noEdit && (
+    ? aomCanEdit || (!noEdit && (
         alwaysEdit ||
         (ticket.status !== "Resolved" && ticket.status !== "Closed" && (ticket.status as string) !== "Cancelled")
-      )
+      ))
     : false;
 
   const fetchTicket = useCallback(async () => {
@@ -212,21 +214,27 @@ const TicketDetailPage = () => {
 
   useEffect(() => { fetchTicket(); }, [fetchTicket]);
 
+  const currentUserDept = parsedUser?.department || "";
+
   // Zenoti department ticket assignees
   const ZENOTI_ASSIGNEE_IDS = [707, 816, 823, 811]; // Kalyani Thadoju, Ramya Janagam, Swapna M, Poornima Oliva
 
-  // Fetch team members for "Assign To" dropdown
+  // Fetch team members for "Assign To" dropdown — filtered by user's department
   useEffect(() => {
     usersApi.list().then((users) => {
       const active = users.filter((u) => u.status === "Active");
       if (hasAnyRole(currentUserRole, ["Zenoti Team"])) {
-        const zenotiMembers = active.filter((u) => ZENOTI_ASSIGNEE_IDS.includes(u.id));
-        setTeamMembers(zenotiMembers);
+        setTeamMembers(active.filter((u) => ZENOTI_ASSIGNEE_IDS.includes(u.id)));
+      } else if (isSuperRole(currentUserRole)) {
+        setTeamMembers(active);
+      } else if (currentUserDept) {
+        // Show only users from the same department
+        setTeamMembers(active.filter((u) => u.department === currentUserDept));
       } else {
         setTeamMembers(active);
       }
     }).catch(() => {});
-  }, [currentUserRole]);
+  }, [currentUserRole, currentUserDept]);
 
   const handleApproval = async () => {
     if (!approvalAction || !ticket) return;
@@ -282,34 +290,45 @@ const TicketDetailPage = () => {
       alert("Please provide a description explaining why you are making this change.");
       return;
     }
-    if (currentUserRole !== "User" && (statusChanged || priorityChanged) && !editComment.trim()) {
+    if (!isAomRole && currentUserRole !== "User" && (statusChanged || priorityChanged) && !editComment.trim()) {
       alert("Please provide a reason for changing the status or priority.");
       return;
     }
     setEditSaving(true);
     try {
-      const payload: Record<string, unknown> = {};
-      if (statusChanged) {
-        // "Re-Open" maps to "Open" in backend
-        payload.status = editStatus === "Re-Open" ? "Open" : editStatus;
-      }
-      if (priorityChanged) payload.priority = editPriority;
-      if (editAssignTo) payload.assigned_to_id = editAssignTo;
-      if (Object.keys(payload).length > 0) {
-        await ticketsApi.update(ticket._dbId, payload as import("@/lib/api").UpdateTicketPayload);
-      }
-      // Post comment if provided
-      if (editComment.trim()) {
-        const parts: string[] = [];
-        if (statusChanged) parts.push(`Status changed from "${ticket.status}" to "${editStatus}"`);
-        if (priorityChanged) parts.push(`Priority changed from "${ticket.priority}" to "${editPriority}"`);
-        if (editAssignTo) {
-          const assignedUser = teamMembers.find((u) => u.id === editAssignTo);
-          if (assignedUser) parts.push(`Assigned to ${assignedUser.name}`);
+      // AOM approval flow — use the approve endpoint
+      const aomApprovalActions = ["Approved", "Rejected", "Follow Up"];
+      if (isAomRole && statusChanged && aomApprovalActions.includes(editStatus)) {
+        const actionMap: Record<string, string> = { "Approved": "Approve", "Rejected": "Reject", "Follow Up": "Follow-up" };
+        await ticketsApi.approve(ticket._dbId, {
+          action: actionMap[editStatus],
+          comment: editComment.trim() || undefined,
+          approver_name: currentUser,
+        });
+      } else {
+        const payload: Record<string, unknown> = {};
+        if (statusChanged) {
+          // "Re-Open" maps to "Open" in backend
+          payload.status = editStatus === "Re-Open" ? "Open" : editStatus;
         }
-        const prefix = parts.length > 0 ? `${parts.join(". ")}. Reason: ` : "";
-        const msg = `${prefix}${editComment.trim()}`;
-        await ticketsApi.addComment(ticket._dbId, { user: currentUser, message: msg, type: statusChanged || priorityChanged ? "status_change" : "comment" });
+        if (priorityChanged) payload.priority = editPriority;
+        if (editAssignTo) payload.assigned_to_id = editAssignTo;
+        if (Object.keys(payload).length > 0) {
+          await ticketsApi.update(ticket._dbId, payload as import("@/lib/api").UpdateTicketPayload);
+        }
+        // Post comment if provided
+        if (editComment.trim()) {
+          const parts: string[] = [];
+          if (statusChanged) parts.push(`Status changed from "${ticket.status}" to "${editStatus}"`);
+          if (priorityChanged) parts.push(`Priority changed from "${ticket.priority}" to "${editPriority}"`);
+          if (editAssignTo) {
+            const assignedUser = teamMembers.find((u) => u.id === editAssignTo);
+            if (assignedUser) parts.push(`Assigned to ${assignedUser.name}`);
+          }
+          const prefix = parts.length > 0 ? `${parts.join(". ")}. Reason: ` : "";
+          const msg = `${prefix}${editComment.trim()}`;
+          await ticketsApi.addComment(ticket._dbId, { user: currentUser, message: msg, type: statusChanged || priorityChanged ? "status_change" : "comment" });
+        }
       }
       // TODO: File upload will be added when backend endpoint is ready
       await fetchTicket();
@@ -408,47 +427,67 @@ const TicketDetailPage = () => {
           <div className="flex items-center min-w-max py-3 px-2 justify-center">
             {timeline.map((event, idx) => {
               const isLast = idx === timeline.length - 1;
+              const msg = event.message.toLowerCase();
               const label =
                 event.type === "created" ? "Ticket Created" :
-                event.type === "approval" ? (event.message.toLowerCase().includes("finance") ? "Finance Approval" : "AOM Approval") :
-                event.type === "status_change" ? (event.message.toLowerCase().includes("resolve") ? "Zenoti Resolution" : event.message.toLowerCase().includes("close") ? "Ticket Closed" : "Status Update") :
-                "Comment Added";
+                event.type === "approval" ? (
+                  msg.includes("rejected") ? "Rejected" :
+                  msg.includes("follow") ? "Follow Up" :
+                  msg.includes("finance") ? "Finance Approval" : "AOM Approval"
+                ) :
+                event.type === "status_change" ? (
+                  msg.includes("assigned") ? "Assigned" :
+                  msg.includes("resolve") ? "Resolved" :
+                  msg.includes("close") ? "Closed" : "Status Update"
+                ) :
+                "Comment";
+
+              const isRejected = msg.includes("reject");
+              const isResolved = msg.includes("resolve") || msg.includes("close");
+              const nodeColor = isRejected ? "bg-destructive ring-red-100" : isResolved ? "bg-emerald-500 ring-emerald-100" : "bg-primary ring-primary/20";
+              const lineColor = isRejected ? "bg-destructive/40" : "bg-emerald-400";
+              const labelColor = isRejected ? "text-destructive" : isResolved ? "text-emerald-700" : "text-primary";
 
               return (
-                <div key={event.id} className="flex items-center">
-                  <div className="flex flex-col items-center" style={{ minWidth: "140px" }}>
-                    <div className="h-11 w-11 rounded-full bg-emerald-500 flex items-center justify-center shrink-0 shadow-lg ring-4 ring-emerald-100">
+                <div key={event.id} className="flex items-start">
+                  <div className="flex flex-col items-center" style={{ minWidth: "180px", maxWidth: "220px" }}>
+                    <div className={cn("h-11 w-11 rounded-full flex items-center justify-center shrink-0 shadow-lg ring-4", nodeColor)}>
                       <CheckCircle2 className="h-5 w-5 text-white" />
                     </div>
-                    <p className="text-xs font-bold mt-2 text-emerald-700 text-center">{label}</p>
+                    <p className={cn("text-xs font-bold mt-2 text-center", labelColor)}>{label}</p>
                     <p className="text-[10px] text-muted-foreground mt-0.5 text-center">{event.timestamp}</p>
-                    <p className="text-[10px] text-muted-foreground/70 text-center max-w-[130px] truncate">{event.message}</p>
+                    <p className="text-[10px] text-muted-foreground/70 text-center mt-0.5 px-2 leading-relaxed" style={{ wordBreak: "break-word" }}>
+                      {event.message}
+                    </p>
                   </div>
                   {!isLast && (
-                    <div className="w-20 h-1 bg-emerald-500 rounded-full mx-1 shrink-0" />
+                    <div className={cn("w-16 h-1 rounded-full mt-5 shrink-0", lineColor)} />
                   )}
                 </div>
               );
             })}
 
             {/* Current status */}
-            <div className="flex items-center">
-              <div className="w-20 h-1 bg-emerald-500 rounded-full mx-1 shrink-0" />
-              <div className="flex flex-col items-center" style={{ minWidth: "140px" }}>
-                <div className={cn(
-                  "h-11 w-11 rounded-full flex items-center justify-center shrink-0 shadow-lg ring-4",
-                  ticket.status === "Closed" || ticket.status === "Resolved" ? "bg-emerald-500 ring-emerald-100" : "bg-white border-2 border-emerald-500 ring-emerald-50"
-                )}>
-                  {ticket.status === "Closed" || ticket.status === "Resolved" ? (
-                    <CheckCircle2 className="h-5 w-5 text-white" />
-                  ) : (
-                    <Circle className="h-4 w-4 text-emerald-500 fill-emerald-500" />
-                  )}
-                </div>
-                <p className="text-xs font-bold mt-2 text-emerald-700 text-center">Current Status</p>
-                <span className={cn("inline-block mt-1 px-2.5 py-0.5 rounded-full text-[10px] font-semibold", statusColors[ticket.status] || "bg-gray-100 text-gray-600")}>
-                  {ticket.status}
-                </span>
+            <div className="flex items-start">
+              <div className="w-16 h-1 bg-emerald-400 rounded-full mt-5 shrink-0" />
+              <div className="flex flex-col items-center" style={{ minWidth: "150px" }}>
+                {(() => {
+                  const st = ticket.status;
+                  const isComplete = st === "Closed" || st === "Resolved";
+                  const isRej = st === "Rejected";
+                  const nc = isRej ? "bg-destructive ring-red-100" : isComplete ? "bg-emerald-500 ring-emerald-100" : "bg-white border-2 border-primary ring-primary/10";
+                  const ic = isRej || isComplete ? "text-white" : "text-primary fill-primary";
+                  const lc = isRej ? "text-destructive" : isComplete ? "text-emerald-700" : "text-primary";
+                  return (
+                    <>
+                      <div className={cn("h-11 w-11 rounded-full flex items-center justify-center shrink-0 shadow-lg ring-4", nc)}>
+                        {isComplete || isRej ? <CheckCircle2 className={cn("h-5 w-5", ic)} /> : <Circle className={cn("h-4 w-4", ic)} />}
+                      </div>
+                      <p className={cn("text-xs font-bold mt-2 text-center", lc)}>Current Status</p>
+                      <span className={cn("inline-block mt-1 px-2.5 py-0.5 rounded-full text-[10px] font-semibold", statusColors[ticket.status] || "bg-gray-100 text-gray-600")}>{ticket.status}</span>
+                    </>
+                  );
+                })()}
               </div>
             </div>
           </div>
@@ -466,7 +505,14 @@ const TicketDetailPage = () => {
               </label>
               <select value={editStatus} onChange={(e) => setEditStatus(e.target.value)}
                 className="w-full px-3 py-2.5 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/40">
-                {["Employee", "Others"].includes(currentUserRole) ? (
+                {isAomRole ? (
+                  <>
+                    <option value={ticket.status}>{ticket.status}</option>
+                    <option value="Approved">Approved</option>
+                    <option value="Rejected">Rejected</option>
+                    <option value="Follow Up">Follow Up</option>
+                  </>
+                ) : ["Employee", "Others"].includes(currentUserRole) ? (
                   <>
                     <option value={ticket.status}>{ticket.status}</option>
                     {(ticket.status as string) !== "User Inputs Received" && <option value="User Inputs Received">User Inputs Received</option>}
@@ -515,8 +561,8 @@ const TicketDetailPage = () => {
               </select>
             </div>
 
-            {/* Assign To — hidden for User role */}
-            {currentUserRole !== "User" && (
+            {/* Assign To — hidden for User role and AOM */}
+            {currentUserRole !== "User" && !isAomRole && (
               <div>
                 <label className="flex items-center gap-1.5 text-[11px] font-medium text-muted-foreground uppercase tracking-wider mb-1">
                   <User className="h-3 w-3" /> Assign To

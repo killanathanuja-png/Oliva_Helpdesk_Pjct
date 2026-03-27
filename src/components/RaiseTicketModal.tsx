@@ -3,7 +3,7 @@ import { X, AlertCircle, RotateCcw, Loader2 } from "lucide-react";
 import { departments as fallbackDepartments, centers as fallbackCenters } from "@/data/dummyData";
 import type { Ticket } from "@/data/dummyData";
 import { cn } from "@/lib/utils";
-import { departmentsApi, centersApi, categoriesApi, subcategoriesApi, childCategoriesApi, serviceTitlesApi } from "@/lib/api";
+import { departmentsApi, centersApi, categoriesApi, subcategoriesApi, childCategoriesApi, serviceTitlesApi, aomMappingsApi } from "@/lib/api";
 import type { ApiDepartment, ApiCenter, ApiCategory, ApiSubcategory, ApiChildCategory, ApiServiceTitle } from "@/lib/api";
  
 export interface TicketFormData {
@@ -157,6 +157,8 @@ const RaiseTicketModal = ({ onClose, onSuccess, editMode, editTicket, userRole }
   const [apiChildCategories, setApiChildCategories] = useState<ApiChildCategory[]>([]);
   const [childCategory, setChildCategory] = useState(editTicket?.zenotiChildCategory || "");
   const [loadingData, setLoadingData] = useState(true);
+  const [cmCenterName, setCmCenterName] = useState<string | null>(null);
+  const [cmAomName, setCmAomName] = useState<string | null>(null);
  
   // Fetch all master data on mount
   useEffect(() => {
@@ -198,6 +200,20 @@ const RaiseTicketModal = ({ onClose, onSuccess, editMode, editTicket, userRole }
         if (subs) setApiSubcategories(subs);
         if (childCats) setApiChildCategories(childCats);
         if (svcs) setApiServiceTitles(svcs);
+
+        // Auto-fetch CM's mapped center and AOM
+        try {
+          const cmInfo = await aomMappingsApi.myCenter();
+          if (cmInfo.center_name) {
+            setCmCenterName(cmInfo.center_name);
+            setCenter(cmInfo.center_name);
+          }
+          if (cmInfo.aom_name) {
+            setCmAomName(cmInfo.aom_name);
+          }
+        } catch {
+          // Not a CM or no mapping — ignore
+        }
       } finally {
         setLoadingData(false);
       }
@@ -312,6 +328,9 @@ const RaiseTicketModal = ({ onClose, onSuccess, editMode, editTicket, userRole }
     if (val !== "Zenoti") {
       setZenotiFields(emptyZenotiFields);
       setShowAlert(false);
+    } else if (cmCenterName) {
+      // Auto-fill Zenoti location with CM's mapped center
+      setZenotiFields((prev) => ({ ...prev, location: cmCenterName }));
     }
   };
  
@@ -509,14 +528,23 @@ const RaiseTicketModal = ({ onClose, onSuccess, editMode, editTicket, userRole }
  
                 {/* Location */}
                 <div>
-                  <label className={labelClass}>Location (Clinic) <span className="text-destructive">*</span></label>
-                  <ComboBox
-                    value={zenotiFields.location}
-                    onChange={(val) => setZenotiFields({ ...zenotiFields, location: val })}
-                    options={centerOptions}
-                    placeholder="Select clinic location"
-                    error={errField(zenotiFields.location)}
-                  />
+                  <label className={labelClass}>Location (Clinic) <span className="text-destructive">*</span>{cmCenterName && <span className="text-xs text-emerald-600 ml-1">(Auto-filled)</span>}</label>
+                  {cmCenterName ? (
+                    <input
+                      type="text"
+                      value={zenotiFields.location}
+                      readOnly
+                      className={cn(inputClass, "bg-muted cursor-not-allowed")}
+                    />
+                  ) : (
+                    <ComboBox
+                      value={zenotiFields.location}
+                      onChange={(val) => setZenotiFields({ ...zenotiFields, location: val })}
+                      options={centerOptions}
+                      placeholder="Select clinic location"
+                      error={errField(zenotiFields.location)}
+                    />
+                  )}
                 </div>
  
                 {/* Client & Invoice details */}
@@ -612,13 +640,22 @@ const RaiseTicketModal = ({ onClose, onSuccess, editMode, editTicket, userRole }
               </div>
               {!isZenoti && (
                 <div>
-                  <label className={labelClass}>Center <span className="text-destructive">*</span></label>
-                  <ComboBox
-                    value={center}
-                    onChange={(val) => setCenter(val === "Select All" ? "All Centers" : val)}
-                    options={centerOptions}
-                    placeholder="Select center"
-                  />
+                  <label className={labelClass}>Center <span className="text-destructive">*</span>{cmCenterName && <span className="text-xs text-emerald-600 ml-1">(Auto-filled)</span>}</label>
+                  {cmCenterName ? (
+                    <input
+                      type="text"
+                      value={center}
+                      readOnly
+                      className={cn(inputClass, "bg-muted cursor-not-allowed")}
+                    />
+                  ) : (
+                    <ComboBox
+                      value={center}
+                      onChange={(val) => setCenter(val === "Select All" ? "All Centers" : val)}
+                      options={centerOptions}
+                      placeholder="Select center"
+                    />
+                  )}
                 </div>
               )}
             </div>
@@ -647,8 +684,8 @@ const RaiseTicketModal = ({ onClose, onSuccess, editMode, editTicket, userRole }
                 type="button"
                 onClick={() => {
                   setTitle(""); setDescription(""); setDepartment(""); setCategory("");
-                  setSubCategory(""); setPriority(""); setCenter("");
-                  setZenotiFields(emptyZenotiFields); setShowAlert(false);
+                  setSubCategory(""); setPriority(""); setCenter(cmCenterName || "");
+                  setZenotiFields(cmCenterName ? { ...emptyZenotiFields, location: cmCenterName } : emptyZenotiFields); setShowAlert(false);
                 }}
                 className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-lg border border-border text-sm font-medium hover:bg-muted transition-colors"
               >

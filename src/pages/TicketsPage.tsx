@@ -93,7 +93,7 @@ const TicketsPage = () => {
   const [deptFilter, setDeptFilter] = useState<string>("All");
   const [showRaise, setShowRaise] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
-  const ZENOTI_ASSIGNEE_IDS = [707, 816, 823, 811];
+  const ZENOTI_ASSIGNEE_IDS = [707, 816, 823]; // Kalyani, Ramya, Swapna (not Poornima - she's a manager)
   const storedUserId = JSON.parse(localStorage.getItem("oliva_user") || "{}")?.id;
   const isZenotiAssignee = ZENOTI_ASSIGNEE_IDS.includes(storedUserId);
   const [activeTab, setActiveTab] = useState<TabKey>(isZenotiAssignee ? "mytickets" : "all");
@@ -133,6 +133,7 @@ const TicketsPage = () => {
   // Role-to-department mapping: which roles see which department's tickets
   const roleDeptMap: Record<string, string[]> = {
     "Zenoti Team": ["Zenoti"],
+    "Zenoti Team Manager": ["Zenoti"],
     "Area Operations Manager": ["Zenoti"],
     "Area Operations Manager Head": ["Zenoti"],
     "Finance": ["Zenoti"],
@@ -152,7 +153,17 @@ const TicketsPage = () => {
       if (mapped) mapped.forEach((d) => depts.add(d));
     }
     // If user has a department assigned, include that too
-    if (currentUserDept) depts.add(currentUserDept);
+    if (currentUserDept) {
+      depts.add(currentUserDept);
+      // Quality & Audit team also sees Quality department tickets
+      if (currentUserDept.toLowerCase().includes("quality")) depts.add("Quality");
+      // Admin Department team also sees Administration tickets
+      if (currentUserDept.toLowerCase().includes("admin")) {
+        depts.add("Admin Department");
+        depts.add("Administration");
+        depts.add("Admin");
+      }
+    }
     return [...depts];
   };
 
@@ -166,12 +177,16 @@ const TicketsPage = () => {
         : (() => {
             const allowedDepts = getUserDepts();
             const isAom = hasAnyRole(currentUserRole, ["Area Operations Manager", "Area Operations Manager Head"]);
+            if (isAom) {
+              // AOM only sees tickets assigned to them as approver, or tickets they raised
+              return data.filter((t) =>
+                t.raisedBy === currentUser || t.approver === currentUser
+              );
+            }
             return allowedDepts.length > 0
               ? data.filter((t) => {
                   if (t.raisedBy === currentUser) return true;
                   if (!allowedDepts.includes(t.assignedDept)) return false;
-                  // AOM only sees tickets from their own center
-                  if (isAom && currentUserCenter && t.center && t.center !== currentUserCenter) return false;
                   return true;
                 })
               : currentUserDept

@@ -21,6 +21,11 @@ type DeptWithStatus = Department & { status: "Active" | "Inactive" };
 
 const AdminDepartmentsPage = () => {
   const { showToast } = useToast();
+  const _storedUser = localStorage.getItem("oliva_user");
+  const _parsedUser = _storedUser ? JSON.parse(_storedUser) : null;
+  const _userDept = _parsedUser?.department || "";
+  const _userRole = _parsedUser?.role || "";
+  const _isDeptFiltered = _userDept.toLowerCase().includes("quality") || _userRole.toLowerCase().includes("zenoti team manager");
   const [data, setData] = useState<DeptWithStatus[]>([]);
   const [idMap, setIdMap] = useState<Record<string, number>>({});
   const [showModal, setShowModal] = useState(false);
@@ -33,8 +38,12 @@ const AdminDepartmentsPage = () => {
   useEffect(() => {
     departmentsApi.list()
       .then((res) => {
-        if (res.length > 0) {
-          setData(res.map(apiToDepartment));
+        let filtered = res;
+        if (_isDeptFiltered) {
+          filtered = res.filter((d) => d.name.toLowerCase().includes(_userDept.toLowerCase().split(" ")[0]));
+        }
+        if (filtered.length > 0) {
+          setData(filtered.map(apiToDepartment));
           const map: Record<string, number> = {};
           res.forEach((d) => { map[d.code] = d.id; });
           setIdMap(map);

@@ -3,7 +3,7 @@ from pydantic import BaseModel
 from typing import Optional
 from sqlalchemy.orm import Session
 from app.database import get_db
-from app.models.models import Ticket, TicketComment, User, TicketStatusEnum, PriorityEnum, CommentTypeEnum, ApprovalStatusEnum
+from app.models.models import Ticket, TicketComment, User, TicketStatusEnum, PriorityEnum, CommentTypeEnum, ApprovalStatusEnum, AOMCenterMapping, StatusEnum
 from app.schemas.schemas import TicketCreate, TicketUpdate, TicketResponse, TicketCommentCreate, TicketCommentResponse
 from app.auth import get_current_user
 from app.config import DEPT_EMAIL_MAP
@@ -26,7 +26,7 @@ def _next_code(db: Session) -> str:
     return f"TKT{(max_num + 1):04d}"
  
  
-def _ticket_to_response(t: Ticket) -> TicketResponse:
+def _ticket_to_response(t: Ticket, aom_name: str = None, aom_email: str = None) -> TicketResponse:
     return TicketResponse(
         id=t.id, code=t.code, title=t.title, description=t.description,
         category=t.category, sub_category=t.sub_category,
@@ -52,6 +52,8 @@ def _ticket_to_response(t: Ticket) -> TicketResponse:
         zenoti_invoice_date=t.zenoti_invoice_date,
         zenoti_amount=t.zenoti_amount,
         zenoti_description=t.zenoti_description,
+        aom_name=aom_name,
+        aom_email=aom_email,
         comments=[
             TicketCommentResponse(id=c.id, user=c.user, message=c.message, type=c.type.value if c.type else "comment", created_at=c.created_at)
             for c in t.comments
@@ -72,17 +74,46 @@ def create_ticket(req: TicketCreate, current_user: User = Depends(get_current_us
     try:
         code = _next_code(db)
         print(f"[CREATE TICKET] code={code}, title={req.title}, dept={req.assigned_dept}, center={req.center}")
+
+        # Auto-fetch center and AOM for CM (Center Manager) users
+        center_value = req.center
+        approval_required = req.approval_required or False
+        approval_type_value = req.approval_type if hasattr(req, 'approval_type') else None
+        approver_value = None
+        approval_status_value = None
+        ticket_status = TicketStatusEnum.Open
+
+        # Look up AOM mapping for the current user (by email)
+        aom_mapping = db.query(AOMCenterMapping).filter(
+            AOMCenterMapping.cm_email == current_user.email,
+            AOMCenterMapping.status == StatusEnum.Active,
+        ).first()
+
+        if aom_mapping:
+            # Auto-set center from mapping if not provided
+            if not center_value:
+                center_value = aom_mapping.center_name
+            # Auto-set AOM as approver — ticket needs AOM approval
+            approval_required = True
+            approver_value = aom_mapping.aom_name
+            approval_status_value = ApprovalStatusEnum.Pending
+            ticket_status = TicketStatusEnum.PendingApproval
+            if not approval_type_value:
+                approval_type_value = "aom_only"
+
         ticket = Ticket(
             code=code, title=req.title, description=req.description,
             category=req.category, sub_category=req.sub_category,
             priority=PriorityEnum(req.priority) if req.priority else PriorityEnum.Medium,
-            status=TicketStatusEnum.Open,
+            status=ticket_status,
             raised_by_id=current_user.id,
             raised_by_dept=req.assigned_dept,
             assigned_dept=req.assigned_dept,
-            center=req.center,
-            approval_required=req.approval_required or False,
-            approval_type=req.approval_type if hasattr(req, 'approval_type') else None,
+            center=center_value,
+            approval_required=approval_required,
+            approval_type=approval_type_value,
+            approver=approver_value,
+            approval_status=approval_status_value,
             zenoti_location=req.zenoti_location,
             zenoti_main_category=req.zenoti_main_category,
             zenoti_sub_category=req.zenoti_sub_category,
@@ -138,7 +169,7 @@ def get_ticket(ticket_id: int, db: Session = Depends(get_db)):
  
  
 @router.patch("/{ticket_id}", response_model=TicketResponse)
-def update_ticket(ticket_id: int, req: TicketUpdate, db: Session = Depends(get_db)):
+def update_ticket(ticket_id: int, req: TicketUpdate, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     t = db.query(Ticket).filter(Ticket.id == ticket_id).first()
     if not t:
         raise HTTPException(status_code=404, detail="Ticket not found")
@@ -151,6 +182,18 @@ def update_ticket(ticket_id: int, req: TicketUpdate, db: Session = Depends(get_d
     new_assignee_id = update_data.get("assigned_to_id")
     for key, value in update_data.items():
         setattr(t, key, value)
+
+    # Add assignment comment if assigned_to changed
+    if new_assignee_id:
+        assignee = db.query(User).filter(User.id == new_assignee_id).first()
+        if assignee:
+            db.add(TicketComment(
+                ticket_id=ticket_id,
+                user=current_user.name,
+                message=f"Ticket assigned to {assignee.name} by {current_user.name}",
+                type=CommentTypeEnum.status_change,
+            ))
+
     db.commit()
     db.refresh(t)
 

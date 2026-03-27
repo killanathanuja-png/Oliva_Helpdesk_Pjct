@@ -23,6 +23,7 @@ import {
   DollarSign,
   Wrench,
   BarChart3,
+  TrendingUp,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getAllowedPaths } from "@/lib/roles";
@@ -39,6 +40,7 @@ const allNavItems = [
   { label: "Finance Approvals", icon: DollarSign, path: "/finance-approvals" },
   { label: "Zenoti Requests", icon: Wrench, path: "/zenoti-requests" },
   { label: "SLA Report", icon: BarChart3, path: "/sla-report" },
+  { label: "Analytics", icon: TrendingUp, path: "/analytics" },
   {
     label: "Masters",
     icon: Settings,
@@ -223,7 +225,18 @@ const AppLayout = ({ children }: AppLayoutProps) => {
               {location.pathname === "/finance-approvals" && "Finance Approvals"}
               {location.pathname === "/zenoti-requests" && "Zenoti Requests"}
               {location.pathname === "/sla-report" && "SLA Report"}
-              {location.pathname.startsWith("/admin") && "Administration"}
+              {location.pathname === "/analytics" && "Analytics"}
+              {location.pathname === "/admin/users" && "Masters / Users"}
+              {location.pathname === "/admin/departments" && "Masters / Departments"}
+              {location.pathname === "/admin/roles" && "Masters / Roles"}
+              {location.pathname === "/admin/centers" && "Masters / Centers"}
+              {location.pathname === "/admin/categories" && "Masters / Categories"}
+              {location.pathname === "/admin/subcategories" && "Masters / Subcategory"}
+              {location.pathname === "/admin/child-categories" && "Masters / Child Category"}
+              {location.pathname === "/admin/service-titles" && "Masters / Service Titles"}
+              {location.pathname === "/admin/sla" && "Masters / SLA Config"}
+              {location.pathname === "/admin/login-history" && "Masters / Login History"}
+              {location.pathname === "/admin/designations" && "Masters / Designations"}
               {location.pathname === "/profile" && "My Profile"}
             </h2>
           </div>

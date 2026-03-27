@@ -19,6 +19,7 @@ import AdminRolesPage from "@/pages/admin/AdminRolesPage";
 import AdminCentersPage from "@/pages/admin/AdminCentersPage";
 import AdminSLAPage from "@/pages/admin/AdminSLAPage";
 import SLAReportPage from "@/pages/SLAReportPage";
+import AnalyticsPage from "@/pages/AnalyticsPage";
 import AdminCategoriesPage from "@/pages/admin/AdminCategoriesPage";
 import AdminSubcategoriesPage from "@/pages/admin/AdminSubcategoriesPage";
 import AdminChildCategoriesPage from "@/pages/admin/AdminChildCategoriesPage";
@@ -113,6 +114,16 @@ const App = () => (
               <ProtectedRoute path="/sla-report">
                 <AppLayout>
                   <SLAReportPage />
+                </AppLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/analytics"
+            element={
+              <ProtectedRoute path="/analytics">
+                <AppLayout>
+                  <AnalyticsPage />
                 </AppLayout>
               </ProtectedRoute>
             }

@@ -537,6 +537,19 @@ export const loginHistoryApi = {
   employees: () => request<ApiEmployeeOption[]>("/login-history/employees"),
 };
 
+// --- AOM Mappings ---
+
+export interface AOMCenterInfo {
+  center_name: string | null;
+  location: string | null;
+  aom_name: string | null;
+  aom_email: string | null;
+}
+
+export const aomMappingsApi = {
+  myCenter: () => request<AOMCenterInfo>("/aom-mappings/my-center"),
+};
+
 // --- Auth logout ---
 
 export const authLogout = () =>

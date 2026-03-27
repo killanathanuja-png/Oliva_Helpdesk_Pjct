@@ -18,4 +18,6 @@ SMTP_FROM = os.getenv("SMTP_FROM", "noreply@olivaclinic.com")
 # Department → email mapping for ticket notifications
 DEPT_EMAIL_MAP = {
     "Quality": "qualityteam@olivaclinic.com",
+    "Admin Department": "rajesh@olivaclinic.com",
+    "Administration": "rajesh@olivaclinic.com",
 }

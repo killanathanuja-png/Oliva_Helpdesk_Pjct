@@ -403,6 +403,8 @@ class TicketResponse(TicketBase):
     approver: Optional[str] = None
     approval_status: Optional[str] = None
     resolution: Optional[str] = None
+    aom_name: Optional[str] = None
+    aom_email: Optional[str] = None
     comments: list[TicketCommentResponse] = []
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None

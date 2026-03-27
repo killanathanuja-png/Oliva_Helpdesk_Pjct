@@ -229,6 +229,13 @@ function apiUserToUser(a: ApiUser): LocalUser {
 
 const AdminUsersPage = () => {
   const { showToast } = useToast();
+  const _storedUser = localStorage.getItem("oliva_user");
+  const _parsedUser = _storedUser ? JSON.parse(_storedUser) : null;
+  const _userDept = _parsedUser?.department || "";
+  const _userRole = _parsedUser?.role || "";
+  const _isQualityHead = _userDept.toLowerCase().includes("quality");
+  const _isZenotiManager = _userRole.toLowerCase().includes("zenoti team manager");
+  const _isDeptFiltered = _isQualityHead || _isZenotiManager;
   const [data, setData] = useState<LocalUser[]>([]);
   const [idMap, setIdMap] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
@@ -256,7 +263,11 @@ const AdminUsersPage = () => {
 
       // Fetch users
       try {
-        const apiUsers = await usersApi.list();
+        let apiUsers = await usersApi.list();
+        // Department heads only see their department's users
+        if (_isDeptFiltered) {
+          apiUsers = apiUsers.filter((u) => (u.department || "").toLowerCase().includes(_userDept.toLowerCase().split(" ")[0]));
+        }
         if (!cancelled) {
           setData(apiUsers.map(apiUserToUser));
           const map: Record<string, number> = {};

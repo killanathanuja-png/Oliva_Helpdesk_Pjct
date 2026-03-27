@@ -5,7 +5,7 @@ export type AppRole = string;
 
 // Full admin paths
 const ADMIN_PATHS = [
-  "/", "/tickets", "/sla-report",
+  "/", "/tickets", "/sla-report", "/analytics",
   "/admin/users", "/admin/departments", "/admin/roles",
   "/admin/centers", "/admin/sla", "/admin/categories",
   "/admin/subcategories", "/admin/child-categories", "/admin/service-titles", "/admin/login-history", "/admin/designations",
@@ -16,25 +16,27 @@ const roleAccess: Record<string, string[]> = {
   "Super Admin": ADMIN_PATHS,
   "Global Admin": ADMIN_PATHS,
   "Super User": ADMIN_PATHS,
-  "Help Desk Admin": ["/", "/tickets", "/sla-report", "/admin/users", "/admin/departments", "/admin/centers", "/admin/categories", "/admin/subcategories", "/admin/service-titles"],
-  "Helpdesk In-charge": ["/", "/tickets", "/sla-report", "/admin/users", "/admin/departments", "/admin/centers"],
-  "Area Operations Manager": ["/", "/tickets", "/approvals", "/sla-report"],
-  "Area Operations Manager Head": ["/", "/tickets", "/approvals", "/sla-report"],
-  "Manager": ["/", "/tickets", "/sla-report", "/approvals"],
-  "L1 Manager": ["/", "/tickets", "/sla-report", "/approvals"],
-  "L2 Manager": ["/", "/tickets", "/sla-report", "/approvals"],
-  "Finance": ["/", "/tickets", "/finance-approvals", "/sla-report"],
-  "Finance Head": ["/", "/tickets", "/finance-approvals", "/sla-report"],
-  "Clinic Incharge": ["/", "/tickets", "/sla-report"],
-  "Clinic Manager": ["/", "/tickets", "/sla-report"],
-  "QA": ["/", "/tickets", "/sla-report"],
-  "Zenoti Team": ["/", "/tickets", "/zenoti-requests", "/finance-approvals", "/sla-report"],
-  "Employee": ["/", "/tickets", "/sla-report"],
-  "Others": ["/", "/tickets", "/sla-report"],
+  "Help Desk Admin": ["/", "/tickets", "/sla-report", "/analytics", "/admin/users", "/admin/departments", "/admin/centers", "/admin/categories", "/admin/subcategories", "/admin/service-titles"],
+  "Helpdesk In-charge": ["/", "/tickets", "/sla-report", "/analytics", "/admin/users", "/admin/departments", "/admin/centers"],
+  "Area Operations Manager": ["/", "/tickets", "/approvals", "/sla-report", "/analytics"],
+  "Area Operations Manager Head": ["/", "/tickets", "/approvals", "/sla-report", "/analytics"],
+  "Manager": ["/", "/tickets", "/sla-report", "/analytics", "/approvals"],
+  "L1 Manager": ["/", "/tickets", "/sla-report", "/analytics", "/approvals"],
+  "L2 Manager": ["/", "/tickets", "/sla-report", "/analytics", "/approvals"],
+  "Finance": ["/", "/tickets", "/finance-approvals", "/sla-report", "/analytics"],
+  "Finance Head": ["/", "/tickets", "/finance-approvals", "/sla-report", "/analytics"],
+  "Clinic Incharge": ["/", "/tickets", "/sla-report", "/analytics"],
+  "Clinic Manager": ["/", "/tickets", "/sla-report", "/analytics"],
+  "QA": ["/", "/tickets", "/sla-report", "/analytics"],
+  "Sr. Manager Quality & Audit": ["/", "/tickets", "/sla-report", "/analytics", "/admin/users", "/admin/departments", "/admin/roles", "/admin/centers", "/admin/categories", "/admin/subcategories"],
+  "Zenoti Team": ["/", "/tickets", "/zenoti-requests", "/finance-approvals", "/sla-report", "/analytics"],
+  "Zenoti Team Manager": ["/", "/tickets", "/zenoti-requests", "/finance-approvals", "/sla-report", "/admin/users", "/admin/departments", "/admin/roles", "/admin/centers", "/admin/categories", "/admin/subcategories", "/admin/child-categories"],
+  "Employee": ["/", "/tickets", "/sla-report", "/analytics"],
+  "Others": ["/", "/tickets", "/sla-report", "/analytics"],
 };
 
 // Default access for unknown roles
-const DEFAULT_ACCESS = ["/", "/tickets", "/sla-report"];
+const DEFAULT_ACCESS = ["/", "/tickets", "/sla-report", "/analytics"];
 
 /**
  * Check if a user's role string (possibly comma-separated) includes any of the given roles.

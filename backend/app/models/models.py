@@ -342,6 +342,22 @@ class SLAConfig(Base):
     department_rel = relationship("Department", back_populates="sla_configs")
 
 
+class AOMCenterMapping(Base):
+    """Maps AOM (Area Operations Manager) to Center Managers and their Centers."""
+    __tablename__ = "aom_center_mappings"
+
+    id = Column(Integer, primary_key=True, index=True)
+    aom_name = Column(String(100), nullable=False)
+    aom_email = Column(String(150), nullable=True)
+    cm_name = Column(String(100), nullable=False)
+    cm_email = Column(String(150), nullable=True)
+    center_name = Column(String(200), nullable=False)
+    location = Column(String(100), nullable=True)
+    status = Column(SAEnum(StatusEnum), default=StatusEnum.Active)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+
+
 class Notification(Base):
     __tablename__ = "notifications"
 

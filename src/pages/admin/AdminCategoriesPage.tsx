@@ -129,6 +129,11 @@ function apiCategoryToLocal(ac: ApiCategory): LocalCategory {
 
 const AdminCategoriesPage = () => {
   const { showToast } = useToast();
+  const _storedUser = localStorage.getItem("oliva_user");
+  const _parsedUser = _storedUser ? JSON.parse(_storedUser) : null;
+  const _userDept = _parsedUser?.department || "";
+  const _userRole = _parsedUser?.role || "";
+  const _isDeptFiltered = _userDept.toLowerCase().includes("quality") || _userRole.toLowerCase().includes("zenoti team manager");
   const [data, setData] = useState<LocalCategory[]>([]);
   const [idMap, setIdMap] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
@@ -143,7 +148,11 @@ const AdminCategoriesPage = () => {
     async function fetchData() {
       setLoading(true);
       try {
-        const apiCategories = await categoriesApi.list().catch(() => null);
+        let apiCategories = await categoriesApi.list().catch(() => null);
+        if (_isDeptFiltered && apiCategories) {
+          const deptKey = _userDept.toLowerCase().split(" ")[0];
+          apiCategories = apiCategories.filter((c) => (c.department || "").toLowerCase().includes(deptKey));
+        }
         if (apiCategories && apiCategories.length > 0) {
           setData(apiCategories.map(apiCategoryToLocal));
           const map: Record<string, number> = {};

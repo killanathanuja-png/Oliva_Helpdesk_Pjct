@@ -17,10 +17,20 @@ def get_dashboard_stats(
 ):
     # Base query — optionally filtered by department or user
     base = db.query(Ticket)
+    # Department alias mapping (departments that share tickets)
+    DEPT_ALIASES = {
+        "Admin Department": ["Admin Department", "Administration", "Admin"],
+        "Administration": ["Admin Department", "Administration", "Admin"],
+        "Admin": ["Admin Department", "Administration", "Admin"],
+        "Quality & Audit": ["Quality & Audit", "Quality"],
+        "Quality": ["Quality & Audit", "Quality"],
+    }
+
     if user_id:
         base = base.filter((Ticket.raised_by_id == user_id) | (Ticket.assigned_to_id == user_id))
     elif department:
-        base = base.filter(Ticket.assigned_dept == department)
+        dept_names = DEPT_ALIASES.get(department, [department])
+        base = base.filter(Ticket.assigned_dept.in_(dept_names))
 
     total = base.count()
 

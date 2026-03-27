@@ -99,6 +99,11 @@ const emptyForm = { subCategoryCode: "", subcategory: "", category: "", module: 
 
 const AdminSubcategoriesPage = () => {
   const { showToast } = useToast();
+  const _storedUser = localStorage.getItem("oliva_user");
+  const _parsedUser = _storedUser ? JSON.parse(_storedUser) : null;
+  const _userDept = _parsedUser?.department || "";
+  const _userRole = _parsedUser?.role || "";
+  const _isDeptFiltered = _userDept.toLowerCase().includes("quality") || _userRole.toLowerCase().includes("zenoti team manager");
   const [data, setData] = useState<LocalSubcategory[]>([]);
   const [apiCategories, setApiCategories] = useState<ApiCategory[]>([]);
   const [idMap, setIdMap] = useState<Record<string, number>>({});
@@ -114,10 +119,16 @@ const AdminSubcategoriesPage = () => {
     const fetchData = async () => {
       setLoading(true);
       try {
-        const [apiSubs, apiCats] = await Promise.all([
+        let [apiSubs, apiCats] = await Promise.all([
           subcategoriesApi.list(),
           categoriesApi.list(),
         ]);
+        if (_isDeptFiltered) {
+          const deptKey = _userDept.toLowerCase().split(" ")[0];
+          const deptCatNames = apiCats.filter((c) => (c.department || "").toLowerCase().includes(deptKey)).map((c) => c.name);
+          apiSubs = apiSubs.filter((s) => s.category && deptCatNames.includes(s.category));
+          apiCats = apiCats.filter((c) => (c.department || "").toLowerCase().includes(deptKey));
+        }
         if (apiSubs.length > 0) {
           setData(apiSubs.map(toLocalSubcategory));
           const map: Record<string, number> = {};
