@@ -24,6 +24,11 @@ import {
   Wrench,
   BarChart3,
   TrendingUp,
+  Send,
+  Eye,
+  CheckCircle2,
+  UserCheck,
+  ListChecks,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getAllowedPaths } from "@/lib/roles";
@@ -35,7 +40,18 @@ interface AppLayoutProps {
 
 const allNavItems = [
   { label: "Dashboard", icon: LayoutDashboard, path: "/" },
-  { label: "Tickets", icon: Ticket, path: "/tickets" },
+  {
+    label: "Tickets",
+    icon: Ticket,
+    path: "/tickets",
+    children: [
+      { label: "All Tickets", icon: ListChecks, path: "/tickets?tab=all" },
+      { label: "Assigned Tickets", icon: Eye, path: "/tickets?tab=assigned" },
+      { label: "My Tickets", icon: UserCheck, path: "/tickets?tab=mytickets" },
+      { label: "Raised Tickets", icon: Send, path: "/tickets?tab=raised" },
+      { label: "Resolved Tickets", icon: CheckCircle2, path: "/tickets?tab=resolved" },
+    ],
+  },
   { label: "Approvals", icon: ShieldCheck, path: "/approvals" },
   { label: "Finance Approvals", icon: DollarSign, path: "/finance-approvals" },
   { label: "Zenoti Requests", icon: Wrench, path: "/zenoti-requests" },
@@ -62,7 +78,7 @@ const allNavItems = [
 const AppLayout = ({ children }: AppLayoutProps) => {
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [adminOpen, setAdminOpen] = useState(true);
+  const [openMenus, setOpenMenus] = useState<Record<string, boolean>>({ Masters: true, Tickets: true });
   const [notifOpen, setNotifOpen] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
@@ -95,18 +111,22 @@ const AppLayout = ({ children }: AppLayoutProps) => {
 
   const isActive = (path: string) => location.pathname === path;
   const isAdminActive = location.pathname.startsWith("/admin");
+  const isTicketsActive = location.pathname.startsWith("/tickets");
 
   // Filter nav items based on role
   const allowed = getAllowedPaths();
+  const isPathAllowed = (path: string) => {
+    const basePath = path.split("?")[0];
+    return allowed.includes(path) || allowed.includes(basePath);
+  };
   const navItems = allNavItems.filter((item) => {
     if (item.children) {
-      // Keep Masters group only if at least one child is allowed
-      return item.children.some((c) => allowed.includes(c.path));
+      return item.children.some((c) => isPathAllowed(c.path));
     }
-    return allowed.includes(item.path!);
+    return isPathAllowed(item.path!);
   }).map((item) => {
     if (item.children) {
-      return { ...item, children: item.children.filter((c) => allowed.includes(c.path)) };
+      return { ...item, children: item.children.filter((c) => isPathAllowed(c.path)) };
     }
     return item;
   });
@@ -144,10 +164,13 @@ const AppLayout = ({ children }: AppLayoutProps) => {
             item.children ? (
               <div key={item.label}>
                 <button
-                  onClick={() => setAdminOpen(!adminOpen)}
+                  onClick={() => {
+                    setOpenMenus((prev) => ({ ...prev, [item.label]: !prev[item.label] }));
+                    if (item.path) navigate(item.path);
+                  }}
                   className={cn(
                     "flex items-center w-full gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
-                    isAdminActive
+                    (item.label === "Masters" ? isAdminActive : isTicketsActive)
                       ? "text-white bg-white/15"
                       : "text-white/80 hover:bg-white/10 hover:text-white"
                   )}
@@ -156,27 +179,32 @@ const AppLayout = ({ children }: AppLayoutProps) => {
                   {!collapsed && (
                     <>
                       <span className="flex-1 text-left">{item.label}</span>
-                      <ChevronRight className={cn("h-4 w-4 transition-transform", adminOpen && "rotate-90")} />
+                      <ChevronRight className={cn("h-4 w-4 transition-transform", openMenus[item.label] && "rotate-90")} />
                     </>
                   )}
                 </button>
-                {adminOpen && !collapsed && (
+                {openMenus[item.label] && !collapsed && (
                   <div className="ml-4 mt-1 space-y-0.5 border-l border-white/20 pl-3">
-                    {item.children.map((child) => (
-                      <Link
-                        key={child.path}
-                        to={child.path}
-                        className={cn(
-                          "flex items-center gap-2.5 rounded-md px-3 py-2 text-[13px] transition-colors",
-                          isActive(child.path)
-                            ? "text-sidebar-primary bg-sidebar-accent font-medium"
-                            : "text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
-                        )}
-                      >
-                        <child.icon className="h-4 w-4 shrink-0" />
-                        {child.label}
-                      </Link>
-                    ))}
+                    {item.children.map((child) => {
+                      const childActive = child.path.includes("?")
+                        ? location.pathname + location.search === child.path
+                        : isActive(child.path);
+                      return (
+                        <Link
+                          key={child.path}
+                          to={child.path}
+                          className={cn(
+                            "flex items-center gap-2.5 rounded-md px-3 py-2 text-[13px] transition-colors",
+                            childActive
+                              ? "text-sidebar-primary bg-sidebar-accent font-medium"
+                              : "text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                          )}
+                        >
+                          <child.icon className="h-4 w-4 shrink-0" />
+                          {child.label}
+                        </Link>
+                      );
+                    })}
                   </div>
                 )}
               </div>
