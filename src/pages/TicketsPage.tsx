@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { isSuperRole, hasAnyRole } from "@/lib/roles";
 import { tickets as dummyTickets, departments as fallbackDepartments } from "@/data/dummyData";
 import type { Ticket } from "@/data/dummyData";
@@ -79,7 +79,7 @@ function apiToTicket(t: ApiTicket): Ticket {
   } as Ticket & { _dbId: number };
 }
 
-type TabKey = "all" | "mytickets" | "raised" | "resolved";
+type TabKey = "all" | "assigned" | "mytickets" | "raised" | "resolved";
 
 const TicketsPage = () => {
   const navigate = useNavigate();
@@ -96,7 +96,9 @@ const TicketsPage = () => {
   const ZENOTI_ASSIGNEE_IDS = [707, 816, 823]; // Kalyani, Ramya, Swapna (not Poornima - she's a manager)
   const storedUserId = JSON.parse(localStorage.getItem("oliva_user") || "{}")?.id;
   const isZenotiAssignee = ZENOTI_ASSIGNEE_IDS.includes(storedUserId);
-  const [activeTab, setActiveTab] = useState<TabKey>(isZenotiAssignee ? "mytickets" : "all");
+  const [searchParams] = useSearchParams();
+  const tabFromUrl = searchParams.get("tab") as TabKey | null;
+  const [activeTab, setActiveTab] = useState<TabKey>(tabFromUrl || "all");
   const [editingTicket, setEditingTicket] = useState<Ticket | null>(null);
 
   // Current user from localStorage
@@ -120,6 +122,11 @@ const TicketsPage = () => {
       setLoading(false);
     }
   }, []);
+
+  // Sync tab from URL when sidebar link is clicked
+  useEffect(() => {
+    if (tabFromUrl) setActiveTab(tabFromUrl);
+  }, [tabFromUrl]);
 
   useEffect(() => {
     fetchTickets();
@@ -196,6 +203,7 @@ const TicketsPage = () => {
 
   // Filter by tab
   const tabFiltered = roleFiltered.filter((t) => {
+    if (activeTab === "assigned") return t.assignedTo && t.assignedTo !== "Unassigned";
     if (activeTab === "mytickets") return t.assignedTo === currentUser;
     if (activeTab === "raised") return t.raisedBy === currentUser;
     if (activeTab === "resolved") return t.status === "Resolved" || t.status === "Closed";
@@ -433,31 +441,6 @@ const TicketsPage = () => {
         </div>
       </div>
 
-      {/* Tabs */}
-      <div className="flex gap-1 bg-muted/40 rounded-xl p-1 border border-border/50">
-        {tabs.map((tab) => (
-          <button
-            key={tab.key}
-            onClick={() => setActiveTab(tab.key)}
-            className={cn(
-              "flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-medium transition-all",
-              activeTab === tab.key
-                ? "bg-white shadow-md text-primary border border-primary/20"
-                : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
-            )}
-          >
-            <tab.icon className={cn("h-4 w-4", activeTab === tab.key ? "text-primary" : "")} />
-            {tab.label}
-            <span className={cn(
-              "text-[10px] min-w-[20px] text-center px-1.5 py-0.5 rounded-full font-bold",
-              activeTab === tab.key ? "bg-primary text-white" : "bg-muted text-muted-foreground"
-            )}>
-              {tab.count}
-            </span>
-          </button>
-        ))}
-      </div>
-
       {/* Filters */}
       <div className="flex flex-wrap gap-2">
         <div className="relative flex-1 min-w-[200px]">
@@ -529,9 +512,9 @@ const TicketsPage = () => {
           </thead>
           <tbody>
             {filtered.length > 0 ? filtered.map((t) => (
-              <tr key={t.id} className="border-b border-border last:border-0 hover:bg-muted/30 transition-colors cursor-pointer" onClick={() => goToTicket(t)}>
+              <tr key={t.id} className={cn("border-b border-border last:border-0 hover:bg-muted/30 transition-colors cursor-pointer", t.slaBreached && "bg-destructive/5")} onClick={() => goToTicket(t)}>
                 <td className="px-4 py-3">
-                  <span className="font-mono text-xs text-primary font-medium hover:underline">{t.id}</span>
+                  <span className={cn("font-mono text-xs font-medium hover:underline", t.slaBreached ? "text-destructive font-bold" : "text-primary")}>{t.id}</span>
                 </td>
                 <td className="px-4 py-3 max-w-[220px]">
                   <p className="font-medium truncate">{t.title}</p>

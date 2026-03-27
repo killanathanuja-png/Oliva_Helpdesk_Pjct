@@ -115,11 +115,19 @@ const MultiSelectComboBox = ({ value, onChange, options, placeholder }: MultiSel
     return () => document.removeEventListener("mousedown", handler);
   }, []);
 
+  const realOptions = options.filter((o) => o !== "Select All");
+  const allSelected = realOptions.length > 0 && realOptions.every((o) => selected.includes(o));
+
   const toggleItem = (item: string) => {
+    if (item === "Select All") {
+      // If all are selected, deselect all; otherwise select all
+      onChange(allSelected ? "" : realOptions.join(", "));
+      return;
+    }
     const newSelected = selected.includes(item)
       ? selected.filter((s) => s !== item)
       : [...selected, item];
-    onChange(newSelected.join(", "));
+    onChange(newSelected.filter((s) => s !== "Select All").join(", "));
   };
 
   const displayText = selected.length > 0 ? selected.join(", ") : "";
@@ -151,22 +159,25 @@ const MultiSelectComboBox = ({ value, onChange, options, placeholder }: MultiSel
       )}
       {open && (
         <div className="absolute z-10 mt-1 w-full bg-card border border-border rounded-lg shadow-lg max-h-48 overflow-y-auto">
-          {filtered.length > 0 ? filtered.map((item) => (
-            <button
-              key={item}
-              type="button"
-              onClick={() => toggleItem(item)}
-              className={cn(
-                "w-full text-left px-3 py-2 text-sm hover:bg-primary/10 transition-colors flex items-center gap-2",
-                selected.includes(item) && "bg-primary/10 text-primary font-medium"
-              )}
-            >
-              <div className={cn("h-3.5 w-3.5 rounded border flex items-center justify-center shrink-0", selected.includes(item) ? "bg-primary border-primary" : "border-border")}>
-                {selected.includes(item) && <svg className="h-2.5 w-2.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>}
-              </div>
-              {item}
-            </button>
-          )) : (
+          {filtered.length > 0 ? filtered.map((item) => {
+            const isChecked = item === "Select All" ? allSelected : selected.includes(item);
+            return (
+              <button
+                key={item}
+                type="button"
+                onClick={() => toggleItem(item)}
+                className={cn(
+                  "w-full text-left px-3 py-2 text-sm hover:bg-primary/10 transition-colors flex items-center gap-2",
+                  isChecked && "bg-primary/10 text-primary font-medium"
+                )}
+              >
+                <div className={cn("h-3.5 w-3.5 rounded border flex items-center justify-center shrink-0", isChecked ? "bg-primary border-primary" : "border-border")}>
+                  {isChecked && <svg className="h-2.5 w-2.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>}
+                </div>
+                {item}
+              </button>
+            );
+          }) : (
             <div className="px-3 py-2 text-sm text-muted-foreground">No results found</div>
           )}
         </div>
@@ -548,10 +559,7 @@ const AdminUsersPage = () => {
               <th className="px-3 py-3 font-semibold">Role Name</th>
               <th className="px-3 py-3 font-semibold">Map Level Access</th>
               <th className="px-3 py-3 font-semibold">Email</th>
-              <th className="px-3 py-3 font-semibold">Designation</th>
               <th className="px-3 py-3 font-semibold">Employee Type</th>
-              <th className="px-3 py-3 font-semibold">Vertical</th>
-              <th className="px-3 py-3 font-semibold">Costcenter</th>
               <th className="px-3 py-3 font-semibold">Status</th>
               <th className="px-3 py-3 font-semibold">Actions</th>
             </tr>
@@ -580,10 +588,7 @@ const AdminUsersPage = () => {
                 <td className="px-3 py-2.5 text-xs">{u.role}</td>
                 <td className="px-3 py-2.5 text-xs text-muted-foreground">{u.mapLevelAccess || ""}</td>
                 <td className="px-3 py-2.5 text-xs text-muted-foreground">{u.email}</td>
-                <td className="px-3 py-2.5 text-xs text-muted-foreground">{u.designation || ""}</td>
                 <td className="px-3 py-2.5 text-xs text-muted-foreground">{u.employeeType || ""}</td>
-                <td className="px-3 py-2.5 text-xs text-muted-foreground">{u.vertical || ""}</td>
-                <td className="px-3 py-2.5 text-xs text-muted-foreground">{u.costcenter || ""}</td>
                 <td className="px-3 py-2.5">
                   <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${u.status === "Active" ? "bg-success/10 text-success" : "bg-destructive/10 text-destructive"}`}>{u.status}</span>
                 </td>
