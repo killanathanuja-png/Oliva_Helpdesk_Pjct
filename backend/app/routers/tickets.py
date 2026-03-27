@@ -142,20 +142,10 @@ def create_ticket(req: TicketCreate, current_user: User = Depends(get_current_us
         print(f"[CREATE TICKET] FAILED: {traceback.format_exc()}")
         raise
 
-    # Send email notification if department has a mapped email
-    dept_email = DEPT_EMAIL_MAP.get(req.assigned_dept)
-    if dept_email:
-        send_ticket_notification(
-            to_email=dept_email,
-            ticket_code=ticket.code,
-            title=ticket.title,
-            description=ticket.description or "",
-            raised_by=current_user.name,
-            department=req.assigned_dept or "",
-            center=req.center or "",
-            priority=req.priority or "Medium",
-            category=req.category or "",
-        )
+    # Email notification disabled for now
+    # dept_email = DEPT_EMAIL_MAP.get(req.assigned_dept)
+    # if dept_email:
+    #     send_ticket_notification(...)
  
     return _ticket_to_response(ticket)
  
@@ -197,21 +187,11 @@ def update_ticket(ticket_id: int, req: TicketUpdate, current_user: User = Depend
     db.commit()
     db.refresh(t)
 
-    # Send email notification if ticket was assigned to someone
-    if new_assignee_id:
-        assignee = db.query(User).filter(User.id == new_assignee_id).first()
-        if assignee and assignee.email:
-            send_ticket_notification(
-                to_email=assignee.email,
-                ticket_code=t.code,
-                title=t.title,
-                description=t.description or "",
-                raised_by=t.raised_by_rel.name if t.raised_by_rel else "Unknown",
-                department=t.assigned_dept or "",
-                center=t.center or "",
-                priority=t.priority.value if t.priority else "Medium",
-                category=t.category or "",
-            )
+    # Email notification disabled for now
+    # if new_assignee_id:
+    #     assignee = db.query(User).filter(User.id == new_assignee_id).first()
+    #     if assignee and assignee.email:
+    #         send_ticket_notification(...)
 
     return _ticket_to_response(t)
  
