@@ -583,6 +583,7 @@ const AdminUsersPage = () => {
               <th className="px-3 py-3 font-semibold">User ID</th>
               <th className="px-3 py-3 font-semibold">User Name</th>
               <th className="px-3 py-3 font-semibold">Location</th>
+              <th className="px-3 py-3 font-semibold">Department</th>
               <th className="px-3 py-3 font-semibold">Role Name</th>
               <th className="px-3 py-3 font-semibold">Map Level Access</th>
               <th className="px-3 py-3 font-semibold">Email</th>
@@ -612,6 +613,7 @@ const AdminUsersPage = () => {
                 <td className="px-3 py-2.5 font-mono text-xs text-primary font-semibold">{u.employeeId || u.id}</td>
                 <td className="px-3 py-2.5 text-xs font-medium">{u.name}</td>
                 <td className="px-3 py-2.5 text-xs text-muted-foreground">{u.center || ""}</td>
+                <td className="px-3 py-2.5 text-xs text-muted-foreground">{u.department || ""}</td>
                 <td className="px-3 py-2.5 text-xs">{u.role}</td>
                 <td className="px-3 py-2.5 text-xs text-muted-foreground">{u.mapLevelAccess || ""}</td>
                 <td className="px-3 py-2.5 text-xs text-muted-foreground">{u.email}</td>

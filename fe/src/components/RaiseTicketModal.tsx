@@ -666,7 +666,7 @@ const RaiseTicketModal = ({ onClose, onSuccess, editMode, editTicket, userRole, 
             )}
  
  
-            <div className={cn("grid gap-3", isZenoti ? "grid-cols-1" : "grid-cols-2")}>
+            <div className={cn("grid gap-3", (isZenoti || isCDDToClinics) ? "grid-cols-1" : "grid-cols-2")}>
               <div>
                 <label className={labelClass}>Priority <span className="text-destructive">*</span></label>
                 <ComboBox
@@ -676,7 +676,7 @@ const RaiseTicketModal = ({ onClose, onSuccess, editMode, editTicket, userRole, 
                   placeholder={matchingServiceTitle ? `Suggested: ${matchingServiceTitle.priority}` : "Select priority"}
                 />
               </div>
-              {!isZenoti && (
+              {!isZenoti && !isCDDToClinics && (
                 <div>
                   <label className={labelClass}>Center <span className="text-destructive">*</span>{cmCenterName && <span className="text-xs text-emerald-600 ml-1">(Auto-filled)</span>}</label>
                   {cmCenterName ? (

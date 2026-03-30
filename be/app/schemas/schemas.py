@@ -451,6 +451,7 @@ class NotificationResponse(BaseModel):
     type: Optional[str] = "info"
     read: bool = False
     ticket_id: Optional[int] = None
+    user_id: Optional[int] = None
     created_at: Optional[datetime] = None
 
     class Config:

@@ -201,14 +201,6 @@ const AdminCentersPage = () => {
                 "Zone": c.zone,
                 "Pincode": c.pincode,
                 "Status": c.status,
-<<<<<<< Updated upstream
-=======
-                "Address": c.address,
-                "Latitude": c.latitude,
-                "Longitude": c.longitude,
-                "Contact Person": c.contactPerson,
-                "Mobile Number": c.phone,
->>>>>>> Stashed changes
               }));
               exportToExcel(exportData, "Centers", "Centers");
             }}
@@ -373,8 +365,6 @@ const AdminCentersPage = () => {
                   </select>
                 </div>
               </div>
-<<<<<<< Updated upstream
-=======
 
               {/* Row 5: Contact Person, Phone */}
               <div className="grid grid-cols-2 gap-4">
@@ -389,7 +379,6 @@ const AdminCentersPage = () => {
                     className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" />
                 </div>
               </div>
->>>>>>> Stashed changes
             </div>
             {formError && (
               <div className="mx-6 mb-2 px-3 py-2 rounded-lg bg-destructive/10 text-destructive text-xs font-medium">{formError}</div>

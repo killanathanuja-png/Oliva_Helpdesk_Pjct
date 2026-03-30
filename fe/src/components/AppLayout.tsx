@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import olivaLogo from "@/assets/oliva-logo.png";
-import { authApi, authLogout } from "@/lib/api";
+import { authApi, authLogout, notificationsApi, ApiNotification } from "@/lib/api";
 import {
   LayoutDashboard,
   Ticket,
@@ -32,7 +32,6 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getAllowedPaths } from "@/lib/roles";
-import { notifications } from "@/data/dummyData";
 
 interface AppLayoutProps {
   children: React.ReactNode;
@@ -86,9 +85,10 @@ const AppLayout = ({ children }: AppLayoutProps) => {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [openMenus, setOpenMenus] = useState<Record<string, boolean>>({ Masters: true, Tickets: true, Reports: true });
   const [notifOpen, setNotifOpen] = useState(false);
+  const [notifications, setNotifications] = useState<ApiNotification[]>([]);
+  const [unreadCount, setUnreadCount] = useState(0);
   const location = useLocation();
   const navigate = useNavigate();
-  const unreadCount = notifications.filter((n) => !n.read).length;
 
   // Read logged-in user from localStorage
   const [user, setUser] = useState<{ name?: string; role?: string } | null>(() => {
@@ -106,6 +106,37 @@ const AppLayout = ({ children }: AppLayoutProps) => {
       setUser(fresh);
     }).catch(() => {});
   }, []);
+
+  // Fetch notifications on mount and poll every 30 seconds
+  const fetchNotifications = () => {
+    notificationsApi.list().then(setNotifications).catch(() => {});
+    notificationsApi.unreadCount().then((r) => setUnreadCount(r.count)).catch(() => {});
+  };
+  useEffect(() => {
+    fetchNotifications();
+    const interval = setInterval(fetchNotifications, 30000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const handleMarkAllRead = () => {
+    notificationsApi.markAllRead().then(() => {
+      setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+      setUnreadCount(0);
+    }).catch(() => {});
+  };
+
+  const handleNotifClick = (n: ApiNotification) => {
+    if (!n.read) {
+      notificationsApi.markRead(n.id).then(() => {
+        setNotifications((prev) => prev.map((x) => x.id === n.id ? { ...x, read: true } : x));
+        setUnreadCount((prev) => Math.max(0, prev - 1));
+      }).catch(() => {});
+    }
+    if (n.ticket_id) {
+      setNotifOpen(false);
+      navigate(`/tickets?id=${n.ticket_id}`);
+    }
+  };
 
   const handleLogout = async () => {
     try { await authLogout(); } catch { /* ignore */ }
@@ -294,23 +325,35 @@ const AppLayout = ({ children }: AppLayoutProps) => {
                 <>
                   <div className="fixed inset-0 z-40" onClick={() => setNotifOpen(false)} />
                   <div className="absolute right-0 top-full mt-2 w-80 z-50 rounded-xl bg-card border border-border shadow-lg animate-slide-in">
-                    <div className="p-3 border-b border-border">
+                    <div className="p-3 border-b border-border flex items-center justify-between">
                       <h3 className="font-semibold text-sm">Notifications</h3>
+                      {unreadCount > 0 && (
+                        <button onClick={handleMarkAllRead} className="text-[11px] text-primary hover:underline">
+                          Mark all read
+                        </button>
+                      )}
                     </div>
                     <div className="max-h-80 overflow-y-auto">
-                      {notifications.map((n) => (
-                        <div
-                          key={n.id}
-                          className={cn(
-                            "p-3 border-b border-border last:border-0 hover:bg-muted/50 transition-colors",
-                            !n.read && "bg-accent/30"
-                          )}
-                        >
-                          <p className="text-xs font-semibold">{n.title}</p>
-                          <p className="text-xs text-muted-foreground mt-0.5">{n.message}</p>
-                          <p className="text-[10px] text-muted-foreground mt-1">{n.timestamp}</p>
-                        </div>
-                      ))}
+                      {notifications.length === 0 ? (
+                        <div className="p-4 text-center text-xs text-muted-foreground">No notifications</div>
+                      ) : (
+                        notifications.map((n) => (
+                          <div
+                            key={n.id}
+                            onClick={() => handleNotifClick(n)}
+                            className={cn(
+                              "p-3 border-b border-border last:border-0 hover:bg-muted/50 transition-colors cursor-pointer",
+                              !n.read && "bg-accent/30"
+                            )}
+                          >
+                            <p className="text-xs font-semibold">{n.title}</p>
+                            <p className="text-xs text-muted-foreground mt-0.5">{n.message}</p>
+                            <p className="text-[10px] text-muted-foreground mt-1">
+                              {n.created_at ? new Date(n.created_at).toLocaleString() : ""}
+                            </p>
+                          </div>
+                        ))
+                      )}
                     </div>
                   </div>
                 </>

@@ -555,6 +555,26 @@ export const aomMappingsApi = {
   myCenter: () => request<AOMCenterInfo>("/aom-mappings/my-center"),
 };
 
+// --- Notifications ---
+
+export interface ApiNotification {
+  id: number;
+  title: string;
+  message: string;
+  type: string;
+  read: boolean;
+  ticket_id: number | null;
+  user_id: number | null;
+  created_at: string;
+}
+
+export const notificationsApi = {
+  list: () => request<ApiNotification[]>("/notifications"),
+  unreadCount: () => request<{ count: number }>("/notifications/unread-count"),
+  markRead: (id: number) => request<void>(`/notifications/${id}/read`, { method: "PATCH" }),
+  markAllRead: () => request<void>("/notifications/mark-all-read", { method: "PATCH" }),
+};
+
 // --- Auth logout ---
 
 export const authLogout = () =>

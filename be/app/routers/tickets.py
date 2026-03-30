@@ -3,13 +3,24 @@ from pydantic import BaseModel
 from typing import Optional
 from sqlalchemy.orm import Session
 from app.database import get_db
-from app.models.models import Ticket, TicketComment, User, TicketStatusEnum, PriorityEnum, CommentTypeEnum, ApprovalStatusEnum, AOMCenterMapping, StatusEnum
+from app.models.models import Ticket, TicketComment, User, TicketStatusEnum, PriorityEnum, CommentTypeEnum, ApprovalStatusEnum, AOMCenterMapping, StatusEnum, Notification, NotificationTypeEnum, Department, Center
 from app.schemas.schemas import TicketCreate, TicketUpdate, TicketResponse, TicketCommentCreate, TicketCommentResponse
 from app.auth import get_current_user
 from app.config import DEPT_EMAIL_MAP
 from app.email_utils import send_ticket_notification
  
 router = APIRouter(prefix="/api/tickets", tags=["Tickets"])
+
+
+def _create_notification(db, user_id, title, message, ticket_id, notif_type=NotificationTypeEnum.info):
+    notif = Notification(
+        title=title,
+        message=message,
+        type=notif_type,
+        ticket_id=ticket_id,
+        user_id=user_id,
+    )
+    db.add(notif)
  
  
 def _next_code(db: Session) -> str:
@@ -63,8 +74,19 @@ def _ticket_to_response(t: Ticket, aom_name: str = None, aom_email: str = None) 
  
  
 @router.get("/", response_model=list[TicketResponse])
-def list_tickets(db: Session = Depends(get_db)):
-    tickets = db.query(Ticket).order_by(Ticket.created_at.desc()).all()
+def list_tickets(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    # Clinic Managers only see tickets for their center
+    user_roles = (current_user.role or "").lower()
+    is_clinic_manager = "clinic manager" in user_roles or "clinic incharge" in user_roles
+
+    if is_clinic_manager and current_user.center_rel:
+        center_name = current_user.center_rel.name
+        tickets = db.query(Ticket).filter(
+            (Ticket.center == center_name) | (Ticket.raised_by_id == current_user.id)
+        ).order_by(Ticket.created_at.desc()).all()
+    else:
+        tickets = db.query(Ticket).order_by(Ticket.created_at.desc()).all()
+
     return [_ticket_to_response(t) for t in tickets]
  
  
@@ -138,6 +160,31 @@ def create_ticket(req: TicketCreate, current_user: User = Depends(get_current_us
             db.commit()
         db.refresh(ticket)
         print(f"[CREATE TICKET] SUCCESS: {ticket.code}, id={ticket.id}")
+
+        # --- Notifications ---
+        # Notify the raiser
+        _create_notification(db, current_user.id, f"Ticket {ticket.code} Created",
+            f"Your ticket '{ticket.title}' has been raised successfully.", ticket.id, NotificationTypeEnum.success)
+
+        # Notify assigned department users
+        dept = db.query(Department).filter(Department.name == ticket.assigned_dept).first()
+        if dept:
+            dept_users = db.query(User).filter(User.department_id == dept.id, User.id != current_user.id).all()
+            for u in dept_users:
+                _create_notification(db, u.id, f"New Ticket {ticket.code}",
+                    f"New ticket '{ticket.title}' assigned to {ticket.assigned_dept} department.", ticket.id)
+
+        # If center is specified, notify center users
+        if ticket.center:
+            center = db.query(Center).filter(Center.name == ticket.center).first()
+            if center:
+                center_users = db.query(User).filter(User.center_id == center.id, User.id != current_user.id).all()
+                for u in center_users:
+                    _create_notification(db, u.id, f"New Ticket {ticket.code}",
+                        f"New ticket '{ticket.title}' raised for {ticket.center}.", ticket.id)
+
+        db.commit()
+
     except Exception as e:
         print(f"[CREATE TICKET] FAILED: {traceback.format_exc()}")
         raise
@@ -186,6 +233,26 @@ def update_ticket(ticket_id: int, req: TicketUpdate, current_user: User = Depend
 
     db.commit()
     db.refresh(t)
+
+    # --- Notifications ---
+    # Notify on status change
+    if "status" in update_data:
+        status_val = update_data["status"].value if hasattr(update_data["status"], 'value') else str(update_data["status"])
+        # Notify the raiser
+        if t.raised_by_id and t.raised_by_id != current_user.id:
+            _create_notification(db, t.raised_by_id, f"Ticket {t.code} Updated",
+                f"Ticket '{t.title}' status changed to {status_val}.", t.id)
+        # Notify the assignee
+        if t.assigned_to_id and t.assigned_to_id != current_user.id and t.assigned_to_id != t.raised_by_id:
+            _create_notification(db, t.assigned_to_id, f"Ticket {t.code} Updated",
+                f"Ticket '{t.title}' status changed to {status_val}.", t.id)
+
+    # Notify new assignee
+    if new_assignee_id:
+        _create_notification(db, new_assignee_id, f"Ticket {t.code} Assigned",
+            f"Ticket '{t.title}' has been assigned to you.", t.id, NotificationTypeEnum.info)
+
+    db.commit()
 
     # Email notification disabled for now
     # if new_assignee_id:
