@@ -9,7 +9,7 @@ import {
   Calendar, Timer, Save, X, Upload, Paperclip,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { ticketsApi, usersApi } from "@/lib/api";
+import { ticketsApi, usersApi, centersApi } from "@/lib/api";
 import type { ApiTicket, ApiUser } from "@/lib/api";
 import RaiseTicketModal from "@/components/RaiseTicketModal";
 import type { TicketFormData } from "@/components/RaiseTicketModal";
@@ -258,15 +258,25 @@ const TicketDetailPage = () => {
     }).catch(() => {});
   }, [currentUserRole, currentUserDept]);
 
-  // Fetch L1 (Manager/L1 Manager) and L2 (L2 Manager) users for escalation dropdowns
+  // Fetch L1 (AOM for the ticket's center) and L2 (L2 Manager) users for escalation dropdowns
   useEffect(() => {
     if (currentUserDept?.toUpperCase() !== "CDD") return;
-    usersApi.list().then((users) => {
+    Promise.all([usersApi.list(), centersApi.list()]).then(([users, centers]) => {
       const active = users.filter((u) => u.status === "Active");
-      setL1Users(active.filter((u) => hasAnyRole(u.role, ["Manager", "L1 Manager"])));
+      // L1: Find the AOM for this ticket's center
+      const ticketCenter = ticket?.center || "";
+      const centerData = centers.find((c) => c.name === ticketCenter);
+      if (centerData && centerData.aom_email) {
+        // Show only the AOM whose email matches this center's aom_email
+        const aomForCenter = active.filter((u) => u.email?.toLowerCase() === centerData.aom_email?.toLowerCase());
+        setL1Users(aomForCenter.length > 0 ? aomForCenter : active.filter((u) => hasAnyRole(u.role, ["Area Operations Manager", "Area Operations Manager Head"])));
+      } else {
+        // Fallback: show all AOMs
+        setL1Users(active.filter((u) => hasAnyRole(u.role, ["Area Operations Manager", "Area Operations Manager Head"])));
+      }
       setL2Users(active.filter((u) => hasAnyRole(u.role, ["L2 Manager"])));
     }).catch(() => {});
-  }, [currentUserDept]);
+  }, [currentUserDept, ticket?.center]);
 
   const handleCddAction = async (action: string) => {
     if (!ticket) return;
@@ -551,164 +561,6 @@ const TicketDetailPage = () => {
         </div>
       </Section>
 
-      {/* ── Inline Edit Panel ── */}
-      {inlineEditing && (
-        <Section title="Edit Ticket" green>
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-x-6 gap-y-4">
-            {/* Status */}
-            <div>
-              <label className="flex items-center gap-1.5 text-[11px] font-medium text-muted-foreground uppercase tracking-wider mb-1">
-                <Clock className="h-3 w-3" /> Status
-              </label>
-              <select value={editStatus} onChange={(e) => setEditStatus(e.target.value)}
-                className="w-full px-3 py-2.5 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/40">
-                {isAomRole ? (
-                  <>
-                    <option value={ticket.status}>{ticket.status}</option>
-                    <option value="Approved">Approved</option>
-                    <option value="Rejected">Rejected</option>
-                    <option value="Follow Up">Follow Up</option>
-                  </>
-                ) : ["Employee", "Others"].includes(currentUserRole) ? (
-                  <>
-                    <option value={ticket.status}>{ticket.status}</option>
-                    {(ticket.status as string) !== "User Inputs Received" && <option value="User Inputs Received">User Inputs Received</option>}
-                    {((ticket.status as string) === "Resolved" || (ticket.status as string) === "Closed") && <option value="Re-Open">Re-Open</option>}
-                  </>
-                ) : currentUserDept?.toUpperCase() === "CDD" ? (
-                  <>
-                    <option value={ticket.status}>{ticket.status}</option>
-                    {(ticket.status as string) !== "In Progress" && <option value="In Progress">In Progress</option>}
-                    {(ticket.status as string) !== "Resolved" && <option value="Resolved">Resolved</option>}
-                    {(ticket.status as string) !== "Closed" && <option value="Closed">Closed</option>}
-                  </>
-                ) : hasAnyRole(currentUserRole, ["QA", "Clinic Incharge", "Clinic Manager"]) ? (
-                  <>
-                    <option value={ticket.status}>{ticket.status}</option>
-                    {(ticket.status as string) === "Open" && <option value="Acknowledged">Acknowledged</option>}
-                    {(ticket.status as string) === "Reopened by CDD" && <option value="Acknowledged">Acknowledged</option>}
-                    {(ticket.status as string) !== "In Progress" && <option value="In Progress">In Progress</option>}
-                    {(ticket.status as string) !== "Follow Up" && <option value="Follow Up">Follow Up</option>}
-                    {(ticket.status as string) !== "Awaiting User Inputs" && <option value="Awaiting User Inputs">Awaiting User Inputs</option>}
-                    {(ticket.status as string) !== "Resolved" && <option value="Resolved">Resolved</option>}
-                    {(ticket.status as string) !== "Closed" && <option value="Closed">Closed</option>}
-                    {((ticket.status as string) === "Resolved" || (ticket.status as string) === "Closed") && <option value="Re-Open">Re-Open</option>}
-                  </>
-                ) : (
-                  <>
-                    <option value="Open">Open</option>
-                    <option value="In Progress">In Progress</option>
-                    <option value="Follow Up">Follow Up</option>
-                    <option value="Pending Approval">Pending Approval</option>
-                    <option value="Approved">Approved</option>
-                    <option value="Acknowledged">Acknowledged</option>
-                    <option value="Awaiting User Inputs">Awaiting User Inputs</option>
-                    <option value="User Inputs Received">User Inputs Received</option>
-                    <option value="Resolved">Resolved</option>
-                    <option value="Closed">Closed</option>
-                    <option value="Rejected">Rejected</option>
-                    <option value="Re-Open">Re-Open</option>
-                  </>
-                )}
-              </select>
-            </div>
-
-            {/* Priority */}
-            <div>
-              <label className="flex items-center gap-1.5 text-[11px] font-medium text-muted-foreground uppercase tracking-wider mb-1">
-                <Tag className="h-3 w-3" /> Priority
-              </label>
-              <select value={editPriority} onChange={(e) => setEditPriority(e.target.value)}
-                className="w-full px-3 py-2.5 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/40">
-                <option value="Critical">Critical</option>
-                <option value="High">High</option>
-                <option value="Medium">Medium</option>
-                <option value="Low">Low</option>
-              </select>
-            </div>
-
-            {/* Assign To — hidden for User role and AOM */}
-            {currentUserRole !== "User" && !isAomRole && (
-              <div>
-                <label className="flex items-center gap-1.5 text-[11px] font-medium text-muted-foreground uppercase tracking-wider mb-1">
-                  <User className="h-3 w-3" /> Assign To
-                </label>
-                <select value={editAssignTo} onChange={(e) => setEditAssignTo(e.target.value ? Number(e.target.value) : "")}
-                  className="w-full px-3 py-2.5 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/40">
-                  <option value="">-- No Change --</option>
-                  {teamMembers.map((u) => (
-                    <option key={u.id} value={u.id}>{u.name}{u.department ? ` (${u.department})` : ""}</option>
-                  ))}
-                </select>
-              </div>
-            )}
-
-            {/* File Upload */}
-            <div>
-              <label className="flex items-center gap-1.5 text-[11px] font-medium text-muted-foreground uppercase tracking-wider mb-1">
-                <Upload className="h-3 w-3" /> Attach Files
-              </label>
-              <label className="flex items-center gap-2 px-3 py-2.5 rounded-lg border border-dashed border-border bg-background cursor-pointer hover:bg-muted/30 transition-colors">
-                <Paperclip className="h-4 w-4 text-muted-foreground" />
-                <span className="text-sm text-muted-foreground">
-                  {editFiles.length > 0 ? `${editFiles.length} file(s) selected` : "Choose files..."}
-                </span>
-                <input type="file" multiple className="hidden"
-                  onChange={(e) => { if (e.target.files) setEditFiles(Array.from(e.target.files)); }} />
-              </label>
-            </div>
-
-            {/* Description / Comment — always shown for all roles */}
-            <div className="col-span-full">
-              <label className="flex items-center gap-1.5 text-[11px] font-medium text-muted-foreground uppercase tracking-wider mb-1">
-                <MessageSquare className="h-3 w-3" /> Description / Reason for Change
-                {(["Employee", "Others"].includes(currentUserRole) || editStatus !== ticket.status || editPriority !== ticket.priority) && <span className="text-destructive">*</span>}
-              </label>
-              <textarea
-                value={editComment}
-                onChange={(e) => setEditComment(e.target.value)}
-                placeholder={["Employee", "Others"].includes(currentUserRole)
-                  ? "Please describe why you are making this change (mandatory)..."
-                  : editStatus !== ticket.status || editPriority !== ticket.priority
-                    ? "Please explain why you are changing the status or priority (mandatory)..."
-                    : "Add a comment or reason for this change..."}
-                rows={3}
-                className={cn(
-                  "w-full px-3 py-2.5 rounded-lg border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/40 resize-none",
-                  (["Employee", "Others"].includes(currentUserRole) || editStatus !== ticket.status || editPriority !== ticket.priority) && !editComment.trim()
-                    ? "border-destructive/50" : "border-border"
-                )}
-              />
-              {(["Employee", "Others"].includes(currentUserRole) || editStatus !== ticket.status || editPriority !== ticket.priority) && !editComment.trim() && (
-                <p className="text-[11px] text-destructive mt-1">
-                  {["Employee", "Others"].includes(currentUserRole)
-                    ? "Description is mandatory. Please explain why you are making this change."
-                    : "This field is mandatory when changing status or priority."}
-                </p>
-              )}
-            </div>
-
-            {/* Show selected files */}
-            {editFiles.length > 0 && (
-              <div className="col-span-full">
-                <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider mb-1">Selected Files</p>
-                <div className="flex flex-wrap gap-2">
-                  {editFiles.map((f, i) => (
-                    <div key={i} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-muted/40 border border-border text-xs">
-                      <Paperclip className="h-3 w-3 text-muted-foreground" />
-                      <span className="max-w-[150px] truncate">{f.name}</span>
-                      <button onClick={() => setEditFiles(editFiles.filter((_, idx) => idx !== i))} className="text-muted-foreground hover:text-destructive">
-                        <X className="h-3 w-3" />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-        </Section>
-      )}
-
       {/* ── CDD Evaluation & Escalation Actions ── */}
       {currentUserDept?.toUpperCase() === "CDD" && ticket && (
         (() => {
@@ -910,6 +762,142 @@ const TicketDetailPage = () => {
             {approving ? <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full" /> : <CheckCircle2 className="h-4 w-4" />}
             {approvalAction === "Follow-up" ? "Submit Follow-up" : approvalAction === "Reject" ? "Reject Request" : "Approve Request"}
           </button>
+        </Section>
+      )}
+
+      {/* ── Inline Edit Panel ── */}
+      {inlineEditing && (
+        <Section title="Edit Ticket" green>
+          <div className="grid grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-4">
+            {/* Status */}
+            <div>
+              <label className="flex items-center gap-1.5 text-[11px] font-medium text-muted-foreground uppercase tracking-wider mb-1">
+                <Clock className="h-3 w-3" /> Status
+              </label>
+              <select value={editStatus} onChange={(e) => setEditStatus(e.target.value)}
+                className="w-full px-3 py-2.5 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/40">
+                {isAomRole ? (
+                  <>
+                    <option value={ticket.status}>{ticket.status}</option>
+                    <option value="Approved">Approved</option>
+                    <option value="Rejected">Rejected</option>
+                    <option value="Follow Up">Follow Up</option>
+                  </>
+                ) : ["Employee", "Others"].includes(currentUserRole) ? (
+                  <>
+                    <option value={ticket.status}>{ticket.status}</option>
+                    {(ticket.status as string) !== "User Inputs Received" && <option value="User Inputs Received">User Inputs Received</option>}
+                    {((ticket.status as string) === "Resolved" || (ticket.status as string) === "Closed") && <option value="Re-Open">Re-Open</option>}
+                  </>
+                ) : currentUserDept?.toUpperCase() === "CDD" ? (
+                  <>
+                    <option value={ticket.status}>{ticket.status}</option>
+                    {(ticket.status as string) !== "In Progress" && <option value="In Progress">In Progress</option>}
+                    {(ticket.status as string) !== "Resolved" && <option value="Resolved">Resolved</option>}
+                    {(ticket.status as string) !== "Closed" && <option value="Closed">Closed</option>}
+                  </>
+                ) : hasAnyRole(currentUserRole, ["QA", "Clinic Incharge", "Clinic Manager"]) ? (
+                  <>
+                    <option value={ticket.status}>{ticket.status}</option>
+                    {(ticket.status as string) === "Open" && <option value="Acknowledged">Acknowledged</option>}
+                    {(ticket.status as string) === "Reopened by CDD" && <option value="Acknowledged">Acknowledged</option>}
+                    {(ticket.status as string) !== "In Progress" && <option value="In Progress">In Progress</option>}
+                    {(ticket.status as string) !== "Follow Up" && <option value="Follow Up">Follow Up</option>}
+                    {(ticket.status as string) !== "Awaiting User Inputs" && <option value="Awaiting User Inputs">Awaiting User Inputs</option>}
+                    {(ticket.status as string) !== "Resolved" && <option value="Resolved">Resolved</option>}
+                    {(ticket.status as string) !== "Closed" && <option value="Closed">Closed</option>}
+                    {((ticket.status as string) === "Resolved" || (ticket.status as string) === "Closed") && <option value="Re-Open">Re-Open</option>}
+                  </>
+                ) : (
+                  <>
+                    <option value="Open">Open</option>
+                    <option value="In Progress">In Progress</option>
+                    <option value="Resolved">Resolved</option>
+                    <option value="Closed">Closed</option>
+                  </>
+                )}
+              </select>
+            </div>
+
+            {/* Assign To — hidden for User, AOM, and Clinic Manager roles */}
+            {currentUserRole !== "User" && !isAomRole && !hasAnyRole(currentUserRole, ["Clinic Manager", "Clinic Incharge"]) && (
+              <div>
+                <label className="flex items-center gap-1.5 text-[11px] font-medium text-muted-foreground uppercase tracking-wider mb-1">
+                  <User className="h-3 w-3" /> Assign To
+                </label>
+                <select value={editAssignTo} onChange={(e) => setEditAssignTo(e.target.value ? Number(e.target.value) : "")}
+                  className="w-full px-3 py-2.5 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/40">
+                  <option value="">-- No Change --</option>
+                  {teamMembers.map((u) => (
+                    <option key={u.id} value={u.id}>{u.name}{u.department ? ` (${u.department})` : ""}</option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            {/* File Upload */}
+            <div>
+              <label className="flex items-center gap-1.5 text-[11px] font-medium text-muted-foreground uppercase tracking-wider mb-1">
+                <Upload className="h-3 w-3" /> Attach Files
+              </label>
+              <label className="flex items-center gap-2 px-3 py-2.5 rounded-lg border border-dashed border-border bg-background cursor-pointer hover:bg-muted/30 transition-colors">
+                <Paperclip className="h-4 w-4 text-muted-foreground" />
+                <span className="text-sm text-muted-foreground">
+                  {editFiles.length > 0 ? `${editFiles.length} file(s) selected` : "Choose files..."}
+                </span>
+                <input type="file" multiple className="hidden"
+                  onChange={(e) => { if (e.target.files) setEditFiles(Array.from(e.target.files)); }} />
+              </label>
+            </div>
+
+            {/* Description / Comment */}
+            <div className="col-span-full">
+              <label className="flex items-center gap-1.5 text-[11px] font-medium text-muted-foreground uppercase tracking-wider mb-1">
+                <MessageSquare className="h-3 w-3" /> Description / Reason for Change
+                {(["Employee", "Others"].includes(currentUserRole) || editStatus !== ticket.status) && <span className="text-destructive">*</span>}
+              </label>
+              <textarea
+                value={editComment}
+                onChange={(e) => setEditComment(e.target.value)}
+                placeholder={["Employee", "Others"].includes(currentUserRole)
+                  ? "Please describe why you are making this change (mandatory)..."
+                  : editStatus !== ticket.status
+                    ? "Please explain why you are changing the status (mandatory)..."
+                    : "Add a comment or reason for this change..."}
+                rows={3}
+                className={cn(
+                  "w-full px-3 py-2.5 rounded-lg border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/40 resize-none",
+                  (["Employee", "Others"].includes(currentUserRole) || editStatus !== ticket.status) && !editComment.trim()
+                    ? "border-destructive/50" : "border-border"
+                )}
+              />
+              {(["Employee", "Others"].includes(currentUserRole) || editStatus !== ticket.status) && !editComment.trim() && (
+                <p className="text-[11px] text-destructive mt-1">
+                  {["Employee", "Others"].includes(currentUserRole)
+                    ? "Description is mandatory. Please explain why you are making this change."
+                    : "This field is mandatory when changing status."}
+                </p>
+              )}
+            </div>
+
+            {/* Show selected files */}
+            {editFiles.length > 0 && (
+              <div className="col-span-full">
+                <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider mb-1">Selected Files</p>
+                <div className="flex flex-wrap gap-2">
+                  {editFiles.map((f, i) => (
+                    <div key={i} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-muted/40 border border-border text-xs">
+                      <Paperclip className="h-3 w-3 text-muted-foreground" />
+                      <span className="max-w-[150px] truncate">{f.name}</span>
+                      <button onClick={() => setEditFiles(editFiles.filter((_, idx) => idx !== i))} className="text-muted-foreground hover:text-destructive">
+                        <X className="h-3 w-3" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
         </Section>
       )}
 

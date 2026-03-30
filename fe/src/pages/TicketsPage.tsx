@@ -38,7 +38,7 @@ const statusColors: Record<string, string> = {
 };
 
 // Convert API ticket to frontend Ticket shape
-function apiToTicket(t: ApiTicket): Ticket {
+function apiToTicket(t: ApiTicket): Ticket & { _dbId: number; tatHours: number | null; tatBreached: boolean } {
   return {
     id: t.code,
     title: t.title,
@@ -80,7 +80,9 @@ function apiToTicket(t: ApiTicket): Ticket {
     zenotiAmount: t.zenoti_amount || undefined,
     zenotiDescription: t.zenoti_description || undefined,
     _dbId: t.id, // keep DB id for API calls
-  } as Ticket & { _dbId: number };
+    tatHours: t.tat_hours,
+    tatBreached: t.tat_breached,
+  } as Ticket & { _dbId: number; tatHours: number | null; tatBreached: boolean };
 }
 
 type TabKey = "all" | "assigned" | "mytickets" | "raised" | "resolved";
@@ -112,6 +114,7 @@ const TicketsPage = () => {
   const currentUserRole = parsedUser?.role || "User";
   const currentUserDept = parsedUser?.department || "";
   const currentUserCenter = parsedUser?.center || "";
+  const isCddUser = currentUserDept.toUpperCase() === "CDD";
 
   const fetchTickets = useCallback(async () => {
     try {
@@ -412,22 +415,26 @@ const TicketsPage = () => {
           </button>
           <button
             onClick={() => {
-              const exportData = filtered.map((t) => ({
-                "Ticket ID": t.id,
-                "Title": t.title,
-                "Category": t.category,
-                "Sub-Category": t.subCategory || "",
-                "Child Category": (t as Ticket & { zenotiChildCategory?: string }).zenotiChildCategory || "",
-                "Priority": t.priority,
-                "Status": t.status,
-                "Raised By": t.raisedBy,
-                "Assigned To": t.assignedTo,
-                "Department": t.assignedDept,
-                "Center": t.center,
-                "Created Timestamp": t.createdAt,
-                "Closed Timestamp": (t.status === "Closed" || t.status === "Resolved") ? t.updatedAt : "",
-                "SLA Breached": t.slaBreached ? "Yes" : "No",
-              }));
+              const exportData = filtered.map((t) => {
+                const tatData = t as Ticket & { tatHours?: number | null; tatBreached?: boolean };
+                return {
+                  "Ticket ID": t.id,
+                  "Title": t.title,
+                  "Category": t.category,
+                  "Sub-Category": t.subCategory || "",
+                  "Child Category": (t as Ticket & { zenotiChildCategory?: string }).zenotiChildCategory || "",
+                  "Priority": t.priority,
+                  "Status": t.status,
+                  "Raised By": t.raisedBy,
+                  "Assigned To": t.assignedTo,
+                  "Department": t.assignedDept,
+                  "Center": t.center,
+                  "Created Timestamp": t.createdAt,
+                  "Closed Timestamp": (t.status === "Closed" || t.status === "Resolved") ? t.updatedAt : "",
+                  [isCddUser ? "TAT Breached" : "SLA Breached"]: isCddUser ? (tatData.tatBreached ? "Yes" : "No") : (t.slaBreached ? "Yes" : "No"),
+                  ...(isCddUser && { "TAT Hours": tatData.tatHours != null ? tatData.tatHours : "" }),
+                };
+              });
               exportToExcel(exportData, "Tickets", "Tickets");
             }}
             className="px-4 py-2.5 rounded-lg border border-border bg-card text-sm font-medium hover:bg-muted transition-colors flex items-center gap-2"
@@ -510,15 +517,25 @@ const TicketsPage = () => {
               <th className="px-4 py-3 font-medium">Assigned To</th>
               <th className="px-4 py-3 font-medium">Center</th>
               <th className="px-4 py-3 font-medium">Created</th>
-              <th className="px-4 py-3 font-medium">SLA</th>
+              <th className="px-4 py-3 font-medium">{isCddUser ? "TAT" : "SLA"}</th>
               <th className="px-4 py-3 font-medium">Actions</th>
             </tr>
           </thead>
           <tbody>
-            {filtered.length > 0 ? filtered.map((t) => (
-              <tr key={t.id} className={cn("border-b border-border last:border-0 hover:bg-muted/30 transition-colors cursor-pointer", t.slaBreached && "bg-destructive/5")} onClick={() => goToTicket(t)}>
+            {filtered.length > 0 ? filtered.map((t) => {
+              const tatData = t as Ticket & { _dbId?: number; tatHours?: number | null; tatBreached?: boolean };
+              const tatHours = tatData.tatHours;
+              const tatBreached = tatData.tatBreached || false;
+              const isBreached = isCddUser ? tatBreached : t.slaBreached;
+              const formatTatHours = (hrs: number | null | undefined) => {
+                if (hrs == null) return "—";
+                if (hrs < 1) return `${Math.round(hrs * 60)}m`;
+                return `${Math.floor(hrs)}h ${Math.round((hrs % 1) * 60)}m`;
+              };
+              return (
+              <tr key={t.id} className={cn("border-b border-border last:border-0 hover:bg-muted/30 transition-colors cursor-pointer", isBreached && (isCddUser ? "bg-red-50 dark:bg-red-950/20" : "bg-destructive/5"))} onClick={() => goToTicket(t)}>
                 <td className="px-4 py-3">
-                  <span className={cn("font-mono text-xs font-medium hover:underline", t.slaBreached ? "text-destructive font-bold" : "text-primary")}>{t.id}</span>
+                  <span className={cn("font-mono text-xs font-medium hover:underline", isBreached ? "text-destructive font-bold" : "text-primary")}>{t.id}</span>
                 </td>
                 <td className="px-4 py-3 max-w-[220px]">
                   <p className="font-medium truncate">{t.title}</p>
@@ -540,12 +557,24 @@ const TicketsPage = () => {
                 <td className="px-4 py-3 text-xs text-muted-foreground">{t.center}</td>
                 <td className="px-4 py-3 text-xs text-muted-foreground">{t.createdAt}</td>
                 <td className="px-4 py-3">
-                  {t.slaBreached ? (
-                    <span className="inline-flex items-center gap-1 text-xs font-medium text-destructive">
-                      <AlertTriangle className="h-3 w-3" /> Breached
+                  {isCddUser ? (
+                    <span className={cn(
+                      "inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold",
+                      tatBreached
+                        ? "bg-destructive/10 text-destructive"
+                        : "bg-success/10 text-success"
+                    )}>
+                      {tatBreached && <AlertTriangle className="h-3 w-3" />}
+                      {formatTatHours(tatHours)}
                     </span>
                   ) : (
-                    <span className="text-xs font-medium text-success">On Track</span>
+                    t.slaBreached ? (
+                      <span className="inline-flex items-center gap-1 text-xs font-medium text-destructive">
+                        <AlertTriangle className="h-3 w-3" /> Breached
+                      </span>
+                    ) : (
+                      <span className="text-xs font-medium text-success">On Track</span>
+                    )
                   )}
                 </td>
                 <td className="px-4 py-3">
@@ -560,7 +589,8 @@ const TicketsPage = () => {
                   </div>
                 </td>
               </tr>
-            )) : (
+              );
+            }) : (
               <tr>
                 <td colSpan={9} className="px-4 py-8 text-center text-sm text-muted-foreground">No tickets found</td>
               </tr>

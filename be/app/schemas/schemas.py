@@ -413,6 +413,8 @@ class TicketResponse(TicketBase):
     escalated_to: Optional[str] = None
     escalated_at: Optional[datetime] = None
     acknowledged_at: Optional[datetime] = None
+    tat_hours: Optional[float] = None
+    tat_breached: bool = False
     comments: list[TicketCommentResponse] = []
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None

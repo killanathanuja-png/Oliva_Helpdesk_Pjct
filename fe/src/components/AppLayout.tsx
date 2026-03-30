@@ -104,12 +104,14 @@ const AppLayout = ({ children }: AppLayoutProps) => {
   }, [notifOpen]);
 
   // Read logged-in user from localStorage
-  const [user, setUser] = useState<{ name?: string; role?: string } | null>(() => {
+  const [user, setUser] = useState<{ name?: string; role?: string; department?: string } | null>(() => {
     const stored = localStorage.getItem("oliva_user");
     return stored ? JSON.parse(stored) : null;
   });
   const userName: string = user?.name || "User";
   const userRole: string = user?.role || "User";
+  const userDepartment: string = user?.department || "";
+  const isCddUser: boolean = userDepartment.toUpperCase() === "CDD";
   const userInitials: string = userName.split(" ").map((w: string) => w[0]).join("").toUpperCase().slice(0, 2);
 
   // Re-fetch user profile on mount so role changes are always reflected
@@ -240,6 +242,12 @@ const AppLayout = ({ children }: AppLayoutProps) => {
                       const childActive = child.path.includes("?")
                         ? location.pathname + location.search === child.path
                         : isActive(child.path);
+                      // For CDD users, rename SLA labels to TAT
+                      let displayLabel = child.label;
+                      if (isCddUser) {
+                        if (child.label === "SLA Report") displayLabel = "TAT Report";
+                        else if (child.label === "SLA Analytics") displayLabel = "TAT Analytics";
+                      }
                       return (
                         <Link
                           key={child.path}
@@ -252,7 +260,7 @@ const AppLayout = ({ children }: AppLayoutProps) => {
                           )}
                         >
                           <child.icon className="h-4 w-4 shrink-0" />
-                          {child.label}
+                          {displayLabel}
                         </Link>
                       );
                     })}
@@ -303,8 +311,8 @@ const AppLayout = ({ children }: AppLayoutProps) => {
               {location.pathname === "/approvals" && "Pending Approvals"}
               {location.pathname === "/finance-approvals" && "Finance Approvals"}
               {location.pathname === "/zenoti-requests" && "Zenoti Requests"}
-              {location.pathname === "/sla-report" && "Reports / SLA Report"}
-              {location.pathname === "/analytics" && "Reports / SLA Analytics"}
+              {location.pathname === "/sla-report" && (isCddUser ? "Reports / TAT Report" : "Reports / SLA Report")}
+              {location.pathname === "/analytics" && (isCddUser ? "Reports / TAT Analytics" : "Reports / SLA Analytics")}
               {location.pathname === "/admin/users" && "Masters / Users"}
               {location.pathname === "/admin/departments" && "Masters / Departments"}
               {location.pathname === "/admin/roles" && "Masters / Roles"}

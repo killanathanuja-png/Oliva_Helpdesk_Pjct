@@ -112,6 +112,9 @@ export interface ApiTicket {
   escalated_to: string | null;
   escalated_at: string | null;
   acknowledged_at: string | null;
+  // TAT fields
+  tat_hours: number | null;
+  tat_breached: boolean;
 }
 
 export interface CreateTicketPayload {

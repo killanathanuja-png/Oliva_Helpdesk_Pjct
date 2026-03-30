@@ -16,6 +16,7 @@ export interface TicketFormData {
   center: string;
   status?: string;
   // CDD fields
+  actionRequired?: string;
   assignedCenter?: string;
   centerManagerEmail?: string;
   aomEmail?: string;
@@ -166,6 +167,7 @@ const RaiseTicketModal = ({ onClose, onSuccess, editMode, editTicket, userRole, 
   const [cmCenterName, setCmCenterName] = useState<string | null>(null);
   const [cmAomName, setCmAomName] = useState<string | null>(null);
   // CDD department fields
+  const [actionRequired, setActionRequired] = useState("");
   const [assignedCenter, setAssignedCenter] = useState("");
   const [cddCmEmail, setCddCmEmail] = useState("");
   const [cddAomEmail, setCddAomEmail] = useState("");
@@ -251,7 +253,7 @@ const RaiseTicketModal = ({ onClose, onSuccess, editMode, editTicket, userRole, 
   };
 
   // Department options from API + "Others"
-  const departmentOptions = [...apiDepartments.map((d) => d.name), "Others"];
+  const departmentOptions = [...apiDepartments.map((d) => d.name).sort(), "Others"];
  
   // Categories filtered by selected department
   // If a department is selected: show categories assigned to that department + unassigned categories
@@ -332,6 +334,7 @@ const RaiseTicketModal = ({ onClose, onSuccess, editMode, editTicket, userRole, 
           center: isZenoti ? zenotiFields.location : (isCDDToClinics ? assignedCenter : center),
           zenotiChildCategory: childCategory,
           ...(isCDDToClinics && {
+            actionRequired,
             assignedCenter,
             centerManagerEmail: cddCmEmail,
             aomEmail: cddAomEmail,
@@ -360,6 +363,7 @@ const RaiseTicketModal = ({ onClose, onSuccess, editMode, editTicket, userRole, 
     setCategory("");
     setSubCategory("");
     setChildCategory("");
+    setActionRequired("");
     setAssignedCenter("");
     setCddCmEmail("");
     setCddAomEmail("");
@@ -421,21 +425,10 @@ const RaiseTicketModal = ({ onClose, onSuccess, editMode, editTicket, userRole, 
                 <label className={labelClass}>Status <span className="text-destructive">*</span></label>
                 <select value={status} onChange={(e) => setStatus(e.target.value)} className={inputClass} required>
                   <option value="">Select status</option>
-                  {(userRole === "AOM" || userRole === "Finance") ? (
-                    <>
-                      <option value="Approved">Approved</option>
-                      <option value="Rejected">Rejected</option>
-                      <option value="Follow Up">Follow Up</option>
-                    </>
-                  ) : (
-                    <>
-                      <option value="Awaiting User Inputs">Awaiting User Inputs</option>
-                      <option value="User Inputs Received">User Inputs Received</option>
-                      <option value="Acknowledged">Acknowledged</option>
-                      <option value="Resolved">Resolved</option>
-                      <option value="Closed">Closed</option>
-                    </>
-                  )}
+                  <option value="Open">Open</option>
+                  <option value="In Progress">In Progress</option>
+                  <option value="Resolved">Resolved</option>
+                  <option value="Closed">Closed</option>
                 </select>
               </div>
             </div>
@@ -475,21 +468,55 @@ const RaiseTicketModal = ({ onClose, onSuccess, editMode, editTicket, userRole, 
                 options={departmentOptions}
                 placeholder="Select department"
               />
+              {/* CDD to Clinic — Action Required + Assign to Center */}
+              {isCDDToClinics && (
+                <div className="mt-3 space-y-3">
+                  <div>
+                    <label className={labelClass}>Action Required <span className="text-destructive">*</span></label>
+                    <textarea rows={2} required value={actionRequired} onChange={(e) => setActionRequired(e.target.value)} className={cn(inputClass, "resize-none")} placeholder="Describe the action required..." />
+                  </div>
+                  <div className="rounded-xl border border-blue-200 bg-blue-50/50 p-4 space-y-3">
+                    <div className="flex items-center gap-2">
+                      <AlertCircle className="h-4 w-4 text-blue-600" />
+                      <span className="text-xs font-semibold text-blue-700">Assign to Center</span>
+                    </div>
+                    <div>
+                      <label className={labelClass}>Assigned To (Center) <span className="text-destructive">*</span></label>
+                      <ComboBox
+                        value={assignedCenter}
+                        onChange={handleAssignedCenterChange}
+                        options={apiCenters.map((c) => c.name)}
+                        placeholder="Select center"
+                      />
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className={labelClass}>Center Manager {cddCmEmail && <span className="text-xs text-emerald-600 ml-1">(Auto-filled)</span>}</label>
+                        <input type="text" value={cddCmEmail} readOnly className={cn(inputClass, "bg-muted cursor-not-allowed")} placeholder="Auto-filled on center selection" />
+                      </div>
+                      <div>
+                        <label className={labelClass}>AOM {cddAomEmail && <span className="text-xs text-emerald-600 ml-1">(Auto-filled)</span>}</label>
+                        <input type="text" value={cddAomEmail} readOnly className={cn(inputClass, "bg-muted cursor-not-allowed")} placeholder="Auto-filled on center selection" />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
- 
+
             <div>
               <label className={labelClass}>Title <span className="text-destructive">*</span></label>
               <input type="text" required value={title} onChange={(e) => setTitle(e.target.value)} className={inputClass} placeholder="Brief description of the issue" />
             </div>
- 
+
             <div>
-              <label className={labelClass}>Description <span className="text-destructive">*</span></label>
-              <textarea rows={3} required value={description} onChange={(e) => setDescription(e.target.value)} className={cn(inputClass, "resize-none")} placeholder="Detailed description..." />
+              <label className={labelClass}>Complete Issue Description <span className="text-destructive">*</span></label>
+              <textarea rows={3} required value={description} onChange={(e) => setDescription(e.target.value)} className={cn(inputClass, "resize-none")} placeholder="Detailed description of the issue..." />
             </div>
- 
-            {/* Category / Sub-Category / Child Category - for non-Zenoti departments */}
+
+            {/* Category / Sub-Category - for non-Zenoti departments */}
             {!isZenoti && (
-              <div className={cn("grid gap-3", department === "Quality" ? "grid-cols-2" : "grid-cols-3")}>
+              <div className={cn("grid gap-3", (isCDDToClinics || department === "Quality") ? "grid-cols-2" : "grid-cols-3")}>
                 <div>
                   <label className={labelClass}>Category</label>
                   <ComboBox
@@ -508,7 +535,7 @@ const RaiseTicketModal = ({ onClose, onSuccess, editMode, editTicket, userRole, 
                     placeholder="Select sub-category"
                   />
                 </div>
-                {department !== "Quality" && (
+                {department !== "Quality" && !isCDDToClinics && (
                 <div>
                   <label className={labelClass}>Child Category</label>
                   <ComboBox
@@ -666,76 +693,38 @@ const RaiseTicketModal = ({ onClose, onSuccess, editMode, editTicket, userRole, 
             )}
  
  
-            <div className={cn("grid gap-3", (isZenoti || isCDDToClinics) ? "grid-cols-1" : "grid-cols-2")}>
-              <div>
-                <label className={labelClass}>Priority <span className="text-destructive">*</span></label>
-                <ComboBox
-                  value={priority}
-                  onChange={(val) => setPriority(val)}
-                  options={category.toLowerCase() === "zenoti-finance" ? ["Critical"] : ["High", "Medium", "Low"]}
-                  placeholder={matchingServiceTitle ? `Suggested: ${matchingServiceTitle.priority}` : "Select priority"}
-                />
-              </div>
-              {!isZenoti && !isCDDToClinics && (
+            {/* Priority & Center — hidden for CDD→Clinic */}
+            {!isCDDToClinics && (
+              <div className={cn("grid gap-3", isZenoti ? "grid-cols-1" : "grid-cols-2")}>
                 <div>
-                  <label className={labelClass}>Center <span className="text-destructive">*</span>{cmCenterName && <span className="text-xs text-emerald-600 ml-1">(Auto-filled)</span>}</label>
-                  {cmCenterName ? (
-                    <input
-                      type="text"
-                      value={center}
-                      readOnly
-                      className={cn(inputClass, "bg-muted cursor-not-allowed")}
-                    />
-                  ) : (
-                    <ComboBox
-                      value={center}
-                      onChange={(val) => setCenter(val === "Select All" ? "All Centers" : val)}
-                      options={centerOptions}
-                      placeholder="Select center"
-                    />
-                  )}
-                </div>
-              )}
-            </div>
- 
-            {/* CDD Department - Assigned To Center with auto-fill CM/AOM */}
-            {isCDDToClinics && (
-              <div className="rounded-xl border border-blue-200 bg-blue-50/50 p-4 space-y-3">
-                <div className="flex items-center gap-2">
-                  <AlertCircle className="h-4 w-4 text-blue-600" />
-                  <span className="text-xs font-semibold text-blue-700">Assign to Center</span>
-                </div>
-                <div>
-                  <label className={labelClass}>Assigned To (Center) <span className="text-destructive">*</span></label>
+                  <label className={labelClass}>Priority <span className="text-destructive">*</span></label>
                   <ComboBox
-                    value={assignedCenter}
-                    onChange={handleAssignedCenterChange}
-                    options={apiCenters.map((c) => c.name)}
-                    placeholder="Select center"
+                    value={priority}
+                    onChange={(val) => setPriority(val)}
+                    options={category.toLowerCase() === "zenoti-finance" ? ["Critical"] : ["High", "Medium", "Low"]}
+                    placeholder={matchingServiceTitle ? `Suggested: ${matchingServiceTitle.priority}` : "Select priority"}
                   />
                 </div>
-                <div className="grid grid-cols-2 gap-3">
+                {!isZenoti && (
                   <div>
-                    <label className={labelClass}>Center Manager {cddCmEmail && <span className="text-xs text-emerald-600 ml-1">(Auto-filled)</span>}</label>
-                    <input
-                      type="text"
-                      value={cddCmEmail}
-                      readOnly
-                      className={cn(inputClass, "bg-muted cursor-not-allowed")}
-                      placeholder="Auto-filled on center selection"
-                    />
+                    <label className={labelClass}>Center <span className="text-destructive">*</span>{cmCenterName && <span className="text-xs text-emerald-600 ml-1">(Auto-filled)</span>}</label>
+                    {cmCenterName ? (
+                      <input
+                        type="text"
+                        value={center}
+                        readOnly
+                        className={cn(inputClass, "bg-muted cursor-not-allowed")}
+                      />
+                    ) : (
+                      <ComboBox
+                        value={center}
+                        onChange={(val) => setCenter(val === "Select All" ? "All Centers" : val)}
+                        options={centerOptions}
+                        placeholder="Select center"
+                      />
+                    )}
                   </div>
-                  <div>
-                    <label className={labelClass}>AOM {cddAomEmail && <span className="text-xs text-emerald-600 ml-1">(Auto-filled)</span>}</label>
-                    <input
-                      type="text"
-                      value={cddAomEmail}
-                      readOnly
-                      className={cn(inputClass, "bg-muted cursor-not-allowed")}
-                      placeholder="Auto-filled on center selection"
-                    />
-                  </div>
-                </div>
+                )}
               </div>
             )}
 

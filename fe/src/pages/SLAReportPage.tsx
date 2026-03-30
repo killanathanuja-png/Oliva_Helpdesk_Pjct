@@ -1,9 +1,9 @@
 import { useState, useEffect } from "react";
 import { isSuperRole } from "@/lib/roles";
-import { ticketsApi, slaApi } from "@/lib/api";
+import { ticketsApi, slaApi, categoriesApi, subcategoriesApi } from "@/lib/api";
 import type { ApiTicket, ApiSLAConfig } from "@/lib/api";
 import { cn } from "@/lib/utils";
-import { Loader2, AlertTriangle, CheckCircle, Clock, BarChart3, TrendingUp, Shield, ShieldAlert, ArrowUpRight, ArrowDownRight, Filter } from "lucide-react";
+import { Loader2, AlertTriangle, CheckCircle, Clock, BarChart3, TrendingUp, Shield, ShieldAlert, ArrowUpRight, ArrowDownRight, Filter, Calendar } from "lucide-react";
 
 interface SLASummary {
   total: number;
@@ -75,11 +75,31 @@ const SLAReportPage = () => {
   const userName = parsedUser?.name || "";
   const userDept = parsedUser?.department || "";
 
+  const isCddUser = userDept.toUpperCase() === "CDD";
+  const reportLabel = isCddUser ? "TAT" : "SLA";
+
   const [tickets, setTickets] = useState<ApiTicket[]>([]);
   const [slaConfigs, setSlaConfigs] = useState<ApiSLAConfig[]>([]);
   const [loading, setLoading] = useState(true);
   const [filterPriority, setFilterPriority] = useState("All");
   const [filterDept, setFilterDept] = useState("All");
+  const [filterCategory, setFilterCategory] = useState("All");
+  const [filterSubCategory, setFilterSubCategory] = useState("All");
+  const [datePreset, setDatePreset] = useState("All");
+  const [customStartDate, setCustomStartDate] = useState("");
+  const [customEndDate, setCustomEndDate] = useState("");
+  const [categoryOptions, setCategoryOptions] = useState<string[]>([]);
+  const [subCategoryOptions, setSubCategoryOptions] = useState<string[]>([]);
+
+  // Fetch categories and subcategories
+  useEffect(() => {
+    categoriesApi.list().then((cats) => {
+      setCategoryOptions(cats.map((c) => c.name));
+    }).catch(() => {});
+    subcategoriesApi.list().then((subs) => {
+      setSubCategoryOptions(subs.map((s) => s.name));
+    }).catch(() => {});
+  }, []);
 
   useEffect(() => {
     Promise.all([ticketsApi.list(), slaApi.list()])
@@ -106,9 +126,41 @@ const SLAReportPage = () => {
       .finally(() => setLoading(false));
   }, [userRole, userDept]);
 
+  // Compute date range from preset
+  const getDateRange = (): { start: Date | null; end: Date | null } => {
+    const now = new Date();
+    if (datePreset === "Last 7 Days") {
+      const start = new Date(now);
+      start.setDate(start.getDate() - 7);
+      return { start, end: now };
+    }
+    if (datePreset === "Last 30 Days") {
+      const start = new Date(now);
+      start.setDate(start.getDate() - 30);
+      return { start, end: now };
+    }
+    if (datePreset === "Last 3 Months") {
+      const start = new Date(now);
+      start.setMonth(start.getMonth() - 3);
+      return { start, end: now };
+    }
+    if (datePreset === "Custom" && customStartDate && customEndDate) {
+      return { start: new Date(customStartDate), end: new Date(customEndDate + "T23:59:59") };
+    }
+    return { start: null, end: null };
+  };
+
   const filtered = tickets.filter((t) => {
     if (filterPriority !== "All" && t.priority !== filterPriority) return false;
     if (filterDept !== "All" && t.assigned_dept !== filterDept) return false;
+    if (filterCategory !== "All" && t.category !== filterCategory) return false;
+    if (filterSubCategory !== "All" && t.sub_category !== filterSubCategory) return false;
+    // Date range filter
+    const { start, end } = getDateRange();
+    if (start && end && t.created_at) {
+      const ticketDate = new Date(t.created_at);
+      if (ticketDate < start || ticketDate > end) return false;
+    }
     return true;
   });
 
@@ -183,24 +235,31 @@ const SLAReportPage = () => {
   return (
     <div className="space-y-6 animate-fade-in">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold font-display tracking-tight">SLA Report</h1>
-          <p className="text-sm text-muted-foreground mt-0.5">Service Level Agreement performance overview</p>
+      <div className="flex flex-col gap-4">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-bold font-display tracking-tight">{reportLabel} Report</h1>
+            <p className="text-sm text-muted-foreground mt-0.5">
+              {isCddUser ? "Turn Around Time performance overview" : "Service Level Agreement performance overview"}
+            </p>
+          </div>
         </div>
-        <div className="flex items-center gap-2">
-          <Filter className="h-4 w-4 text-muted-foreground" />
-          <select
-            value={filterPriority}
-            onChange={(e) => setFilterPriority(e.target.value)}
-            className="px-3 py-2 rounded-lg border border-border bg-card text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 transition-shadow"
-          >
-            <option value="All">All Priorities</option>
-            <option value="Critical">Critical</option>
-            <option value="High">High</option>
-            <option value="Medium">Medium</option>
-            <option value="Low">Low</option>
-          </select>
+        {/* Filters */}
+        <div className="flex flex-wrap items-end gap-2">
+          <Filter className="h-4 w-4 text-muted-foreground mt-2" />
+          {!isCddUser && (
+            <select
+              value={filterPriority}
+              onChange={(e) => setFilterPriority(e.target.value)}
+              className="px-3 py-2 rounded-lg border border-border bg-card text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 transition-shadow"
+            >
+              <option value="All">All Priorities</option>
+              <option value="Critical">Critical</option>
+              <option value="High">High</option>
+              <option value="Medium">Medium</option>
+              <option value="Low">Low</option>
+            </select>
+          )}
           <select
             value={filterDept}
             onChange={(e) => setFilterDept(e.target.value)}
@@ -211,6 +270,58 @@ const SLAReportPage = () => {
               <option key={d} value={d}>{d}</option>
             ))}
           </select>
+          <select
+            value={filterCategory}
+            onChange={(e) => setFilterCategory(e.target.value)}
+            className="px-3 py-2 rounded-lg border border-border bg-card text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 transition-shadow"
+          >
+            <option value="All">All Categories</option>
+            {categoryOptions.map((c) => (
+              <option key={c} value={c}>{c}</option>
+            ))}
+          </select>
+          <select
+            value={filterSubCategory}
+            onChange={(e) => setFilterSubCategory(e.target.value)}
+            className="px-3 py-2 rounded-lg border border-border bg-card text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 transition-shadow"
+          >
+            <option value="All">All Sub-Categories</option>
+            {subCategoryOptions.map((s) => (
+              <option key={s} value={s}>{s}</option>
+            ))}
+          </select>
+          <div className="flex items-center gap-2">
+            <Calendar className="h-4 w-4 text-muted-foreground" />
+            <select
+              value={datePreset}
+              onChange={(e) => setDatePreset(e.target.value)}
+              className="px-3 py-2 rounded-lg border border-border bg-card text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 transition-shadow"
+            >
+              <option value="All">All Time</option>
+              <option value="Last 7 Days">Last 7 Days</option>
+              <option value="Last 30 Days">Last 30 Days</option>
+              <option value="Last 3 Months">Last 3 Months</option>
+              <option value="Custom">Custom</option>
+            </select>
+          </div>
+          {datePreset === "Custom" && (
+            <>
+              <input
+                type="date"
+                value={customStartDate}
+                onChange={(e) => setCustomStartDate(e.target.value)}
+                className="px-3 py-2 rounded-lg border border-border bg-card text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 transition-shadow"
+                placeholder="Start Date"
+              />
+              <input
+                type="date"
+                value={customEndDate}
+                onChange={(e) => setCustomEndDate(e.target.value)}
+                className="px-3 py-2 rounded-lg border border-border bg-card text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 transition-shadow"
+                placeholder="End Date"
+              />
+            </>
+          )}
         </div>
       </div>
 

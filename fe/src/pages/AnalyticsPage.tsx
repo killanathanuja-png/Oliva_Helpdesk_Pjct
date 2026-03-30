@@ -56,6 +56,7 @@ const AnalyticsPage = () => {
   const userRole = parsedUser?.role || "User";
   const userName = parsedUser?.name || "";
   const userDept = parsedUser?.department || "";
+  const isCddUser = userDept.toUpperCase() === "CDD";
 
   const [tickets, setTickets] = useState<ApiTicket[]>([]);
   const [loading, setLoading] = useState(true);
@@ -252,31 +253,33 @@ const AnalyticsPage = () => {
           </div>
         </div>
 
-        <div className="bg-card rounded-2xl card-shadow border border-border overflow-hidden">
-          <div className="px-6 py-4 border-b border-border bg-gradient-to-r from-orange-500/5 to-transparent">
-            <h2 className="font-semibold text-sm flex items-center gap-2"><AlertTriangle className="h-4 w-4 text-orange-500" /> Priority SLA Compliance</h2>
-          </div>
-          <div className="p-6 space-y-5">
-            {prioBreakdown.length > 0 ? prioBreakdown.map((p) => (
-              <div key={p.name}>
-                <div className="flex items-center justify-between mb-2">
-                  <div className="flex items-center gap-2.5">
-                    <div className={cn("h-2.5 w-2.5 rounded-full", priorityDotColors[p.name])} />
-                    <span className={cn("px-2.5 py-0.5 rounded-full text-[11px] font-semibold border", priorityColors[p.name])}>{p.name}</span>
+        {!isCddUser && (
+          <div className="bg-card rounded-2xl card-shadow border border-border overflow-hidden">
+            <div className="px-6 py-4 border-b border-border bg-gradient-to-r from-orange-500/5 to-transparent">
+              <h2 className="font-semibold text-sm flex items-center gap-2"><AlertTriangle className="h-4 w-4 text-orange-500" /> Priority SLA Compliance</h2>
+            </div>
+            <div className="p-6 space-y-5">
+              {prioBreakdown.length > 0 ? prioBreakdown.map((p) => (
+                <div key={p.name}>
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2.5">
+                      <div className={cn("h-2.5 w-2.5 rounded-full", priorityDotColors[p.name])} />
+                      <span className={cn("px-2.5 py-0.5 rounded-full text-[11px] font-semibold border", priorityColors[p.name])}>{p.name}</span>
+                    </div>
+                    <span className={cn("text-sm font-bold", p.complianceRate >= 80 ? "text-success" : p.complianceRate >= 50 ? "text-warning" : "text-destructive")}>{p.complianceRate}%</span>
                   </div>
-                  <span className={cn("text-sm font-bold", p.complianceRate >= 80 ? "text-success" : p.complianceRate >= 50 ? "text-warning" : "text-destructive")}>{p.complianceRate}%</span>
+                  <div className="h-2.5 bg-muted/60 rounded-full overflow-hidden">
+                    <div className={cn("h-full rounded-full transition-all duration-700", p.complianceRate >= 80 ? "bg-gradient-to-r from-success/80 to-success" : p.complianceRate >= 50 ? "bg-gradient-to-r from-warning/80 to-warning" : "bg-gradient-to-r from-destructive/80 to-destructive")}
+                      style={{ width: `${p.complianceRate}%` }} />
+                  </div>
+                  <div className="flex gap-4 mt-1.5 text-[11px] text-muted-foreground">
+                    <span>{p.total} total</span><span>{p.breached} breached</span><span>{p.total - p.breached} on track</span>
+                  </div>
                 </div>
-                <div className="h-2.5 bg-muted/60 rounded-full overflow-hidden">
-                  <div className={cn("h-full rounded-full transition-all duration-700", p.complianceRate >= 80 ? "bg-gradient-to-r from-success/80 to-success" : p.complianceRate >= 50 ? "bg-gradient-to-r from-warning/80 to-warning" : "bg-gradient-to-r from-destructive/80 to-destructive")}
-                    style={{ width: `${p.complianceRate}%` }} />
-                </div>
-                <div className="flex gap-4 mt-1.5 text-[11px] text-muted-foreground">
-                  <span>{p.total} total</span><span>{p.breached} breached</span><span>{p.total - p.breached} on track</span>
-                </div>
-              </div>
-            )) : <p className="text-sm text-muted-foreground text-center py-8">No data</p>}
+              )) : <p className="text-sm text-muted-foreground text-center py-8">No data</p>}
+            </div>
           </div>
-        </div>
+        )}
       </div>
 
       {/* Charts: Priority Pie + Department Bar + Top Centers */}

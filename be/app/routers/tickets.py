@@ -7,7 +7,8 @@ from app.models.models import Ticket, TicketComment, User, TicketStatusEnum, Pri
 from app.schemas.schemas import TicketCreate, TicketUpdate, TicketResponse, TicketCommentCreate, TicketCommentResponse
 from app.auth import get_current_user
 from app.config import DEPT_EMAIL_MAP
-from app.email_utils import send_ticket_notification
+from app.email_utils import send_ticket_created, send_ticket_assigned, send_status_changed, send_comment_added
+from datetime import datetime, timezone
  
 router = APIRouter(prefix="/api/tickets", tags=["Tickets"])
 
@@ -38,6 +39,19 @@ def _next_code(db: Session) -> str:
  
  
 def _ticket_to_response(t: Ticket, aom_name: str = None, aom_email: str = None) -> TicketResponse:
+    # Calculate TAT
+    tat_hours = None
+    tat_breached = False
+    if t.created_at:
+        end_time = t.updated_at if t.status in (TicketStatusEnum.Resolved, TicketStatusEnum.Closed, TicketStatusEnum.FinalClosed) else datetime.now(timezone.utc)
+        # Handle timezone-naive datetimes
+        created = t.created_at.replace(tzinfo=timezone.utc) if t.created_at.tzinfo is None else t.created_at
+        end = end_time.replace(tzinfo=timezone.utc) if end_time and end_time.tzinfo is None else (end_time or datetime.now(timezone.utc))
+        delta = end - created
+        tat_hours = round(delta.total_seconds() / 3600, 1)
+        # TAT breach: check against default 8 hours for L1
+        tat_breached = tat_hours > 8
+
     return TicketResponse(
         id=t.id, code=t.code, title=t.title, description=t.description,
         category=t.category, sub_category=t.sub_category,
@@ -69,6 +83,8 @@ def _ticket_to_response(t: Ticket, aom_name: str = None, aom_email: str = None) 
         escalated_to=t.escalated_to_rel.name if t.escalated_to_rel else None,
         escalated_at=t.escalated_at,
         acknowledged_at=t.acknowledged_at,
+        tat_hours=tat_hours,
+        tat_breached=tat_breached,
         comments=[
             TicketCommentResponse(id=c.id, user=c.user, message=c.message, type=c.type.value if c.type else "comment", created_at=c.created_at)
             for c in t.comments
@@ -137,11 +153,7 @@ def create_ticket(req: TicketCreate, current_user: User = Depends(get_current_us
             if not center_value:
                 center_value = aom_mapping.center_name
 
-            # CDD department tickets skip approval and stay Open
-            if req.assigned_dept and req.assigned_dept.upper() == "CDD":
-                approval_required = False
-
-            elif is_zenoti_dept and is_operational_issues:
+            if is_zenoti_dept and is_operational_issues:
                 # Flow III: Operational Issues — No approval needed, goes to Zenoti team directly
                 approval_required = False
                 ticket_status = TicketStatusEnum.Open
@@ -162,14 +174,7 @@ def create_ticket(req: TicketCreate, current_user: User = Depends(get_current_us
                 ticket_status = TicketStatusEnum.PendingApproval
                 approval_type_value = "aom_only"
 
-            else:
-                # Default: AOM approval
-                approval_required = True
-                approver_value = aom_mapping.aom_name
-                approval_status_value = ApprovalStatusEnum.Pending
-                ticket_status = TicketStatusEnum.PendingApproval
-                if not approval_type_value:
-                    approval_type_value = "aom_only"
+            # Non-Zenoti tickets from CMs — no approval, stay Open
 
         elif is_zenoti_dept and center_value:
             # No AOM mapping found — look up AOM from center's aom_email
@@ -194,12 +199,7 @@ def create_ticket(req: TicketCreate, current_user: User = Depends(get_current_us
                         approval_status_value = ApprovalStatusEnum.Pending
                         ticket_status = TicketStatusEnum.PendingApproval
                         approval_type_value = "aom_only"
-                    else:
-                        approval_required = True
-                        approver_value = aom_user.name
-                        approval_status_value = ApprovalStatusEnum.Pending
-                        ticket_status = TicketStatusEnum.PendingApproval
-                        approval_type_value = "aom_only"
+                    # else: non-Zenoti category — no approval, stay Open
 
         ticket = Ticket(
             code=code, title=req.title, description=req.description,
@@ -268,11 +268,45 @@ def create_ticket(req: TicketCreate, current_user: User = Depends(get_current_us
         print(f"[CREATE TICKET] FAILED: {traceback.format_exc()}")
         raise
 
-    # Email notification disabled for now
-    # dept_email = DEPT_EMAIL_MAP.get(req.assigned_dept)
-    # if dept_email:
-    #     send_ticket_notification(...)
- 
+    # ── Email: Ticket Created ──
+    try:
+        priority_val = ticket.priority.value if ticket.priority else "Medium"
+        assigned_name = ticket.assigned_to_rel.name if ticket.assigned_to_rel else ""
+
+        # Email the raiser (confirmation)
+        if current_user.email:
+            send_ticket_created(current_user.email, ticket.code, ticket.title,
+                ticket.description or "", current_user.name, ticket.assigned_dept or "",
+                ticket.center or "", priority_val, ticket.category or "", assigned_name)
+
+        # Email the assignee
+        if ticket.assigned_to_rel and ticket.assigned_to_rel.email and ticket.assigned_to_rel.id != current_user.id:
+            send_ticket_assigned(ticket.assigned_to_rel.email, ticket.code, ticket.title,
+                ticket.assigned_to_rel.name, current_user.name,
+                ticket.assigned_dept or "", ticket.center or "", priority_val)
+
+        # Email department users
+        dept = db.query(Department).filter(Department.name == ticket.assigned_dept).first()
+        if dept:
+            dept_users = db.query(User).filter(User.department_id == dept.id, User.id != current_user.id).all()
+            for u in dept_users:
+                if u.email and (not ticket.assigned_to_rel or u.id != ticket.assigned_to_rel.id):
+                    send_ticket_created(u.email, ticket.code, ticket.title,
+                        ticket.description or "", current_user.name, ticket.assigned_dept or "",
+                        ticket.center or "", priority_val, ticket.category or "", assigned_name)
+
+        # Email center manager if center specified
+        if ticket.center:
+            center_obj = db.query(Center).filter(Center.name == ticket.center).first()
+            if center_obj and center_obj.center_manager_email:
+                cm = db.query(User).filter(User.email == center_obj.center_manager_email).first()
+                if cm and cm.id != current_user.id and (not ticket.assigned_to_rel or cm.id != ticket.assigned_to_rel.id):
+                    send_ticket_created(cm.email, ticket.code, ticket.title,
+                        ticket.description or "", current_user.name, ticket.assigned_dept or "",
+                        ticket.center or "", priority_val, ticket.category or "")
+    except Exception as email_err:
+        print(f"[EMAIL] Failed to send creation emails: {email_err}")
+
     return _ticket_to_response(ticket)
  
  
@@ -333,11 +367,29 @@ def update_ticket(ticket_id: int, req: TicketUpdate, current_user: User = Depend
 
     db.commit()
 
-    # Email notification disabled for now
-    # if new_assignee_id:
-    #     assignee = db.query(User).filter(User.id == new_assignee_id).first()
-    #     if assignee and assignee.email:
-    #         send_ticket_notification(...)
+    # ── Email: Status Changed + Ticket Assigned ──
+    try:
+        old_status = req.model_dump(exclude_unset=True).get("_old_status", "")
+        if "status" in update_data:
+            new_status = update_data["status"].value if hasattr(update_data["status"], "value") else str(update_data["status"])
+            # Email the raiser
+            if t.raised_by_rel and t.raised_by_rel.email and t.raised_by_id != current_user.id:
+                send_status_changed(t.raised_by_rel.email, t.code, t.title,
+                    old_status or "—", new_status, current_user.name)
+            # Email the assignee
+            if t.assigned_to_rel and t.assigned_to_rel.email and t.assigned_to_id != current_user.id:
+                send_status_changed(t.assigned_to_rel.email, t.code, t.title,
+                    old_status or "—", new_status, current_user.name)
+
+        if new_assignee_id:
+            assignee = db.query(User).filter(User.id == new_assignee_id).first()
+            if assignee and assignee.email:
+                send_ticket_assigned(assignee.email, t.code, t.title,
+                    assignee.name, current_user.name,
+                    t.assigned_dept or "", t.center or "",
+                    t.priority.value if t.priority else "")
+    except Exception as email_err:
+        print(f"[EMAIL] Failed to send update emails: {email_err}")
 
     return _ticket_to_response(t)
  
@@ -364,9 +416,21 @@ def add_comment(ticket_id: int, req: TicketCommentCreate, db: Session = Depends(
     db.add(comment)
     db.commit()
     db.refresh(comment)
+
+    # ── Email: Comment Added ──
+    try:
+        # Notify the raiser
+        if t.raised_by_rel and t.raised_by_rel.email:
+            send_comment_added(t.raised_by_rel.email, t.code, t.title, req.user, req.message)
+        # Notify the assignee (if different from raiser)
+        if t.assigned_to_rel and t.assigned_to_rel.email and t.assigned_to_id != t.raised_by_id:
+            send_comment_added(t.assigned_to_rel.email, t.code, t.title, req.user, req.message)
+    except Exception as email_err:
+        print(f"[EMAIL] Failed to send comment emails: {email_err}")
+
     return TicketCommentResponse(id=comment.id, user=comment.user, message=comment.message, type=comment.type.value, created_at=comment.created_at)
- 
- 
+
+
 # --- Approval workflow ---
  
 class ApprovalRequest(BaseModel):
