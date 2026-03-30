@@ -409,6 +409,10 @@ class TicketResponse(TicketBase):
     resolution: Optional[str] = None
     aom_name: Optional[str] = None
     aom_email: Optional[str] = None
+    escalation_level: Optional[int] = 0
+    escalated_to: Optional[str] = None
+    escalated_at: Optional[datetime] = None
+    acknowledged_at: Optional[datetime] = None
     comments: list[TicketCommentResponse] = []
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None

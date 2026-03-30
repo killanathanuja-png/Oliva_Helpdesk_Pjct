@@ -201,6 +201,14 @@ const AdminCentersPage = () => {
                 "Zone": c.zone,
                 "Pincode": c.pincode,
                 "Status": c.status,
+<<<<<<< Updated upstream
+=======
+                "Address": c.address,
+                "Latitude": c.latitude,
+                "Longitude": c.longitude,
+                "Contact Person": c.contactPerson,
+                "Mobile Number": c.phone,
+>>>>>>> Stashed changes
               }));
               exportToExcel(exportData, "Centers", "Centers");
             }}
@@ -366,7 +374,7 @@ const AdminCentersPage = () => {
                 </div>
               </div>
 
-              {/* Row 5: Contact Person, Phone */}
+              {/* Row 5: Contact Person, Mobile Number */}
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-medium text-muted-foreground mb-1.5">Contact Person</label>

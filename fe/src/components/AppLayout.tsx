@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import olivaLogo from "@/assets/oliva-logo.png";
 import { authApi, authLogout, notificationsApi, ApiNotification } from "@/lib/api";
@@ -85,10 +85,26 @@ const AppLayout = ({ children }: AppLayoutProps) => {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [openMenus, setOpenMenus] = useState<Record<string, boolean>>({ Masters: true, Tickets: true, Reports: true });
   const [notifOpen, setNotifOpen] = useState(false);
+<<<<<<< Updated upstream
   const [notifications, setNotifications] = useState<ApiNotification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
+=======
+  const notifRef = useRef<HTMLDivElement>(null);
+>>>>>>> Stashed changes
   const location = useLocation();
   const navigate = useNavigate();
+
+  // Close notification dropdown when clicking outside
+  useEffect(() => {
+    if (!notifOpen) return;
+    const handleClick = (e: MouseEvent) => {
+      if (notifRef.current && !notifRef.current.contains(e.target as Node)) {
+        setNotifOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, [notifOpen]);
 
   // Read logged-in user from localStorage
   const [user, setUser] = useState<{ name?: string; role?: string } | null>(() => {
@@ -309,7 +325,7 @@ const AppLayout = ({ children }: AppLayoutProps) => {
 
           <div className="flex items-center gap-2">
             {/* Notifications */}
-            <div className="relative">
+            <div className="relative" ref={notifRef}>
               <button
                 onClick={() => setNotifOpen(!notifOpen)}
                 className="relative p-2 rounded-lg hover:bg-white/15 transition-colors text-white/80 hover:text-white"
@@ -322,8 +338,6 @@ const AppLayout = ({ children }: AppLayoutProps) => {
                 )}
               </button>
               {notifOpen && (
-                <>
-                  <div className="fixed inset-0 z-40" onClick={() => setNotifOpen(false)} />
                   <div className="absolute right-0 top-full mt-2 w-80 z-50 rounded-xl bg-card border border-border shadow-lg animate-slide-in">
                     <div className="p-3 border-b border-border flex items-center justify-between">
                       <h3 className="font-semibold text-sm">Notifications</h3>
@@ -356,7 +370,6 @@ const AppLayout = ({ children }: AppLayoutProps) => {
                       )}
                     </div>
                   </div>
-                </>
               )}
             </div>
 

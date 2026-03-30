@@ -107,6 +107,11 @@ export interface ApiTicket {
   zenoti_invoice_date: string | null;
   zenoti_amount: string | null;
   zenoti_description: string | null;
+  // CDD Escalation fields
+  escalation_level: number | null;
+  escalated_to: string | null;
+  escalated_at: string | null;
+  acknowledged_at: string | null;
 }
 
 export interface CreateTicketPayload {
@@ -437,6 +442,8 @@ export const ticketsApi = {
     request<ApiTicketComment>(`/tickets/${id}/comments`, { method: "POST", body: JSON.stringify(data) }),
   resolve: (id: number, data: { action: string; resolution?: string; user_name?: string }) =>
     request<ApiTicket>(`/tickets/${id}/resolve`, { method: "PATCH", body: JSON.stringify(data) }),
+  cddAction: (id: number, data: { action: string; comment?: string; escalate_to_id?: number; user_name?: string }) =>
+    request<ApiTicket>(`/tickets/${id}/cdd-action`, { method: "PATCH", body: JSON.stringify(data) }),
 };
 
 // --- Dashboard ---

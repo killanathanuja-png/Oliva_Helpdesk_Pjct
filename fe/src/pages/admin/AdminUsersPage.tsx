@@ -356,9 +356,6 @@ const AdminUsersPage = () => {
     if (!editingId && !form.password.trim()) missing.push("Password");
     if (!form.role) missing.push("Role");
     if (!form.department.trim()) missing.push("Department");
-    if (!form.gender.trim()) missing.push("Gender");
-    if (!form.center.trim()) missing.push("Location");
-    if (!form.city.trim()) missing.push("City");
     if (missing.length > 0) {
       setFormError(`Please fill: ${missing.join(", ")}`);
       return;
@@ -705,7 +702,7 @@ const AdminUsersPage = () => {
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-medium text-muted-foreground mb-1.5">Gender <span className="text-destructive">*</span></label>
+                  <label className="block text-xs font-medium text-muted-foreground mb-1.5">Gender</label>
                   <select value={form.gender} onChange={(e) => setForm({ ...form, gender: e.target.value })}
                     className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/30">
                     <option value="">-- Select --</option>
@@ -737,13 +734,13 @@ const AdminUsersPage = () => {
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-medium text-muted-foreground mb-1.5">City <span className="text-destructive">*</span></label>
-                  <input type="text" value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value })} placeholder="Enter city"
+                  <label className="block text-xs font-medium text-muted-foreground mb-1.5">Location</label>
+                  <input type="text" value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value })} placeholder="Enter location"
                     className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-muted-foreground mb-1.5">Location (Center) <span className="text-destructive">*</span></label>
-                  <MultiSelectComboBox value={form.center} onChange={(val) => setForm({ ...form, center: val })} options={centerOptions} placeholder="Select location(s)" />
+                  <label className="block text-xs font-medium text-muted-foreground mb-1.5">Center Name</label>
+                  <MultiSelectComboBox value={form.center} onChange={(val) => setForm({ ...form, center: val })} options={centerOptions} placeholder="Select center(s)" />
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-4">

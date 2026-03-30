@@ -37,6 +37,10 @@ class TicketStatusEnum(str, enum.Enum):
     Resolved = "Resolved"
     Closed = "Closed"
     Rejected = "Rejected"
+    EscalatedL1 = "Escalated to L1"
+    EscalatedL2 = "Escalated to L2"
+    ReopenedByCDD = "Reopened by CDD"
+    FinalClosed = "Final Closed"
 
 
 class UserRoleEnum(str, enum.Enum):
@@ -305,11 +309,18 @@ class Ticket(Base):
     zenoti_amount = Column(String(50))
     zenoti_description = Column(Text)
 
+    # CDD Escalation fields
+    escalation_level = Column(Integer, default=0)  # 0=None, 1=L1 Dept Head, 2=L2 CXO
+    escalated_to_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    escalated_at = Column(DateTime(timezone=True), nullable=True)
+    acknowledged_at = Column(DateTime(timezone=True), nullable=True)
+
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 
     raised_by_rel = relationship("User", back_populates="tickets_raised", foreign_keys=[raised_by_id])
     assigned_to_rel = relationship("User", back_populates="tickets_assigned", foreign_keys=[assigned_to_id])
+    escalated_to_rel = relationship("User", foreign_keys=[escalated_to_id])
     comments = relationship("TicketComment", back_populates="ticket_rel", cascade="all, delete-orphan")
 
 

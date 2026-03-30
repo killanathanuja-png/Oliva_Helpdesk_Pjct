@@ -31,6 +31,10 @@ const statusColors: Record<string, string> = {
   Closed: "bg-muted text-muted-foreground",
   Rejected: "bg-destructive text-destructive-foreground",
   Cancelled: "bg-gray-200 text-gray-600",
+  "Escalated to L1": "bg-orange-200 text-orange-800",
+  "Escalated to L2": "bg-red-200 text-red-800",
+  "Reopened by CDD": "bg-amber-200 text-amber-800",
+  "Final Closed": "bg-emerald-200 text-emerald-800",
 };
 
 // Convert API ticket to frontend Ticket shape

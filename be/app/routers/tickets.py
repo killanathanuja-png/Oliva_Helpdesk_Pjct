@@ -3,7 +3,11 @@ from pydantic import BaseModel
 from typing import Optional
 from sqlalchemy.orm import Session
 from app.database import get_db
+<<<<<<< Updated upstream
 from app.models.models import Ticket, TicketComment, User, TicketStatusEnum, PriorityEnum, CommentTypeEnum, ApprovalStatusEnum, AOMCenterMapping, StatusEnum, Notification, NotificationTypeEnum, Department, Center
+=======
+from app.models.models import Ticket, TicketComment, User, TicketStatusEnum, PriorityEnum, CommentTypeEnum, ApprovalStatusEnum, AOMCenterMapping, StatusEnum, Center
+>>>>>>> Stashed changes
 from app.schemas.schemas import TicketCreate, TicketUpdate, TicketResponse, TicketCommentCreate, TicketCommentResponse
 from app.auth import get_current_user
 from app.config import DEPT_EMAIL_MAP
@@ -65,6 +69,10 @@ def _ticket_to_response(t: Ticket, aom_name: str = None, aom_email: str = None) 
         zenoti_description=t.zenoti_description,
         aom_name=aom_name,
         aom_email=aom_email,
+        escalation_level=t.escalation_level or 0,
+        escalated_to=t.escalated_to_rel.name if t.escalated_to_rel else None,
+        escalated_at=t.escalated_at,
+        acknowledged_at=t.acknowledged_at,
         comments=[
             TicketCommentResponse(id=c.id, user=c.user, message=c.message, type=c.type.value if c.type else "comment", created_at=c.created_at)
             for c in t.comments
@@ -104,6 +112,15 @@ def create_ticket(req: TicketCreate, current_user: User = Depends(get_current_us
         approver_value = None
         approval_status_value = None
         ticket_status = TicketStatusEnum.Open
+        assigned_to_id_value = None
+
+        # If CDD user creates a ticket, auto-assign to the selected center's clinic manager
+        if current_user.department and current_user.department.upper() == "CDD" and center_value:
+            center_obj = db.query(Center).filter(Center.name == center_value, Center.status == StatusEnum.Active).first()
+            if center_obj and center_obj.center_manager_email:
+                cm_user = db.query(User).filter(User.email == center_obj.center_manager_email).first()
+                if cm_user:
+                    assigned_to_id_value = cm_user.id
 
         # Look up AOM mapping for the current user (by email)
         aom_mapping = db.query(AOMCenterMapping).filter(
@@ -115,13 +132,17 @@ def create_ticket(req: TicketCreate, current_user: User = Depends(get_current_us
             # Auto-set center from mapping if not provided
             if not center_value:
                 center_value = aom_mapping.center_name
-            # Auto-set AOM as approver — ticket needs AOM approval
-            approval_required = True
-            approver_value = aom_mapping.aom_name
-            approval_status_value = ApprovalStatusEnum.Pending
-            ticket_status = TicketStatusEnum.PendingApproval
-            if not approval_type_value:
-                approval_type_value = "aom_only"
+            # CDD department tickets skip approval and stay Open
+            if req.assigned_dept and req.assigned_dept.upper() == "CDD":
+                approval_required = False
+            else:
+                # Auto-set AOM as approver — ticket needs AOM approval
+                approval_required = True
+                approver_value = aom_mapping.aom_name
+                approval_status_value = ApprovalStatusEnum.Pending
+                ticket_status = TicketStatusEnum.PendingApproval
+                if not approval_type_value:
+                    approval_type_value = "aom_only"
 
         ticket = Ticket(
             code=code, title=req.title, description=req.description,
@@ -131,6 +152,7 @@ def create_ticket(req: TicketCreate, current_user: User = Depends(get_current_us
             raised_by_id=current_user.id,
             raised_by_dept=req.assigned_dept,
             assigned_dept=req.assigned_dept,
+            assigned_to_id=assigned_to_id_value,
             center=center_value,
             approval_required=approval_required,
             approval_type=approval_type_value,
@@ -433,8 +455,104 @@ def resolve_ticket(ticket_id: int, req: ResolveRequest, db: Session = Depends(ge
         ))
     else:
         raise HTTPException(status_code=400, detail="Invalid action. Use 'Resolve' or 'Close'.")
- 
+
     db.commit()
     db.refresh(t)
     return _ticket_to_response(t)
- 
+
+
+# --- CDD Escalation Flow ---
+
+class EscalateRequest(BaseModel):
+    action: str  # "Acknowledge", "Escalate L1", "Escalate L2", "Reopen", "Final Close"
+    comment: Optional[str] = None
+    escalate_to_id: Optional[int] = None
+    user_name: Optional[str] = None
+
+
+@router.patch("/{ticket_id}/cdd-action", response_model=TicketResponse)
+def cdd_ticket_action(ticket_id: int, req: EscalateRequest, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    from datetime import datetime, timezone
+    t = db.query(Ticket).filter(Ticket.id == ticket_id).first()
+    if not t:
+        raise HTTPException(status_code=404, detail="Ticket not found")
+
+    user = req.user_name or current_user.name
+
+    if req.action == "Acknowledge":
+        # Clinic Manager acknowledges the ticket
+        t.status = TicketStatusEnum.Acknowledged
+        t.acknowledged_at = datetime.now(timezone.utc)
+        db.add(TicketComment(
+            ticket_id=ticket_id, user=user,
+            message=f"Ticket acknowledged by {user}.",
+            type=CommentTypeEnum.status_change,
+        ))
+
+    elif req.action == "Escalate L1":
+        # Escalate to L1 Dept Head
+        t.status = TicketStatusEnum.EscalatedL1
+        t.escalation_level = 1
+        t.escalated_at = datetime.now(timezone.utc)
+        if req.escalate_to_id:
+            t.escalated_to_id = req.escalate_to_id
+            escalated_user = db.query(User).filter(User.id == req.escalate_to_id).first()
+            esc_name = escalated_user.name if escalated_user else "L1 Dept Head"
+        else:
+            esc_name = "L1 Dept Head"
+        comment_msg = f"Escalated to L1 ({esc_name}) by {user}."
+        if req.comment:
+            comment_msg += f" Reason: {req.comment}"
+        db.add(TicketComment(
+            ticket_id=ticket_id, user=user, message=comment_msg,
+            type=CommentTypeEnum.status_change,
+        ))
+
+    elif req.action == "Escalate L2":
+        # Escalate to L2 CXO
+        t.status = TicketStatusEnum.EscalatedL2
+        t.escalation_level = 2
+        t.escalated_at = datetime.now(timezone.utc)
+        if req.escalate_to_id:
+            t.escalated_to_id = req.escalate_to_id
+            escalated_user = db.query(User).filter(User.id == req.escalate_to_id).first()
+            esc_name = escalated_user.name if escalated_user else "L2 CXO"
+        else:
+            esc_name = "L2 CXO"
+        comment_msg = f"Escalated to L2 CXO ({esc_name}) by {user}."
+        if req.comment:
+            comment_msg += f" Reason: {req.comment}"
+        db.add(TicketComment(
+            ticket_id=ticket_id, user=user, message=comment_msg,
+            type=CommentTypeEnum.status_change,
+        ))
+
+    elif req.action == "Reopen":
+        # CDD reopens a resolved/closed ticket — re-initiate resolution flow
+        t.status = TicketStatusEnum.ReopenedByCDD
+        t.resolution = None
+        comment_msg = f"Reopened by CDD ({user}). Not all queries addressed."
+        if req.comment:
+            comment_msg += f" Reason: {req.comment}"
+        db.add(TicketComment(
+            ticket_id=ticket_id, user=user, message=comment_msg,
+            type=CommentTypeEnum.status_change,
+        ))
+
+    elif req.action == "Final Close":
+        # CDD confirms all queries addressed — final close
+        t.status = TicketStatusEnum.FinalClosed
+        comment_msg = f"Final closed by CDD ({user}). All queries addressed."
+        if req.comment:
+            comment_msg += f" Note: {req.comment}"
+        db.add(TicketComment(
+            ticket_id=ticket_id, user=user, message=comment_msg,
+            type=CommentTypeEnum.status_change,
+        ))
+
+    else:
+        raise HTTPException(status_code=400, detail="Invalid action. Use 'Acknowledge', 'Escalate L1', 'Escalate L2', 'Reopen', or 'Final Close'.")
+
+    db.commit()
+    db.refresh(t)
+    return _ticket_to_response(t)

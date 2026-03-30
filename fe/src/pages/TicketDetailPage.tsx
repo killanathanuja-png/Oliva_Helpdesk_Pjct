@@ -26,6 +26,10 @@ const statusColors: Record<string, string> = {
   Resolved: "bg-success text-success-foreground",
   Closed: "bg-muted text-muted-foreground",
   Rejected: "bg-destructive text-destructive-foreground",
+  "Escalated to L1": "bg-orange-200 text-orange-800",
+  "Escalated to L2": "bg-red-200 text-red-800",
+  "Reopened by CDD": "bg-amber-200 text-amber-800",
+  "Final Closed": "bg-emerald-200 text-emerald-800",
 };
 
 const priorityDotColors: Record<string, string> = {
@@ -86,6 +90,10 @@ function apiToTicket(t: ApiTicket): Ticket & { _dbId: number; rawCreatedAt: stri
     zenotiInvoiceDate: t.zenoti_invoice_date || undefined,
     zenotiAmount: t.zenoti_amount || undefined,
     zenotiDescription: t.zenoti_description || undefined,
+    escalationLevel: t.escalation_level || 0,
+    escalatedTo: t.escalated_to || undefined,
+    escalatedAt: t.escalated_at || undefined,
+    acknowledgedAt: t.acknowledged_at || undefined,
     _dbId: t.id,
     rawCreatedAt: t.created_at || "",
   } as Ticket & { _dbId: number; rawCreatedAt: string };
@@ -171,6 +179,12 @@ const TicketDetailPage = () => {
   const [editComment, setEditComment] = useState("");
   const [editSaving, setEditSaving] = useState(false);
   const [teamMembers, setTeamMembers] = useState<ApiUser[]>([]);
+  // CDD escalation state
+  const [cddActionLoading, setCddActionLoading] = useState(false);
+  const [cddComment, setCddComment] = useState("");
+  const [cddEscalateTo, setCddEscalateTo] = useState<number | "">("");
+  const [l1Users, setL1Users] = useState<ApiUser[]>([]);
+  const [l2Users, setL2Users] = useState<ApiUser[]>([]);
 
   const storedUser = localStorage.getItem("oliva_user");
   const parsedUser = storedUser ? JSON.parse(storedUser) : null;
@@ -190,7 +204,7 @@ const TicketDetailPage = () => {
   const noEditRoleList = ["Finance", "Finance Head"];
   const noEdit = hasAnyRole(currentUserRole, noEditRoleList);
   // AOM can edit only when ticket is Pending Approval (for approve/reject/follow-up)
-  const aomCanEdit = isAomRole && ticket && (ticket.status === "Pending Approval" || ticket.status === "Follow Up");
+  const aomCanEdit = isAomRole && ticket && (ticket.status === "Pending Approval" || (ticket.status as string) === "Follow Up");
   // Zenoti Team cannot edit/assign if the ticket requires finance approval and finance hasn't approved yet
   const isZenotiTeamRole = hasAnyRole(currentUserRole, ["Zenoti Team", "Zenoti Team Manager"]);
   const zenotiBlockedByFinance = isZenotiTeamRole && ticket && ticket.approvalType === "aom_finance" && ticket.approvalStatus !== "Approved";
@@ -198,7 +212,7 @@ const TicketDetailPage = () => {
     ? zenotiBlockedByFinance ? false
     : aomCanEdit || (!noEdit && (
         alwaysEdit ||
-        (ticket.status !== "Resolved" && ticket.status !== "Closed" && (ticket.status as string) !== "Cancelled")
+        (ticket.status !== "Resolved" && ticket.status !== "Closed" && (ticket.status as string) !== "Cancelled" && (ticket.status as string) !== "Final Closed")
       ))
     : false;
 
@@ -232,6 +246,9 @@ const TicketDetailPage = () => {
         setTeamMembers(active.filter((u) => ZENOTI_ASSIGNEE_IDS.includes(u.id)));
       } else if (isSuperRole(currentUserRole)) {
         setTeamMembers(active);
+      } else if (currentUserDept?.toUpperCase() === "CDD") {
+        // CDD users can see their own dept + all Clinic Managers for reassignment
+        setTeamMembers(active.filter((u) => u.department === currentUserDept || u.role === "Clinic Manager"));
       } else if (currentUserDept) {
         // Show only users from the same department
         setTeamMembers(active.filter((u) => u.department === currentUserDept));
@@ -240,6 +257,33 @@ const TicketDetailPage = () => {
       }
     }).catch(() => {});
   }, [currentUserRole, currentUserDept]);
+
+  // Fetch L1 (Manager/L1 Manager) and L2 (L2 Manager) users for escalation dropdowns
+  useEffect(() => {
+    if (currentUserDept?.toUpperCase() !== "CDD") return;
+    usersApi.list().then((users) => {
+      const active = users.filter((u) => u.status === "Active");
+      setL1Users(active.filter((u) => hasAnyRole(u.role, ["Manager", "L1 Manager"])));
+      setL2Users(active.filter((u) => hasAnyRole(u.role, ["L2 Manager"])));
+    }).catch(() => {});
+  }, [currentUserDept]);
+
+  const handleCddAction = async (action: string) => {
+    if (!ticket) return;
+    setCddActionLoading(true);
+    try {
+      await ticketsApi.cddAction(ticket._dbId, {
+        action,
+        comment: cddComment || undefined,
+        escalate_to_id: cddEscalateTo || undefined,
+        user_name: currentUser,
+      });
+      setCddComment("");
+      setCddEscalateTo("");
+      await fetchTicket();
+    } catch { alert(`Failed to perform ${action}.`); }
+    finally { setCddActionLoading(false); }
+  };
 
   const handleApproval = async () => {
     if (!approvalAction || !ticket) return;
@@ -454,10 +498,12 @@ const TicketDetailPage = () => {
                 "Comment";
 
               const isRejected = msg.includes("reject");
-              const isResolved = msg.includes("resolve") || msg.includes("close");
-              const nodeColor = isRejected ? "bg-destructive ring-red-100" : isResolved ? "bg-emerald-500 ring-emerald-100" : "bg-primary ring-primary/20";
-              const lineColor = isRejected ? "bg-destructive/40" : "bg-emerald-400";
-              const labelColor = isRejected ? "text-destructive" : isResolved ? "text-emerald-700" : "text-primary";
+              const isResolved = msg.includes("resolve") || msg.includes("close") || msg.includes("final close");
+              const isEscalated = msg.includes("escalat");
+              const isReopened = msg.includes("reopen");
+              const nodeColor = isRejected ? "bg-destructive ring-red-100" : isEscalated ? "bg-orange-500 ring-orange-100" : isReopened ? "bg-amber-500 ring-amber-100" : isResolved ? "bg-emerald-500 ring-emerald-100" : "bg-primary ring-primary/20";
+              const lineColor = isRejected ? "bg-destructive/40" : isEscalated ? "bg-orange-400" : "bg-emerald-400";
+              const labelColor = isRejected ? "text-destructive" : isEscalated ? "text-orange-700" : isReopened ? "text-amber-700" : isResolved ? "text-emerald-700" : "text-primary";
 
               return (
                 <div key={event.id} className="flex items-start flex-1 min-w-0">
@@ -529,9 +575,18 @@ const TicketDetailPage = () => {
                     {(ticket.status as string) !== "User Inputs Received" && <option value="User Inputs Received">User Inputs Received</option>}
                     {((ticket.status as string) === "Resolved" || (ticket.status as string) === "Closed") && <option value="Re-Open">Re-Open</option>}
                   </>
+                ) : currentUserDept?.toUpperCase() === "CDD" ? (
+                  <>
+                    <option value={ticket.status}>{ticket.status}</option>
+                    {(ticket.status as string) !== "In Progress" && <option value="In Progress">In Progress</option>}
+                    {(ticket.status as string) !== "Resolved" && <option value="Resolved">Resolved</option>}
+                    {(ticket.status as string) !== "Closed" && <option value="Closed">Closed</option>}
+                  </>
                 ) : hasAnyRole(currentUserRole, ["QA", "Clinic Incharge", "Clinic Manager"]) ? (
                   <>
                     <option value={ticket.status}>{ticket.status}</option>
+                    {(ticket.status as string) === "Open" && <option value="Acknowledged">Acknowledged</option>}
+                    {(ticket.status as string) === "Reopened by CDD" && <option value="Acknowledged">Acknowledged</option>}
                     {(ticket.status as string) !== "In Progress" && <option value="In Progress">In Progress</option>}
                     {(ticket.status as string) !== "Follow Up" && <option value="Follow Up">Follow Up</option>}
                     {(ticket.status as string) !== "Awaiting User Inputs" && <option value="Awaiting User Inputs">Awaiting User Inputs</option>}
@@ -654,6 +709,94 @@ const TicketDetailPage = () => {
         </Section>
       )}
 
+      {/* ── CDD Evaluation & Escalation Actions ── */}
+      {currentUserDept?.toUpperCase() === "CDD" && ticket && (
+        (() => {
+          const s = ticket.status as string;
+          const showReopen = s === "Resolved" || s === "Closed";
+          const showFinalClose = s === "Resolved" || s === "Closed";
+          const showEscalateL1 = s === "Open" || s === "In Progress" || s === "Acknowledged" || s === "Reopened by CDD";
+          const showEscalateL2 = s === "Escalated to L1";
+          const showAny = showReopen || showFinalClose || showEscalateL1 || showEscalateL2;
+          if (!showAny) return null;
+          return (
+            <Section title="CDD Actions">
+              <div className="space-y-4">
+                {/* Comment for CDD actions */}
+                <div>
+                  <label className="block text-xs font-medium text-muted-foreground mb-1.5">Comment / Reason</label>
+                  <textarea
+                    value={cddComment}
+                    onChange={(e) => setCddComment(e.target.value)}
+                    className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/40 min-h-[60px]"
+                    placeholder="Add a comment or reason for this action..."
+                  />
+                </div>
+
+                {/* Escalation target selection */}
+                {(showEscalateL1 || showEscalateL2) && (
+                  <div>
+                    <label className="block text-xs font-medium text-muted-foreground mb-1.5">
+                      Escalate To {showEscalateL2 ? "(L2 CXO)" : "(L1 Dept Head)"}
+                    </label>
+                    <select
+                      value={cddEscalateTo}
+                      onChange={(e) => setCddEscalateTo(e.target.value ? Number(e.target.value) : "")}
+                      className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
+                    >
+                      <option value="">-- Select --</option>
+                      {(showEscalateL2 ? l2Users : l1Users).map((u) => (
+                        <option key={u.id} value={u.id}>{u.name} ({u.role})</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
+                {/* Action buttons */}
+                <div className="flex flex-wrap gap-3">
+                  {showEscalateL1 && (
+                    <button
+                      onClick={() => handleCddAction("Escalate L1")}
+                      disabled={cddActionLoading || !cddEscalateTo}
+                      className="px-4 py-2 rounded-lg bg-orange-500 text-white text-sm font-medium hover:bg-orange-600 disabled:opacity-50 transition-colors"
+                    >
+                      {cddActionLoading ? "Processing..." : "Escalate to L1 Dept Head"}
+                    </button>
+                  )}
+                  {showEscalateL2 && (
+                    <button
+                      onClick={() => handleCddAction("Escalate L2")}
+                      disabled={cddActionLoading || !cddEscalateTo}
+                      className="px-4 py-2 rounded-lg bg-red-500 text-white text-sm font-medium hover:bg-red-600 disabled:opacity-50 transition-colors"
+                    >
+                      {cddActionLoading ? "Processing..." : "Escalate to L2 CXO"}
+                    </button>
+                  )}
+                  {showReopen && (
+                    <button
+                      onClick={() => handleCddAction("Reopen")}
+                      disabled={cddActionLoading}
+                      className="px-4 py-2 rounded-lg bg-amber-500 text-white text-sm font-medium hover:bg-amber-600 disabled:opacity-50 transition-colors"
+                    >
+                      {cddActionLoading ? "Processing..." : "Reopen Ticket"}
+                    </button>
+                  )}
+                  {showFinalClose && (
+                    <button
+                      onClick={() => handleCddAction("Final Close")}
+                      disabled={cddActionLoading}
+                      className="px-4 py-2 rounded-lg bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700 disabled:opacity-50 transition-colors"
+                    >
+                      {cddActionLoading ? "Processing..." : "Final Close (All Resolved)"}
+                    </button>
+                  )}
+                </div>
+              </div>
+            </Section>
+          );
+        })()
+      )}
+
       {/* ── Ticket Information ── */}
       <Section title="Ticket Information">
         <div className="grid grid-cols-2 gap-x-6 gap-y-4">
@@ -712,6 +855,17 @@ const TicketDetailPage = () => {
             <Field label="Approval Required" value={ticket.approvalRequired ? "Yes" : "No"} />
             <Field label="Current Approver" value={ticket.approver || "—"} icon={ShieldCheck} />
             <Field label="Approval Status" value={ticket.approvalStatus || "Pending"} badge />
+          </div>
+        </Section>
+      )}
+
+      {/* ── Escalation Information ── */}
+      {(ticket as any).escalationLevel > 0 && (
+        <Section title="Escalation Information">
+          <div className="grid grid-cols-3 gap-x-6 gap-y-4">
+            <Field label="Escalation Level" value={`L${(ticket as any).escalationLevel}`} badge />
+            <Field label="Escalated To" value={(ticket as any).escalatedTo || "—"} icon={User} />
+            <Field label="Escalated At" value={(ticket as any).escalatedAt ? new Date((ticket as any).escalatedAt).toLocaleString() : "—"} icon={Clock} />
           </div>
         </Section>
       )}
