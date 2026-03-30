@@ -566,7 +566,7 @@ const TicketsPage = () => {
       </div>
 
       {/* Raise Ticket Modal */}
-      {showRaise && <RaiseTicketModal onClose={() => setShowRaise(false)} onSuccess={handleRaiseSuccess} />}
+      {showRaise && <RaiseTicketModal onClose={() => setShowRaise(false)} onSuccess={handleRaiseSuccess} userDepartment={currentUserDept} />}
 
       {/* Edit/Modify Ticket Modal */}
       {editingTicket && (

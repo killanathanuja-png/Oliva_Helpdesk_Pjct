@@ -205,6 +205,7 @@ interface LocalUser extends User {
   lwd: string;
   effectiveDate: string;
   remarks: string;
+  managedCenters: string[];
 }
 
 function apiUserToUser(a: ApiUser): LocalUser {
@@ -235,6 +236,7 @@ function apiUserToUser(a: ApiUser): LocalUser {
     avatar: a.avatar ?? a.name.split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase(),
     status: (a.status as "Active" | "Inactive") ?? "Active",
     lastLogin: a.last_login ?? "",
+    managedCenters: a.managed_centers ?? [],
   };
 }
 
@@ -263,6 +265,7 @@ const AdminUsersPage = () => {
 
   const [roleOptions, setRoleOptions] = useState<string[]>(dummyRoles.map((r) => r.name));
   const [centerOptions, setCenterOptions] = useState<string[]>(dummyCenters.map((c) => c.name));
+  const [centerIdMap, setCenterIdMap] = useState<Record<string, number>>({});
   const [departmentOptions, setDepartmentOptions] = useState<string[]>(dummyDepartments.map((d) => d.name));
   const [designationOptions, setDesignationOptions] = useState<string[]>([]);
 
@@ -303,7 +306,12 @@ const AdminUsersPage = () => {
       // Fetch centers
       try {
         const apiCenters = await centersApi.list();
-        if (!cancelled) setCenterOptions(apiCenters.length > 0 ? ["Select All", ...apiCenters.map((c) => c.name)] : ["Select All", ...dummyCenters.map((c) => c.name)]);
+        if (!cancelled) {
+          setCenterOptions(apiCenters.length > 0 ? ["Select All", ...apiCenters.map((c) => c.name)] : ["Select All", ...dummyCenters.map((c) => c.name)]);
+          const cMap: Record<string, number> = {};
+          apiCenters.forEach((c) => { cMap[c.name] = c.id; });
+          setCenterIdMap(cMap);
+        }
       } catch {
         if (!cancelled) setCenterOptions(["Select All", ...dummyCenters.map((c) => c.name)]);
       }
@@ -361,15 +369,30 @@ const AdminUsersPage = () => {
       const numericId = idMap[editingId];
       if (numericId) {
         try {
+          // Parse selected centers from comma-separated string
+          const selectedCenterNames = form.center.split(",").map((s) => s.trim()).filter(Boolean);
+          const primaryCenter = selectedCenterNames[0] || "";
+
           await usersApi.update(numericId, {
             name: form.name, email: form.email, role: form.role, designation: form.designation,
-            department: form.department, center: form.center, gender: form.gender, mobile: form.mobile,
+            department: form.department, center: primaryCenter, gender: form.gender, mobile: form.mobile,
             reporting_to: form.reportingTo, map_level_access: form.mapLevelAccess, entity: form.entity,
             vertical: form.vertical, costcenter: form.costcenter, grade: form.grade,
             employee_type: form.employeeType, city: form.city, employee_dob: form.employeeDob,
             employee_doj: form.employeeDoj, lwd: form.lwd, effective_date: form.effectiveDate,
             remarks: form.remarks, status: form.status,
           });
+
+          // Save managed centers (map center names to IDs)
+          if (selectedCenterNames.length > 0 && centerIdMap) {
+            const centerIds = selectedCenterNames
+              .map((name) => centerIdMap[name])
+              .filter((id): id is number => id !== undefined);
+            if (centerIds.length > 0) {
+              await usersApi.setManagedCenters(numericId, centerIds);
+            }
+          }
+
           showToast("User updated successfully");
           await refreshUsers();
         } catch (err) {
@@ -420,7 +443,11 @@ const AdminUsersPage = () => {
 
   const handleEdit = (u: LocalUser) => {
     setEditingId(u.id);
-    setForm({ name: u.name, email: u.email, password: "", role: u.role, designation: u.designation, center: u.center, department: u.department, gender: u.gender, mobile: u.mobile, reportingTo: u.reportingTo, employeeId: u.employeeId, mapLevelAccess: u.mapLevelAccess, entity: u.entity, vertical: u.vertical, costcenter: u.costcenter, grade: u.grade, employeeType: u.employeeType, city: u.city, employeeDob: u.employeeDob, employeeDoj: u.employeeDoj, lwd: u.lwd, effectiveDate: u.effectiveDate, remarks: u.remarks, status: u.status });
+    // For AOM users, show managed centers; otherwise show primary center
+    const centerVal = u.managedCenters && u.managedCenters.length > 0
+      ? u.managedCenters.join(", ")
+      : u.center;
+    setForm({ name: u.name, email: u.email, password: "", role: u.role, designation: u.designation, center: centerVal, department: u.department, gender: u.gender, mobile: u.mobile, reportingTo: u.reportingTo, employeeId: u.employeeId, mapLevelAccess: u.mapLevelAccess, entity: u.entity, vertical: u.vertical, costcenter: u.costcenter, grade: u.grade, employeeType: u.employeeType, city: u.city, employeeDob: u.employeeDob, employeeDoj: u.employeeDoj, lwd: u.lwd, effectiveDate: u.effectiveDate, remarks: u.remarks, status: u.status });
     setShowModal(true);
   };
 

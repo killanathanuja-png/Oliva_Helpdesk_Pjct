@@ -110,8 +110,6 @@ class Center(Base):
     longitude = Column(String(20))
     zone = Column(String(50))
     country = Column(String(50), default="India")
-    center_manager_email = Column(String(150), nullable=True)
-    aom_email = Column(String(150), nullable=True)
     status = Column(SAEnum(StatusEnum), default=StatusEnum.Active)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())

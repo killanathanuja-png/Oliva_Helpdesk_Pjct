@@ -188,6 +188,8 @@ export interface ApiCenter {
   longitude: string | null;
   zone: string | null;
   country: string | null;
+  center_manager_email: string | null;
+  aom_email: string | null;
   status: string | null;
   created_at: string | null;
 }
@@ -292,9 +294,9 @@ export const departmentsApi = {
 
 export const centersApi = {
   list: () => request<ApiCenter[]>("/centers"),
-  create: (data: { name: string; city?: string; state?: string; contact_person?: string; phone?: string; address?: string; pincode?: string; latitude?: string; longitude?: string; zone?: string; country?: string; status?: string }) =>
+  create: (data: Record<string, unknown>) =>
     request<ApiCenter>("/centers", { method: "POST", body: JSON.stringify(data) }),
-  update: (id: number, data: { name?: string; city?: string; state?: string; contact_person?: string; phone?: string; address?: string; pincode?: string; latitude?: string; longitude?: string; zone?: string; country?: string; status?: string }) =>
+  update: (id: number, data: Record<string, unknown>) =>
     request<ApiCenter>(`/centers/${id}`, { method: "PUT", body: JSON.stringify(data) }),
   updateStatus: (id: number, status: string) =>
     request<ApiCenter>(`/centers/${id}/status?status=${encodeURIComponent(status)}`, { method: "PATCH" }),
@@ -308,6 +310,10 @@ export const usersApi = {
     request<ApiUser>(`/users/${id}`, { method: "PUT", body: JSON.stringify(data) }),
   updateStatus: (id: number, status: string) =>
     request<ApiUser>(`/users/${id}/status?status=${encodeURIComponent(status)}`, { method: "PATCH" }),
+  getManagedCenters: (id: number) =>
+    request<{ id: number; name: string }[]>(`/users/${id}/managed-centers`),
+  setManagedCenters: (id: number, centerIds: number[]) =>
+    request<{ id: number; name: string }[]>(`/users/${id}/managed-centers`, { method: "PUT", body: JSON.stringify(centerIds) }),
   uploadExcel: async (file: File): Promise<{ message: string; added: number; updated: number; skipped: number; errors: string[]; users: ApiUser[] }> => {
     const formData = new FormData();
     formData.append("file", file);

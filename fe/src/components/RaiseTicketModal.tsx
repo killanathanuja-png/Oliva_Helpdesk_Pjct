@@ -15,6 +15,10 @@ export interface TicketFormData {
   priority: string;
   center: string;
   status?: string;
+  // CDD fields
+  assignedCenter?: string;
+  centerManagerEmail?: string;
+  aomEmail?: string;
   // Zenoti fields
   zenotiLocation?: string;
   zenotiMainCategory?: string;
@@ -36,6 +40,7 @@ interface Props {
   editMode?: boolean;
   editTicket?: Ticket;
   userRole?: string;
+  userDepartment?: string;
 }
  
 interface ComboBoxProps {
@@ -136,7 +141,7 @@ const emptyZenotiFields = {
   zenotiDescription: "",
 };
  
-const RaiseTicketModal = ({ onClose, onSuccess, editMode, editTicket, userRole }: Props) => {
+const RaiseTicketModal = ({ onClose, onSuccess, editMode, editTicket, userRole, userDepartment }: Props) => {
   const [department, setDepartment] = useState(editTicket?.assignedDept || "");
   const [category, setCategory] = useState(editTicket?.category || "");
   const [zenotiFields, setZenotiFields] = useState(emptyZenotiFields);
@@ -159,6 +164,10 @@ const RaiseTicketModal = ({ onClose, onSuccess, editMode, editTicket, userRole }
   const [loadingData, setLoadingData] = useState(true);
   const [cmCenterName, setCmCenterName] = useState<string | null>(null);
   const [cmAomName, setCmAomName] = useState<string | null>(null);
+  // CDD department fields
+  const [assignedCenter, setAssignedCenter] = useState("");
+  const [cddCmEmail, setCddCmEmail] = useState("");
+  const [cddAomEmail, setCddAomEmail] = useState("");
  
   // Fetch all master data on mount
   useEffect(() => {
@@ -192,7 +201,9 @@ const RaiseTicketModal = ({ onClose, onSuccess, editMode, editTicket, userRole }
             id: i + 1, code: c.id, location_code: null, name: c.name, city: c.city, state: c.state,
             department: c.department, contact_person: c.contactPerson,
             phone: c.phone, address: null, pincode: null, latitude: null,
-            longitude: null, zone: null, country: c.country, status: c.status, created_at: null,
+            longitude: null, zone: null, country: c.country,
+            center_manager_email: null, aom_email: null,
+            status: c.status, created_at: null,
           })));
         }
  
@@ -222,7 +233,22 @@ const RaiseTicketModal = ({ onClose, onSuccess, editMode, editTicket, userRole }
   }, []);
  
   const isZenoti = department === "Zenoti";
- 
+  const isCDD = (userDepartment || "").toLowerCase().includes("cdd");
+  const isCDDToClinics = isCDD && (department === "Clinic" || department === "Clinic Operations");
+
+  // When CDD selects a center, auto-fill CM and AOM
+  const handleAssignedCenterChange = (val: string) => {
+    setAssignedCenter(val);
+    const matched = apiCenters.find((c) => c.name === val);
+    if (matched) {
+      setCddCmEmail(matched.center_manager_email || "");
+      setCddAomEmail(matched.aom_email || "");
+    } else {
+      setCddCmEmail("");
+      setCddAomEmail("");
+    }
+  };
+
   // Department options from API + "Others"
   const departmentOptions = [...apiDepartments.map((d) => d.name), "Others"];
  
@@ -299,8 +325,14 @@ const RaiseTicketModal = ({ onClose, onSuccess, editMode, editTicket, userRole }
       }
       if (onSuccess) {
         onSuccess({
-          title, description, department, category, subCategory, priority, center: isZenoti ? zenotiFields.location : center,
+          title, description, department, category, subCategory, priority,
+          center: isZenoti ? zenotiFields.location : (isCDDToClinics ? assignedCenter : center),
           zenotiChildCategory: childCategory,
+          ...(isCDDToClinics && {
+            assignedCenter,
+            centerManagerEmail: cddCmEmail,
+            aomEmail: cddAomEmail,
+          }),
           ...(isZenoti && {
             zenotiLocation: zenotiFields.location,
             zenotiMainCategory: category,
@@ -325,6 +357,9 @@ const RaiseTicketModal = ({ onClose, onSuccess, editMode, editTicket, userRole }
     setCategory("");
     setSubCategory("");
     setChildCategory("");
+    setAssignedCenter("");
+    setCddCmEmail("");
+    setCddAomEmail("");
     if (val !== "Zenoti") {
       setZenotiFields(emptyZenotiFields);
       setShowAlert(false);
@@ -660,11 +695,52 @@ const RaiseTicketModal = ({ onClose, onSuccess, editMode, editTicket, userRole }
               )}
             </div>
  
+            {/* CDD Department - Assigned To Center with auto-fill CM/AOM */}
+            {isCDDToClinics && (
+              <div className="rounded-xl border border-blue-200 bg-blue-50/50 p-4 space-y-3">
+                <div className="flex items-center gap-2">
+                  <AlertCircle className="h-4 w-4 text-blue-600" />
+                  <span className="text-xs font-semibold text-blue-700">Assign to Center</span>
+                </div>
+                <div>
+                  <label className={labelClass}>Assigned To (Center) <span className="text-destructive">*</span></label>
+                  <ComboBox
+                    value={assignedCenter}
+                    onChange={handleAssignedCenterChange}
+                    options={apiCenters.map((c) => c.name)}
+                    placeholder="Select center"
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className={labelClass}>Center Manager {cddCmEmail && <span className="text-xs text-emerald-600 ml-1">(Auto-filled)</span>}</label>
+                    <input
+                      type="text"
+                      value={cddCmEmail}
+                      readOnly
+                      className={cn(inputClass, "bg-muted cursor-not-allowed")}
+                      placeholder="Auto-filled on center selection"
+                    />
+                  </div>
+                  <div>
+                    <label className={labelClass}>AOM {cddAomEmail && <span className="text-xs text-emerald-600 ml-1">(Auto-filled)</span>}</label>
+                    <input
+                      type="text"
+                      value={cddAomEmail}
+                      readOnly
+                      className={cn(inputClass, "bg-muted cursor-not-allowed")}
+                      placeholder="Auto-filled on center selection"
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
+
             <div>
               <label className={labelClass}>Attachment</label>
               <input type="file" className="w-full text-sm text-muted-foreground file:mr-3 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-medium file:bg-muted file:text-foreground hover:file:bg-muted/80" />
             </div>
- 
+
             {/* Validation alert popup */}
             {showAlert && (
               <div className="flex items-center gap-2 px-4 py-3 rounded-lg bg-destructive/10 border border-destructive/20">

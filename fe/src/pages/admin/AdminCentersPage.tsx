@@ -7,7 +7,7 @@ import { MapPin, Search, X, Trash2, Pencil, AlertTriangle, Loader2, Download, Ar
 import { exportToExcel } from "@/lib/exportExcel";
 import { useToast } from "@/lib/toast";
 
-const apiToCenter = (c: ApiCenter): Center => ({
+const apiToCenter = (c: ApiCenter): Center & { centerManagerEmail: string; aomEmail: string } => ({
   id: c.code,
   locationCode: c.location_code || "",
   name: c.name,
@@ -22,13 +22,15 @@ const apiToCenter = (c: ApiCenter): Center => ({
   longitude: c.longitude || "",
   zone: c.zone || "",
   country: c.country || "India",
+  centerManagerEmail: c.center_manager_email || "",
+  aomEmail: c.aom_email || "",
   status: (c.status as "Active" | "Inactive") || "Active",
 });
 
 const emptyForm = {
   locationCode: "", name: "", city: "", state: "", contactPerson: "", phone: "",
   address: "", pincode: "", latitude: "", longitude: "", zone: "",
-  country: "India", status: "Active",
+  country: "India", centerManagerEmail: "", aomEmail: "", status: "Active",
 };
 
 const zoneOptions = ["North", "South", "East", "West"];
@@ -81,8 +83,13 @@ const AdminCentersPage = () => {
 
   const handleSave = async () => {
     const missing: string[] = [];
-    if (!form.name.trim()) missing.push("Location Name");
-    if (!form.city.trim()) missing.push("City");
+    if (!form.name.trim()) missing.push("Center Name");
+    if (!form.city.trim()) missing.push("Location");
+    if (!form.centerManagerEmail.trim()) missing.push("Center Manager Mail");
+    if (!form.aomEmail.trim()) missing.push("AOM Mail");
+    if (!form.country.trim()) missing.push("Country");
+    if (!form.zone.trim()) missing.push("Zone");
+    if (!form.pincode.trim()) missing.push("Pincode");
     if (missing.length > 0) { setFormError(`Please fill: ${missing.join(", ")}`); return; }
     setFormError("");
 
@@ -99,6 +106,8 @@ const AdminCentersPage = () => {
       longitude: form.longitude.trim(),
       zone: form.zone,
       country: form.country.trim(),
+      center_manager_email: form.centerManagerEmail.trim(),
+      aom_email: form.aomEmail.trim(),
       status: form.status,
     };
 
@@ -146,14 +155,16 @@ const AdminCentersPage = () => {
     setShowModal(false);
   };
 
-  const handleEdit = (c: Center) => {
+  const handleEdit = (c: any) => {
     setEditingId(c.id);
     setForm({
       locationCode: c.locationCode, name: c.name, city: c.city, state: c.state,
       contactPerson: c.contactPerson, phone: c.phone,
       address: c.address, pincode: c.pincode,
       latitude: c.latitude, longitude: c.longitude,
-      zone: c.zone, country: c.country, status: c.status,
+      zone: c.zone, country: c.country,
+      centerManagerEmail: c.centerManagerEmail || "", aomEmail: c.aomEmail || "",
+      status: c.status,
     });
     setFormError("");
     setShowModal(true);
@@ -181,19 +192,15 @@ const AdminCentersPage = () => {
           <button onClick={() => window.location.reload()} className="px-4 py-2.5 rounded-lg border border-border bg-card text-sm font-medium hover:bg-muted transition-colors flex items-center gap-2" title="Refresh"><RefreshCw className="h-4 w-4" /> Refresh</button>
           <button
             onClick={() => {
-              const exportData = filtered.map((c) => ({
-                "Location Code": c.locationCode || c.id,
-                "Location Name": c.name,
-                "City": c.city,
+              const exportData = filtered.map((c: any) => ({
+                "Location": c.city,
+                "Center Name": c.name,
+                "Center Manager Mail": c.centerManagerEmail || "",
+                "AOM Mail": c.aomEmail || "",
                 "Country": c.country || "India",
                 "Zone": c.zone,
                 "Pincode": c.pincode,
                 "Status": c.status,
-                "Address": c.address,
-                "Latitude": c.latitude,
-                "Longitude": c.longitude,
-                "Contact Person": c.contactPerson,
-                "Phone": c.phone,
               }));
               exportToExcel(exportData, "Centers", "Centers");
             }}
@@ -228,9 +235,10 @@ const AdminCentersPage = () => {
         <table className="w-full text-sm">
           <thead>
             <tr className="text-left text-[11px] uppercase tracking-wider text-muted-foreground border-b border-border bg-muted/30">
-              <th className="px-4 py-3 font-semibold">Location Code</th>
-              <th className="px-4 py-3 font-semibold">Location Name</th>
-              <th className="px-4 py-3 font-semibold">City</th>
+              <th className="px-4 py-3 font-semibold">Location</th>
+              <th className="px-4 py-3 font-semibold">Center Name</th>
+              <th className="px-4 py-3 font-semibold">Center Manager Mail</th>
+              <th className="px-4 py-3 font-semibold">AOM Mail</th>
               <th className="px-4 py-3 font-semibold">Country</th>
               <th className="px-4 py-3 font-semibold">Zone</th>
               <th className="px-4 py-3 font-semibold">Pincode</th>
@@ -239,16 +247,17 @@ const AdminCentersPage = () => {
             </tr>
           </thead>
           <tbody className="divide-y divide-border">
-            {filtered.map((c) => (
+            {filtered.map((c: any) => (
               <tr key={c.id} className="hover:bg-muted/20 transition-colors">
-                <td className="px-4 py-3 font-mono text-xs text-primary font-semibold">{c.locationCode || c.id}</td>
+                <td className="px-4 py-3 text-xs text-muted-foreground">{c.city || "—"}</td>
                 <td className="px-4 py-3">
                   <div className="flex items-center gap-2">
                     <MapPin className="h-3.5 w-3.5 text-primary shrink-0" />
                     <span className="font-medium text-xs">{c.name}</span>
                   </div>
                 </td>
-                <td className="px-4 py-3 text-xs text-muted-foreground">{c.city}</td>
+                <td className="px-4 py-3 text-xs text-muted-foreground">{c.centerManagerEmail || "—"}</td>
+                <td className="px-4 py-3 text-xs text-muted-foreground">{c.aomEmail || "—"}</td>
                 <td className="px-4 py-3 text-xs text-muted-foreground">{c.country || "India"}</td>
                 <td className="px-4 py-3 text-xs text-muted-foreground">{c.zone || "—"}</td>
                 <td className="px-4 py-3 text-xs text-muted-foreground">{c.pincode || "—"}</td>
@@ -279,7 +288,7 @@ const AdminCentersPage = () => {
             ))}
             {filtered.length === 0 && (
               <tr>
-                <td colSpan={8} className="px-4 py-8 text-center text-sm text-muted-foreground">No centers found</td>
+                <td colSpan={9} className="px-4 py-8 text-center text-sm text-muted-foreground">No centers found</td>
               </tr>
             )}
           </tbody>
@@ -295,92 +304,65 @@ const AdminCentersPage = () => {
               <button onClick={handleCancel} className="text-muted-foreground hover:text-foreground transition-colors"><X className="h-5 w-5" /></button>
             </div>
             <div className="px-6 py-5 space-y-4">
-              {/* Row 1: Location Code, Location Name, City, Country */}
-              <div className="grid grid-cols-4 gap-4">
+              {/* Row 1: Location (City), Center Name */}
+              <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-medium text-muted-foreground mb-1.5">Location Code</label>
-                  <input type="text" value={form.locationCode} onChange={(e) => setForm({ ...form, locationCode: e.target.value })} placeholder="e.g. BLR-HSR"
+                  <label className="block text-xs font-medium text-muted-foreground mb-1.5">Location <span className="text-destructive">*</span></label>
+                  <input type="text" value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value })} placeholder="Enter location/city"
                     className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-muted-foreground mb-1.5">Location Name <span className="text-destructive">*</span></label>
-                  <input type="text" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Enter location name"
-                    className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-muted-foreground mb-1.5">City <span className="text-destructive">*</span></label>
-                  <input type="text" value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value })} placeholder="Enter city"
-                    className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-muted-foreground mb-1.5">Country</label>
-                  <input type="text" value={form.country} onChange={(e) => setForm({ ...form, country: e.target.value })} placeholder="India"
+                  <label className="block text-xs font-medium text-muted-foreground mb-1.5">Center Name <span className="text-destructive">*</span></label>
+                  <input type="text" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Enter center name"
                     className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" />
                 </div>
               </div>
 
-              {/* Row 2: State, Pincode, Zone */}
+              {/* Row 2: Center Manager Mail, AOM Mail */}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-medium text-muted-foreground mb-1.5">Center Manager Mail <span className="text-destructive">*</span></label>
+                  <input type="email" value={form.centerManagerEmail} onChange={(e) => setForm({ ...form, centerManagerEmail: e.target.value })} placeholder="Enter CM email"
+                    className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-muted-foreground mb-1.5">AOM Mail <span className="text-destructive">*</span></label>
+                  <input type="email" value={form.aomEmail} onChange={(e) => setForm({ ...form, aomEmail: e.target.value })} placeholder="Enter AOM email"
+                    className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" />
+                </div>
+              </div>
+
+              {/* Row 3: Country, Zone, Pincode */}
               <div className="grid grid-cols-3 gap-4">
                 <div>
-                  <label className="block text-xs font-medium text-muted-foreground mb-1.5">State</label>
-                  <input type="text" value={form.state} onChange={(e) => setForm({ ...form, state: e.target.value })} placeholder="Enter state"
+                  <label className="block text-xs font-medium text-muted-foreground mb-1.5">Country <span className="text-destructive">*</span></label>
+                  <input type="text" value={form.country} onChange={(e) => setForm({ ...form, country: e.target.value })} placeholder="India"
                     className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-muted-foreground mb-1.5">Pincode</label>
-                  <input type="text" value={form.pincode} onChange={(e) => setForm({ ...form, pincode: e.target.value })} placeholder="Enter pincode"
-                    className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-muted-foreground mb-1.5">Zone</label>
+                  <label className="block text-xs font-medium text-muted-foreground mb-1.5">Zone <span className="text-destructive">*</span></label>
                   <select value={form.zone} onChange={(e) => setForm({ ...form, zone: e.target.value })}
                     className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/30">
                     <option value="">-- Select --</option>
                     {zoneOptions.map((z) => <option key={z} value={z}>{z}</option>)}
                   </select>
                 </div>
+                <div>
+                  <label className="block text-xs font-medium text-muted-foreground mb-1.5">Pincode <span className="text-destructive">*</span></label>
+                  <input type="text" value={form.pincode} onChange={(e) => setForm({ ...form, pincode: e.target.value })} placeholder="Enter pincode"
+                    className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" />
+                </div>
               </div>
 
-              {/* Row 3: Address */}
-              <div>
-                <label className="block text-xs font-medium text-muted-foreground mb-1.5">Address</label>
-                <input type="text" value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} placeholder="Enter address"
-                  className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" />
-              </div>
-
-              {/* Row 4: Latitude, Longitude, Status */}
+              {/* Row 4: Status */}
               <div className="grid grid-cols-3 gap-4">
                 <div>
-                  <label className="block text-xs font-medium text-muted-foreground mb-1.5">Latitude</label>
-                  <input type="text" value={form.latitude} onChange={(e) => setForm({ ...form, latitude: e.target.value })} placeholder="0"
-                    className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-muted-foreground mb-1.5">Longitude</label>
-                  <input type="text" value={form.longitude} onChange={(e) => setForm({ ...form, longitude: e.target.value })} placeholder="0"
-                    className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-muted-foreground mb-1.5">Status</label>
+                  <label className="block text-xs font-medium text-muted-foreground mb-1.5">Status <span className="text-destructive">*</span></label>
                   <select value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })}
                     className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/30">
                     <option value="Active">Active</option>
                     <option value="Inactive">Inactive</option>
                   </select>
-                </div>
-              </div>
-
-              {/* Row 5: Contact Person, Phone */}
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-medium text-muted-foreground mb-1.5">Contact Person</label>
-                  <input type="text" value={form.contactPerson} onChange={(e) => setForm({ ...form, contactPerson: e.target.value })} placeholder="Enter contact person"
-                    className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-muted-foreground mb-1.5">Phone</label>
-                  <input type="text" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} placeholder="Enter phone number"
-                    className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" />
                 </div>
               </div>
             </div>

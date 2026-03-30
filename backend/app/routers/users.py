@@ -23,11 +23,6 @@ def _make_avatar(name: str) -> str:
 
 
 def _to_response(u, dept_name=None, center_name=None) -> UserResponse:
-    managed = []
-    try:
-        managed = [c.name for c in u.managed_centers] if u.managed_centers else []
-    except Exception:
-        pass
     return UserResponse(
         id=u.id, code=u.code, employee_id=u.employee_id, name=u.name, email=u.email,
         role=u.role or None, map_level_access=u.map_level_access,
@@ -40,13 +35,12 @@ def _to_response(u, dept_name=None, center_name=None) -> UserResponse:
         lwd=u.lwd, effective_date=u.effective_date, remarks=u.remarks,
         avatar=u.avatar, status=u.status.value if u.status else None,
         last_login=u.last_login, created_at=u.created_at,
-        managed_centers=managed if managed else None,
     )
 
 
 @router.get("/")
 def list_users(db: Session = Depends(get_db)):
-    users = db.query(User).options(joinedload(User.department_rel), joinedload(User.center_rel), joinedload(User.managed_centers)).order_by(User.id).all()
+    users = db.query(User).options(joinedload(User.department_rel), joinedload(User.center_rel)).order_by(User.id).all()
     result = []
     for u in users:
         try:
@@ -332,7 +326,7 @@ def upload_users_excel(file: UploadFile = File(...), db: Session = Depends(get_d
     db.commit()
 
     # Return updated user list
-    users = db.query(User).options(joinedload(User.department_rel), joinedload(User.center_rel), joinedload(User.managed_centers)).order_by(User.id).all()
+    users = db.query(User).options(joinedload(User.department_rel), joinedload(User.center_rel)).order_by(User.id).all()
     user_list = []
     for u in users:
         try:

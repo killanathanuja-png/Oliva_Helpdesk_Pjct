@@ -26,8 +26,6 @@ def create_center(req: CenterCreate, db: Session = Depends(get_db)):
         phone=req.phone, address=req.address, pincode=req.pincode,
         latitude=req.latitude, longitude=req.longitude, zone=req.zone,
         country=req.country,
-        center_manager_email=req.center_manager_email,
-        aom_email=req.aom_email,
         status=StatusEnum(req.status) if req.status else StatusEnum.Active,
     )
     db.add(center)
@@ -62,8 +60,6 @@ def update_center(center_id: int, req: CenterCreate, db: Session = Depends(get_d
     center.longitude = req.longitude
     center.zone = req.zone
     center.country = req.country
-    center.center_manager_email = req.center_manager_email
-    center.aom_email = req.aom_email
     center.status = StatusEnum(req.status) if req.status else center.status
     db.commit()
     db.refresh(center)

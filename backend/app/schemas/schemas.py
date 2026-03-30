@@ -59,8 +59,6 @@ class CenterBase(BaseModel):
     longitude: Optional[str] = None
     zone: Optional[str] = None
     country: Optional[str] = "India"
-    center_manager_email: Optional[str] = None
-    aom_email: Optional[str] = None
     status: Optional[str] = "Active"
 
 
@@ -71,8 +69,6 @@ class CenterCreate(CenterBase):
 class CenterResponse(CenterBase):
     id: int
     code: str
-    center_manager_email: Optional[str] = None
-    aom_email: Optional[str] = None
     created_at: Optional[datetime] = None
 
     class Config:
