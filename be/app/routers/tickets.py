@@ -3,11 +3,7 @@ from pydantic import BaseModel
 from typing import Optional
 from sqlalchemy.orm import Session
 from app.database import get_db
-<<<<<<< Updated upstream
 from app.models.models import Ticket, TicketComment, User, TicketStatusEnum, PriorityEnum, CommentTypeEnum, ApprovalStatusEnum, AOMCenterMapping, StatusEnum, Notification, NotificationTypeEnum, Department, Center
-=======
-from app.models.models import Ticket, TicketComment, User, TicketStatusEnum, PriorityEnum, CommentTypeEnum, ApprovalStatusEnum, AOMCenterMapping, StatusEnum, Center
->>>>>>> Stashed changes
 from app.schemas.schemas import TicketCreate, TicketUpdate, TicketResponse, TicketCommentCreate, TicketCommentResponse
 from app.auth import get_current_user
 from app.config import DEPT_EMAIL_MAP
@@ -115,7 +111,8 @@ def create_ticket(req: TicketCreate, current_user: User = Depends(get_current_us
         assigned_to_id_value = None
 
         # If CDD user creates a ticket, auto-assign to the selected center's clinic manager
-        if current_user.department and current_user.department.upper() == "CDD" and center_value:
+        user_dept_name = current_user.department_rel.name if current_user.department_rel else ""
+        if user_dept_name and user_dept_name.upper() == "CDD" and center_value:
             center_obj = db.query(Center).filter(Center.name == center_value, Center.status == StatusEnum.Active).first()
             if center_obj and center_obj.center_manager_email:
                 cm_user = db.query(User).filter(User.email == center_obj.center_manager_email).first()
@@ -128,21 +125,81 @@ def create_ticket(req: TicketCreate, current_user: User = Depends(get_current_us
             AOMCenterMapping.status == StatusEnum.Active,
         ).first()
 
+        # Determine Zenoti category type for approval routing
+        zenoti_cat = (req.category or "").lower()
+        is_zenoti_finance = zenoti_cat == "zenoti-finance"
+        is_zenoti_operational = zenoti_cat == "zenoti-operational"
+        is_operational_issues = zenoti_cat == "operational issues"
+        is_zenoti_dept = (req.assigned_dept or "").lower() == "zenoti"
+
         if aom_mapping:
             # Auto-set center from mapping if not provided
             if not center_value:
                 center_value = aom_mapping.center_name
+
             # CDD department tickets skip approval and stay Open
             if req.assigned_dept and req.assigned_dept.upper() == "CDD":
                 approval_required = False
+
+            elif is_zenoti_dept and is_operational_issues:
+                # Flow III: Operational Issues — No approval needed, goes to Zenoti team directly
+                approval_required = False
+                ticket_status = TicketStatusEnum.Open
+
+            elif is_zenoti_dept and is_zenoti_finance:
+                # Flow I: Zenoti-Finance — Needs AOM approval first, then Finance
+                approval_required = True
+                approver_value = aom_mapping.aom_name
+                approval_status_value = ApprovalStatusEnum.Pending
+                ticket_status = TicketStatusEnum.PendingApproval
+                approval_type_value = "aom_finance"
+
+            elif is_zenoti_dept and is_zenoti_operational:
+                # Flow II: Zenoti-Operational — Needs only AOM approval
+                approval_required = True
+                approver_value = aom_mapping.aom_name
+                approval_status_value = ApprovalStatusEnum.Pending
+                ticket_status = TicketStatusEnum.PendingApproval
+                approval_type_value = "aom_only"
+
             else:
-                # Auto-set AOM as approver — ticket needs AOM approval
+                # Default: AOM approval
                 approval_required = True
                 approver_value = aom_mapping.aom_name
                 approval_status_value = ApprovalStatusEnum.Pending
                 ticket_status = TicketStatusEnum.PendingApproval
                 if not approval_type_value:
                     approval_type_value = "aom_only"
+
+        elif is_zenoti_dept and center_value:
+            # No AOM mapping found — look up AOM from center's aom_email
+            center_obj = db.query(Center).filter(Center.name == center_value).first()
+            if center_obj and center_obj.aom_email:
+                aom_user = db.query(User).filter(User.email == center_obj.aom_email).first()
+                if aom_user:
+                    if is_operational_issues:
+                        # Flow III: No approval
+                        approval_required = False
+                    elif is_zenoti_finance:
+                        # Flow I: AOM + Finance
+                        approval_required = True
+                        approver_value = aom_user.name
+                        approval_status_value = ApprovalStatusEnum.Pending
+                        ticket_status = TicketStatusEnum.PendingApproval
+                        approval_type_value = "aom_finance"
+                    elif is_zenoti_operational:
+                        # Flow II: AOM only
+                        approval_required = True
+                        approver_value = aom_user.name
+                        approval_status_value = ApprovalStatusEnum.Pending
+                        ticket_status = TicketStatusEnum.PendingApproval
+                        approval_type_value = "aom_only"
+                    else:
+                        approval_required = True
+                        approver_value = aom_user.name
+                        approval_status_value = ApprovalStatusEnum.Pending
+                        ticket_status = TicketStatusEnum.PendingApproval
+                        approval_type_value = "aom_only"
 
         ticket = Ticket(
             code=code, title=req.title, description=req.description,

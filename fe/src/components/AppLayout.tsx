@@ -85,12 +85,9 @@ const AppLayout = ({ children }: AppLayoutProps) => {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [openMenus, setOpenMenus] = useState<Record<string, boolean>>({ Masters: true, Tickets: true, Reports: true });
   const [notifOpen, setNotifOpen] = useState(false);
-<<<<<<< Updated upstream
   const [notifications, setNotifications] = useState<ApiNotification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
-=======
   const notifRef = useRef<HTMLDivElement>(null);
->>>>>>> Stashed changes
   const location = useLocation();
   const navigate = useNavigate();
 

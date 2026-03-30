@@ -68,9 +68,9 @@ const FinanceApprovalsPage = () => {
     try {
       const apiTickets = await ticketsApi.list();
       const allTickets = apiTickets.map(apiToTicket);
-      // Show only Zenoti-Finance tickets that need finance approval
+      // Show only Zenoti-Finance tickets where AOM has approved and it's pending Finance approval
       setData(allTickets.filter((t) =>
-        t.approvalRequired && t.approvalType === "aom_finance"
+        t.approvalRequired && t.approvalType === "aom_finance" && t.approver === "Finance Team"
       ));
     } catch {
       setData([]);

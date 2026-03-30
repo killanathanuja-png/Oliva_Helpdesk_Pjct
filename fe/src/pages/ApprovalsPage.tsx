@@ -70,6 +70,7 @@ const ApprovalsPage = () => {
   const parsedUser = storedUser ? JSON.parse(storedUser) : null;
   const currentUserRole = parsedUser?.role || "User";
   const currentUserName = parsedUser?.name || "";
+  const managedCenters: string[] = parsedUser?.managed_centers || [];
 
   const isAomRole = hasAnyRole(currentUserRole, ["Area Operations Manager", "Area Operations Manager Head"]);
   const isFinanceRole = hasAnyRole(currentUserRole, ["Finance", "Finance Head"]);
@@ -80,10 +81,15 @@ const ApprovalsPage = () => {
       const allTickets = apiTickets.map(apiToTicket);
       setData(allTickets.filter((t) => {
         if (!t.approvalRequired) return false;
-        if (isFinanceRole) return t.approvalType === "aom_finance";
+        if (isFinanceRole) {
+          // Finance sees aom_finance tickets that are pending finance approval (approver = "Finance Team")
+          return t.approvalType === "aom_finance" && t.approver === "Finance Team";
+        }
         if (isAomRole) {
-          // AOM only sees tickets where they are the assigned approver
-          return t.approver === currentUserName;
+          // AOM sees tickets where they are the approver OR the ticket center is in their managed centers
+          const isApprover = t.approver === currentUserName;
+          const isManagedCenter = managedCenters.length > 0 && managedCenters.includes(t.center);
+          return isApprover || isManagedCenter;
         }
         return true; // Super admin sees all
       }));
@@ -92,7 +98,7 @@ const ApprovalsPage = () => {
     } finally {
       setLoading(false);
     }
-  }, [isAomRole, isFinanceRole, currentUserName]);
+  }, [isAomRole, isFinanceRole, currentUserName, managedCenters]);
  
   useEffect(() => {
     fetchTickets();
