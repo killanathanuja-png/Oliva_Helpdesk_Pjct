@@ -7,7 +7,6 @@ function getAuthHeaders(): Record<string, string> {
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
   // Ensure trailing slash before query params to avoid 307 redirects from FastAPI
-  // (307 redirects strip the Authorization header, causing auth failures)
   let url = `${API_BASE}${path}`;
   const qIdx = url.indexOf("?");
   if (qIdx === -1) {

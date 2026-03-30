@@ -434,8 +434,8 @@ const TicketDetailPage = () => {
 
       {/* ── Ticket Journey ── */}
       <Section title="Ticket Journey" compact>
-        <div className="overflow-x-auto">
-          <div className="flex items-center min-w-max py-3 px-2 justify-center">
+        <div>
+          <div className="flex items-center py-3 px-2 justify-center w-full">
             {timeline.map((event, idx) => {
               const isLast = idx === timeline.length - 1;
               const msg = event.message.toLowerCase();
@@ -444,7 +444,7 @@ const TicketDetailPage = () => {
                 event.type === "approval" ? (
                   msg.includes("rejected") ? "Rejected" :
                   msg.includes("follow") ? "Follow Up" :
-                  msg.includes("finance") ? "Finance Approval" : "AOM Approval"
+                  msg.includes("(finance)") ? "Finance Approval" : "AOM Approval"
                 ) :
                 event.type === "status_change" ? (
                   msg.includes("assigned") ? "Assigned" :
@@ -460,28 +460,28 @@ const TicketDetailPage = () => {
               const labelColor = isRejected ? "text-destructive" : isResolved ? "text-emerald-700" : "text-primary";
 
               return (
-                <div key={event.id} className="flex items-start">
-                  <div className="flex flex-col items-center" style={{ minWidth: "180px", maxWidth: "220px" }}>
+                <div key={event.id} className="flex items-start flex-1 min-w-0">
+                  <div className="flex flex-col items-center flex-1 min-w-0 px-1">
                     <div className={cn("h-11 w-11 rounded-full flex items-center justify-center shrink-0 shadow-lg ring-4", nodeColor)}>
                       <CheckCircle2 className="h-5 w-5 text-white" />
                     </div>
                     <p className={cn("text-xs font-bold mt-2 text-center", labelColor)}>{label}</p>
                     <p className="text-[10px] text-muted-foreground mt-0.5 text-center">{event.timestamp}</p>
-                    <p className="text-[10px] text-muted-foreground/70 text-center mt-0.5 px-2 leading-relaxed" style={{ wordBreak: "break-word" }}>
+                    <p className="text-[10px] text-muted-foreground/70 text-center mt-0.5 px-1 leading-relaxed line-clamp-2" title={event.message}>
                       {event.message}
                     </p>
                   </div>
                   {!isLast && (
-                    <div className={cn("w-16 h-1 rounded-full mt-5 shrink-0", lineColor)} />
+                    <div className={cn("flex-1 h-1 rounded-full mt-5 shrink min-w-4 max-w-16", lineColor)} />
                   )}
                 </div>
               );
             })}
 
             {/* Current status */}
-            <div className="flex items-start">
-              <div className="w-16 h-1 bg-emerald-400 rounded-full mt-5 shrink-0" />
-              <div className="flex flex-col items-center" style={{ minWidth: "150px" }}>
+            <div className="flex items-start flex-1 min-w-0">
+              <div className="flex-1 h-1 bg-emerald-400 rounded-full mt-5 shrink min-w-4 max-w-16" />
+              <div className="flex flex-col items-center flex-1 min-w-0 px-1">
                 {(() => {
                   const st = ticket.status;
                   const isComplete = st === "Closed" || st === "Resolved";

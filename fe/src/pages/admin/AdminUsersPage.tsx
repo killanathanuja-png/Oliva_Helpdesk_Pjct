@@ -751,7 +751,7 @@ const AdminUsersPage = () => {
                 </div>
                 <div>
                   <label className="block text-xs font-medium text-muted-foreground mb-1.5">Mobile No</label>
-                  <input type="text" value={form.mobile} onChange={(e) => setForm({ ...form, mobile: e.target.value })} placeholder="Enter mobile number"
+                  <input type="tel" maxLength={10} value={form.mobile} onChange={(e) => { const val = e.target.value.replace(/\D/g, "").slice(0, 10); setForm({ ...form, mobile: val }); }} placeholder="Enter mobile number"
                     className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" />
                 </div>
               </div>

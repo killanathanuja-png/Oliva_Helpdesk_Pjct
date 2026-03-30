@@ -162,6 +162,7 @@ const RaiseTicketModal = ({ onClose, onSuccess, editMode, editTicket, userRole, 
   const [apiChildCategories, setApiChildCategories] = useState<ApiChildCategory[]>([]);
   const [childCategory, setChildCategory] = useState(editTicket?.zenotiChildCategory || "");
   const [loadingData, setLoadingData] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
   const [cmCenterName, setCmCenterName] = useState<string | null>(null);
   const [cmAomName, setCmAomName] = useState<string | null>(null);
   // CDD department fields
@@ -307,6 +308,8 @@ const RaiseTicketModal = ({ onClose, onSuccess, editMode, editTicket, userRole, 
  
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (submitting) return;
+    setSubmitting(true);
     if (editMode) {
       // Edit mode: only priority, status, attachment
       if (onSuccess) {
@@ -453,8 +456,8 @@ const RaiseTicketModal = ({ onClose, onSuccess, editMode, editTicket, userRole, 
               <button type="button" onClick={onClose} className="px-4 py-2.5 rounded-lg border border-border text-sm font-medium hover:bg-muted transition-colors">
                 Cancel
               </button>
-              <button type="submit" className="flex-1 px-4 py-2.5 rounded-lg gradient-primary text-primary-foreground text-sm font-medium hover:opacity-90 transition-opacity">
-                Update
+              <button type="submit" disabled={submitting} className="flex-1 px-4 py-2.5 rounded-lg gradient-primary text-primary-foreground text-sm font-medium hover:opacity-90 transition-opacity disabled:opacity-50">
+                {submitting ? "Updating..." : "Update"}
               </button>
             </div>
           </form>
@@ -767,8 +770,8 @@ const RaiseTicketModal = ({ onClose, onSuccess, editMode, editTicket, userRole, 
               >
                 <RotateCcw className="h-3.5 w-3.5" /> Clear
               </button>
-              <button type="submit" className="flex-1 px-4 py-2.5 rounded-lg gradient-primary text-primary-foreground text-sm font-medium hover:opacity-90 transition-opacity">
-                {editMode ? "Modify" : "Submit Ticket"}
+              <button type="submit" disabled={submitting} className="flex-1 px-4 py-2.5 rounded-lg gradient-primary text-primary-foreground text-sm font-medium hover:opacity-90 transition-opacity disabled:opacity-50">
+                {submitting ? "Submitting..." : editMode ? "Modify" : "Submit Ticket"}
               </button>
             </div>
           </form>

@@ -196,7 +196,7 @@ def update_ticket(ticket_id: int, req: TicketUpdate, current_user: User = Depend
     return _ticket_to_response(t)
  
  
-@router.patch("/{ticket_id}/status")
+@router.patch("/{ticket_id}/status/")
 def update_ticket_status(ticket_id: int, status: str, db: Session = Depends(get_db)):
     t = db.query(Ticket).filter(Ticket.id == ticket_id).first()
     if not t:
@@ -229,7 +229,7 @@ class ApprovalRequest(BaseModel):
     approver_name: Optional[str] = None
  
  
-@router.patch("/{ticket_id}/approve", response_model=TicketResponse)
+@router.patch("/{ticket_id}/approve/", response_model=TicketResponse)
 def approve_ticket(ticket_id: int, req: ApprovalRequest, db: Session = Depends(get_db)):
     t = db.query(Ticket).filter(Ticket.id == ticket_id).first()
     if not t:
