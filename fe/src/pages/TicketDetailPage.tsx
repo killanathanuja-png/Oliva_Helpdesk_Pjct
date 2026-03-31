@@ -472,16 +472,10 @@ const TicketDetailPage = () => {
                 <Pencil className="h-3.5 w-3.5" /> Edit
               </button>
             ) : (
-              <>
-                <button onClick={handleSaveEdit} disabled={editSaving}
-                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg gradient-primary text-primary-foreground text-sm font-medium hover:opacity-90 transition-opacity disabled:opacity-50">
-                  {editSaving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />} Save
-                </button>
-                <button onClick={handleCancelEdit} disabled={editSaving}
-                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg border border-border text-sm font-medium hover:bg-muted transition-colors disabled:opacity-50">
-                  <X className="h-3.5 w-3.5" /> Cancel
-                </button>
-              </>
+              <button onClick={handleCancelEdit} disabled={editSaving}
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg border border-border text-sm font-medium hover:bg-muted transition-colors disabled:opacity-50">
+                <X className="h-3.5 w-3.5" /> Cancel
+              </button>
             )}
           </div>
         )}
@@ -820,8 +814,8 @@ const TicketDetailPage = () => {
               </select>
             </div>
 
-            {/* Assign To — hidden for User, AOM, and Clinic Manager roles */}
-            {currentUserRole !== "User" && !isAomRole && !hasAnyRole(currentUserRole, ["Clinic Manager", "Clinic Incharge"]) && (
+            {/* Assign To — hidden for User, AOM, Clinic Manager roles, and Admin department tickets */}
+            {currentUserRole !== "User" && !isAomRole && !hasAnyRole(currentUserRole, ["Clinic Manager", "Clinic Incharge"]) && !["Admin Department", "Administration", "Admin"].includes(ticket.assignedDept) && (
               <div>
                 <label className="flex items-center gap-1.5 text-[11px] font-medium text-muted-foreground uppercase tracking-wider mb-1">
                   <User className="h-3 w-3" /> Assign To
@@ -898,6 +892,18 @@ const TicketDetailPage = () => {
                 </div>
               </div>
             )}
+
+            {/* Save / Cancel buttons at bottom-right */}
+            <div className="col-span-full flex justify-end gap-2 pt-2">
+              <button onClick={handleCancelEdit} disabled={editSaving}
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg border border-border text-sm font-medium hover:bg-muted transition-colors disabled:opacity-50">
+                <X className="h-3.5 w-3.5" /> Cancel
+              </button>
+              <button onClick={handleSaveEdit} disabled={editSaving}
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg gradient-primary text-primary-foreground text-sm font-medium hover:opacity-90 transition-opacity disabled:opacity-50">
+                {editSaving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />} Save
+              </button>
+            </div>
           </div>
         </Section>
       )}

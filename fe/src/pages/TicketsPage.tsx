@@ -194,7 +194,7 @@ const TicketsPage = () => {
             if (isAom) {
               // AOM only sees tickets where they are approver AND approval is required (Zenoti flow), or tickets they raised
               return data.filter((t) =>
-                t.raisedBy === currentUser || (t.approver === currentUser && t.approvalRequired)
+                t.raisedBy === currentUser || (t.approver === currentUser && t.approvalRequired) || t.assignedTo === currentUser
               );
             }
             return allowedDepts.length > 0

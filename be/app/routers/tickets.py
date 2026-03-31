@@ -598,12 +598,13 @@ def cdd_ticket_action(ticket_id: int, req: EscalateRequest, current_user: User =
         ))
 
     elif req.action == "Escalate L1":
-        # Escalate to L1 Dept Head
+        # Escalate to L1 Dept Head — also assign ticket to them
         t.status = TicketStatusEnum.EscalatedL1
         t.escalation_level = 1
         t.escalated_at = datetime.now(timezone.utc)
         if req.escalate_to_id:
             t.escalated_to_id = req.escalate_to_id
+            t.assigned_to_id = req.escalate_to_id
             escalated_user = db.query(User).filter(User.id == req.escalate_to_id).first()
             esc_name = escalated_user.name if escalated_user else "L1 Dept Head"
         else:
@@ -617,12 +618,13 @@ def cdd_ticket_action(ticket_id: int, req: EscalateRequest, current_user: User =
         ))
 
     elif req.action == "Escalate L2":
-        # Escalate to L2 CXO
+        # Escalate to L2 CXO — also assign ticket to them
         t.status = TicketStatusEnum.EscalatedL2
         t.escalation_level = 2
         t.escalated_at = datetime.now(timezone.utc)
         if req.escalate_to_id:
             t.escalated_to_id = req.escalate_to_id
+            t.assigned_to_id = req.escalate_to_id
             escalated_user = db.query(User).filter(User.id == req.escalate_to_id).first()
             esc_name = escalated_user.name if escalated_user else "L2 CXO"
         else:
