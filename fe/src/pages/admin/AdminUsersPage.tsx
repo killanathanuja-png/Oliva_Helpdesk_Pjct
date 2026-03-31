@@ -248,7 +248,8 @@ const AdminUsersPage = () => {
   const _userRole = _parsedUser?.role || "";
   const _isQualityHead = _userDept.toLowerCase().includes("quality");
   const _isZenotiManager = _userRole.toLowerCase().includes("zenoti team manager");
-  const _isDeptFiltered = _isQualityHead || _isZenotiManager;
+  const _isCddAdmin = _userRole.toLowerCase().includes("cdd admin");
+  const _isDeptFiltered = _isQualityHead || _isZenotiManager || _isCddAdmin;
   const [data, setData] = useState<LocalUser[]>([]);
   const [idMap, setIdMap] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);

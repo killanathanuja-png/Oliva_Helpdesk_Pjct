@@ -1,7 +1,7 @@
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { isSuperRole } from "@/lib/roles";
-import { ticketsApi, slaApi, categoriesApi, subcategoriesApi } from "@/lib/api";
-import type { ApiTicket, ApiSLAConfig } from "@/lib/api";
+import { ticketsApi, slaApi, categoriesApi, subcategoriesApi, centersApi } from "@/lib/api";
+import type { ApiTicket, ApiSLAConfig, ApiCenter } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { Loader2, AlertTriangle, CheckCircle, Clock, BarChart3, TrendingUp, Shield, ShieldAlert, ArrowUpRight, ArrowDownRight, Filter, Calendar } from "lucide-react";
 
@@ -90,8 +90,10 @@ const SLAReportPage = () => {
   const [customEndDate, setCustomEndDate] = useState("");
   const [categoryOptions, setCategoryOptions] = useState<string[]>([]);
   const [subCategoryOptions, setSubCategoryOptions] = useState<string[]>([]);
+  const [tatReportView, setTatReportView] = useState<"" | "CM Response" | "AOM Response" | "AMH Response">("");
+  const [centers, setCenters] = useState<ApiCenter[]>([]);
 
-  // Fetch categories and subcategories
+  // Fetch categories, subcategories, and centers
   useEffect(() => {
     categoriesApi.list().then((cats) => {
       setCategoryOptions(cats.map((c) => c.name));
@@ -99,7 +101,10 @@ const SLAReportPage = () => {
     subcategoriesApi.list().then((subs) => {
       setSubCategoryOptions(subs.map((s) => s.name));
     }).catch(() => {});
-  }, []);
+    if (isCddUser) {
+      centersApi.list().then((c) => setCenters(c)).catch(() => {});
+    }
+  }, [isCddUser]);
 
   useEffect(() => {
     Promise.all([ticketsApi.list(), slaApi.list()])
@@ -322,12 +327,141 @@ const SLAReportPage = () => {
               />
             </>
           )}
+          {isCddUser && (
+            <select
+              value={tatReportView}
+              onChange={(e) => setTatReportView(e.target.value as any)}
+              className="px-3 py-2 rounded-lg border border-primary bg-primary/5 text-primary text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary/30 transition-shadow"
+            >
+              <option value="">TAT Overview</option>
+              <option value="CM Response">TAT - CM Response</option>
+              <option value="AOM Response">TAT - AOM Response</option>
+              <option value="AMH Response">TAT - AMH Response</option>
+            </select>
+          )}
         </div>
       </div>
 
+      {/* ── TAT AOM/CM/AMH Report View (CDD only) ── */}
+      {isCddUser && tatReportView && (() => {
+        // Build AOM → Zone → Clinic hierarchy from centers
+        const aomMap = new Map<string, { zones: Map<string, { clinics: { name: string; total: number; withinTat: number; overTat: number }[] }> }>();
 
-      {/* Resolved / Closed Tickets with Resolution Time */}
-      <div className="bg-card rounded-2xl card-shadow border border-border overflow-hidden">
+        centers.forEach((c) => {
+          const aomEmail = c.aom_email || "";
+          // Get AOM name from email
+          const aomNameFromEmail = aomEmail.split("@")[0]?.split(".")[0] || "";
+          const aomDisplayName = (() => {
+            // Map known AOM emails to display names
+            const nameMap: Record<string, string> = {
+              "shweta.pushkar": "Shweta", "triveni.eric": "Triveni", "bindhu.m": "Bindhu",
+              "navya.shivanna": "Navya", "karthik.sn": "Karthik", "sumitakaul": "Sumita",
+              "tanima.ghosh": "Tanima", "tejaswini.tiwari": "Tejaswini",
+            };
+            const key = aomEmail.split("@")[0] || "";
+            return nameMap[key] || aomNameFromEmail.charAt(0).toUpperCase() + aomNameFromEmail.slice(1);
+          })();
+
+          const zone = c.zone || "Other";
+          const clinicName = c.name;
+
+          if (!aomMap.has(aomDisplayName)) {
+            aomMap.set(aomDisplayName, { zones: new Map() });
+          }
+          const aomEntry = aomMap.get(aomDisplayName)!;
+          if (!aomEntry.zones.has(zone)) {
+            aomEntry.zones.set(zone, { clinics: [] });
+          }
+
+          // Count tickets for this clinic
+          const clinicTickets = filtered.filter((t) => t.center === clinicName || t.zenoti_location === clinicName);
+          const withinTat = clinicTickets.filter((t) => !t.tat_breached).length;
+          const overTat = clinicTickets.filter((t) => t.tat_breached).length;
+
+          aomEntry.zones.get(zone)!.clinics.push({
+            name: clinicName,
+            total: clinicTickets.length,
+            withinTat,
+            overTat,
+          });
+        });
+
+        const currentMonth = new Date().toLocaleString("en-US", { month: "long" });
+        const currentYear = new Date().getFullYear().toString().slice(-2);
+
+        return (
+          <div className="bg-card rounded-2xl card-shadow border border-border overflow-hidden">
+            <div className="px-6 py-4 border-b border-border bg-gradient-to-r from-primary/10 to-transparent">
+              <h2 className="font-semibold text-sm flex items-center gap-2">
+                <BarChart3 className="h-4 w-4 text-primary" />
+                {tatReportView} — {currentMonth}'{currentYear}
+              </h2>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="bg-primary text-white text-xs uppercase tracking-wider">
+                    <th className="px-4 py-3 text-left font-semibold">AOM</th>
+                    <th className="px-4 py-3 text-left font-semibold">Zone</th>
+                    <th className="px-4 py-3 text-left font-semibold">Clinic</th>
+                    <th className="px-4 py-3 text-center font-semibold">Total Tickets</th>
+                    <th className="px-4 py-3 text-center font-semibold">Within TAT</th>
+                    <th className="px-4 py-3 text-center font-semibold">Over TAT</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border">
+                  {Array.from(aomMap.entries()).sort(([a], [b]) => a.localeCompare(b)).map(([aomName, aomData]) => {
+                    const allClinics: { zone: string; name: string; total: number; withinTat: number; overTat: number }[] = [];
+                    aomData.zones.forEach((zoneData, zoneName) => {
+                      zoneData.clinics.forEach((cl) => {
+                        allClinics.push({ zone: zoneName, ...cl });
+                      });
+                    });
+                    const aomTotal = allClinics.reduce((s, c) => s + c.total, 0);
+                    const aomWithin = allClinics.reduce((s, c) => s + c.withinTat, 0);
+                    const aomOver = allClinics.reduce((s, c) => s + c.overTat, 0);
+
+                    return (
+                      <React.Fragment key={aomName}>
+                        {allClinics.map((cl, idx) => (
+                          <tr key={`${aomName}-${cl.name}`} className="hover:bg-muted/20 transition-colors">
+                            {idx === 0 && (
+                              <td className="px-4 py-2.5 font-semibold text-xs" rowSpan={allClinics.length}>
+                                {aomName}
+                              </td>
+                            )}
+                            <td className="px-4 py-2.5 text-xs text-muted-foreground">{cl.zone}</td>
+                            <td className="px-4 py-2.5 text-xs">{cl.name}</td>
+                            <td className="px-4 py-2.5 text-center text-xs font-medium">{cl.total || ""}</td>
+                            <td className="px-4 py-2.5 text-center text-xs">
+                              {cl.withinTat > 0 && <span className="text-success font-medium">{cl.withinTat}</span>}
+                            </td>
+                            <td className="px-4 py-2.5 text-center text-xs">
+                              {cl.overTat > 0 && <span className="text-destructive font-medium">{cl.overTat}</span>}
+                            </td>
+                          </tr>
+                        ))}
+                        {/* AOM Total Row */}
+                        <tr className="bg-amber-50/60 font-semibold border-b-2 border-border">
+                          <td className="px-4 py-2 text-xs">{aomName}</td>
+                          <td className="px-4 py-2 text-xs font-bold">Total</td>
+                          <td className="px-4 py-2"></td>
+                          <td className="px-4 py-2 text-center text-xs font-bold">{aomTotal || ""}</td>
+                          <td className="px-4 py-2 text-center text-xs font-bold text-success">{aomWithin || ""}</td>
+                          <td className="px-4 py-2 text-center text-xs font-bold text-destructive">{aomOver || ""}</td>
+                        </tr>
+                      </React.Fragment>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* Resolved / Closed Tickets with Resolution Time — hidden for CDD */}
+      {!isCddUser && <div className="bg-card rounded-2xl card-shadow border border-border overflow-hidden">
         <div className="px-6 py-4 border-b border-border bg-gradient-to-r from-success/5 to-transparent flex items-center justify-between">
           <h2 className="font-semibold text-sm flex items-center gap-2">
             <CheckCircle className="h-4 w-4 text-success" />
@@ -412,7 +546,7 @@ const SLAReportPage = () => {
             </tbody>
           </table>
         </div>
-      </div>
+      </div>}
     </div>
   );
 };

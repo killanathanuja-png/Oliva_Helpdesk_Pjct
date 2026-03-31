@@ -25,7 +25,8 @@ const AdminDepartmentsPage = () => {
   const _parsedUser = _storedUser ? JSON.parse(_storedUser) : null;
   const _userDept = _parsedUser?.department || "";
   const _userRole = _parsedUser?.role || "";
-  const _isDeptFiltered = _userDept.toLowerCase().includes("quality") || _userRole.toLowerCase().includes("zenoti team manager");
+  const _isCddAdmin = _userRole.toLowerCase().includes("cdd admin");
+  const _isDeptFiltered = _userDept.toLowerCase().includes("quality") || _userRole.toLowerCase().includes("zenoti team manager") || _isCddAdmin;
   const [data, setData] = useState<DeptWithStatus[]>([]);
   const [idMap, setIdMap] = useState<Record<string, number>>({});
   const [showModal, setShowModal] = useState(false);
