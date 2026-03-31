@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { isSuperRole } from "@/lib/roles";
-import { ticketsApi, slaApi, categoriesApi, subcategoriesApi, centersApi } from "@/lib/api";
-import type { ApiTicket, ApiSLAConfig, ApiCenter } from "@/lib/api";
+import { ticketsApi, slaApi, categoriesApi, subcategoriesApi, centersApi, cddTypesApi } from "@/lib/api";
+import type { ApiTicket, ApiSLAConfig, ApiCenter, ApiCDDType } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { Loader2, AlertTriangle, CheckCircle, Clock, BarChart3, TrendingUp, Shield, ShieldAlert, ArrowUpRight, ArrowDownRight, Filter, Calendar } from "lucide-react";
 
@@ -92,19 +92,38 @@ const SLAReportPage = () => {
   const [subCategoryOptions, setSubCategoryOptions] = useState<string[]>([]);
   const [tatReportView, setTatReportView] = useState<"" | "CM Response" | "AOM Response" | "AMH Response">("");
   const [centers, setCenters] = useState<ApiCenter[]>([]);
+  const [cddTypesData, setCddTypesData] = useState<ApiCDDType[]>([]);
 
   // Fetch categories, subcategories, and centers
   useEffect(() => {
-    categoriesApi.list().then((cats) => {
-      setCategoryOptions(cats.map((c) => c.name));
-    }).catch(() => {});
-    subcategoriesApi.list().then((subs) => {
-      setSubCategoryOptions(subs.map((s) => s.name));
-    }).catch(() => {});
     if (isCddUser) {
+      // CDD: fetch from cdd_types API
+      cddTypesApi.list().then((types) => {
+        setCddTypesData(types);
+        setCategoryOptions(types.map((t) => t.name));
+        // Initial: show all categories from all types
+        const allCats: string[] = [];
+        types.forEach((t) => (t.categories || []).forEach((c) => { if (!allCats.includes(c.name)) allCats.push(c.name); }));
+        setSubCategoryOptions(allCats.sort());
+      }).catch(() => {});
       centersApi.list().then((c) => setCenters(c)).catch(() => {});
+    } else {
+      categoriesApi.list().then((cats) => {
+        setCategoryOptions(cats.map((c) => c.name));
+      }).catch(() => {});
+      subcategoriesApi.list().then((subs) => {
+        setSubCategoryOptions(subs.map((s) => s.name));
+      }).catch(() => {});
     }
   }, [isCddUser]);
+
+  // CDD: always show all cdd_categories regardless of type selection
+  useEffect(() => {
+    if (!isCddUser || cddTypesData.length === 0) return;
+    const allCats: string[] = [];
+    cddTypesData.forEach((t) => (t.categories || []).forEach((c) => { if (!allCats.includes(c.name)) allCats.push(c.name); }));
+    setSubCategoryOptions(allCats.sort());
+  }, [cddTypesData, isCddUser]);
 
   useEffect(() => {
     Promise.all([ticketsApi.list(), slaApi.list()])
@@ -280,7 +299,7 @@ const SLAReportPage = () => {
             onChange={(e) => setFilterCategory(e.target.value)}
             className="px-3 py-2 rounded-lg border border-border bg-card text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 transition-shadow"
           >
-            <option value="All">All Categories</option>
+            <option value="All">{isCddUser ? "All Types" : "All Categories"}</option>
             {categoryOptions.map((c) => (
               <option key={c} value={c}>{c}</option>
             ))}
@@ -290,7 +309,7 @@ const SLAReportPage = () => {
             onChange={(e) => setFilterSubCategory(e.target.value)}
             className="px-3 py-2 rounded-lg border border-border bg-card text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 transition-shadow"
           >
-            <option value="All">All Sub-Categories</option>
+            <option value="All">{isCddUser ? "All Category" : "All Sub-Categories"}</option>
             {subCategoryOptions.map((s) => (
               <option key={s} value={s}>{s}</option>
             ))}
