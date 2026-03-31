@@ -3,8 +3,8 @@ import { X, AlertCircle, RotateCcw, Loader2 } from "lucide-react";
 import { departments as fallbackDepartments, centers as fallbackCenters } from "@/data/dummyData";
 import type { Ticket } from "@/data/dummyData";
 import { cn } from "@/lib/utils";
-import { departmentsApi, centersApi, categoriesApi, subcategoriesApi, childCategoriesApi, serviceTitlesApi, aomMappingsApi } from "@/lib/api";
-import type { ApiDepartment, ApiCenter, ApiCategory, ApiSubcategory, ApiChildCategory, ApiServiceTitle } from "@/lib/api";
+import { departmentsApi, centersApi, categoriesApi, subcategoriesApi, childCategoriesApi, serviceTitlesApi, aomMappingsApi, cddTypesApi } from "@/lib/api";
+import type { ApiDepartment, ApiCenter, ApiCategory, ApiSubcategory, ApiChildCategory, ApiServiceTitle, ApiCDDType } from "@/lib/api";
  
 export interface TicketFormData {
   title: string;
@@ -162,6 +162,9 @@ const RaiseTicketModal = ({ onClose, onSuccess, editMode, editTicket, userRole, 
   const [apiServiceTitles, setApiServiceTitles] = useState<ApiServiceTitle[]>([]);
   const [apiChildCategories, setApiChildCategories] = useState<ApiChildCategory[]>([]);
   const [childCategory, setChildCategory] = useState(editTicket?.zenotiChildCategory || "");
+  const [customType, setCustomType] = useState("");
+  const [customCategory, setCustomCategory] = useState("");
+  const [apiCddTypes, setApiCddTypes] = useState<ApiCDDType[]>([]);
   const [loadingData, setLoadingData] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [cmCenterName, setCmCenterName] = useState<string | null>(null);
@@ -177,13 +180,14 @@ const RaiseTicketModal = ({ onClose, onSuccess, editMode, editTicket, userRole, 
     const fetchAll = async () => {
       setLoadingData(true);
       try {
-        const [depts, ctrs, cats, subs, childCats, svcs] = await Promise.all([
+        const [depts, ctrs, cats, subs, childCats, svcs, cddTypes] = await Promise.all([
           departmentsApi.list().catch(() => null),
           centersApi.list().catch(() => null),
           categoriesApi.list().catch(() => null),
           subcategoriesApi.list().catch(() => null),
           childCategoriesApi.list().catch(() => null),
           serviceTitlesApi.list().catch(() => null),
+          cddTypesApi.list().catch(() => null),
         ]);
  
         if (depts && depts.length > 0) {
@@ -214,6 +218,7 @@ const RaiseTicketModal = ({ onClose, onSuccess, editMode, editTicket, userRole, 
         if (subs) setApiSubcategories(subs);
         if (childCats) setApiChildCategories(childCats);
         if (svcs) setApiServiceTitles(svcs);
+        if (cddTypes) setApiCddTypes(cddTypes);
 
         // Auto-fetch CM's mapped center and AOM
         try {
@@ -237,6 +242,26 @@ const RaiseTicketModal = ({ onClose, onSuccess, editMode, editTicket, userRole, 
  
   const isZenoti = department === "Zenoti";
   const isCDD = (userDepartment || "").toLowerCase().includes("cdd");
+  const isQualityAudit = department === "Quality" || department === "Quality & Audit" || (department || "").toLowerCase().includes("quality");
+  const isCDDClinic = isCDD && (department === "Clinic" || department === "Clinic Operations");
+
+  // CDD Clinic: Type → Category mapping (from API)
+  const cddClinicTypeMap: Record<string, string[]> = {};
+  for (const t of apiCddTypes) {
+    cddClinicTypeMap[t.name] = t.categories.map((c) => c.name);
+  }
+  const cddClinicTypes = [...apiCddTypes.map((t) => t.name), "others"];
+  // Quality & Audit category → subcategory mapping
+  const qaSubcategoryMap: Record<string, string[]> = {
+    "Post Audit": [],
+    "Quality Report": [],
+    "Grooming Approval": ["Accessories", "Make up", "Mehandi Application"],
+    "Intern Departmental Concerns": ["Admin", "Stores", "HR", "Ops VP", "CDD", "Marketing", "BPM", "Products", "Zenoti", "Medical Team"],
+    "Clinic Late Opening & Early Closure": ["Doctor Unavailability", "Keys unavailable", "Team outing"],
+    "Uniform Concerns": ["Temporary Approval", "Uniform Issuance", "Name Badge", "Shoes"],
+    "Audit Requisitions": ["Room Checklist", "Register video", "Emergency drug list", "Grooming guidelines"],
+    "Dr Referrals": [],
+  };
   const isCDDToClinics = isCDD && (department === "Clinic" || department === "Clinic Operations");
 
   // When CDD selects a center, auto-fill CM and AOM
@@ -259,29 +284,38 @@ const RaiseTicketModal = ({ onClose, onSuccess, editMode, editTicket, userRole, 
   // If a department is selected: show categories assigned to that department + unassigned categories
   // Exception: if department has dedicated categories (like Zenoti), show only those
   const deptHasDedicatedCategories = department && apiCategories.some((c) => c.status !== "Inactive" && c.department === department);
-  const categoryOptions = [...new Set(
-    apiCategories
-      .filter((c) => {
-        if (c.status === "Inactive") return false;
-        if (!department) return true;
-        if (deptHasDedicatedCategories) return c.department === department;
-        return !c.department || c.department === department;
-      })
-      .map((c) => c.name)
-  )].sort();
+  const categoryOptions = isCDDClinic
+    ? cddClinicTypes
+    : isQualityAudit
+    ? Object.keys(qaSubcategoryMap).sort()
+    : [...new Set(
+        apiCategories
+          .filter((c) => {
+            if (c.status === "Inactive") return false;
+            if (!department) return true;
+            if (deptHasDedicatedCategories) return c.department === department;
+            return !c.department || c.department === department;
+          })
+          .map((c) => c.name)
+      )].sort();
  
   // Subcategories filtered by selected category
-  const subCategoryOptions = [...new Set(
-    apiSubcategories
-      .filter((s) => {
-        if (s.status === "Inactive") return false;
-        if (!category) return true;
-        // If category has linked subcategories, show those; otherwise show all
-        const hasLinked = apiSubcategories.some((x) => x.status !== "Inactive" && x.category === category);
-        return hasLinked ? s.category === category : !s.category;
-      })
-      .map((s) => s.name)
-  )].sort();
+  const allCddClinicCategories = [...new Set(Object.values(cddClinicTypeMap).flat()), "others"];
+  const subCategoryOptions = isCDDClinic
+    ? allCddClinicCategories
+    : isQualityAudit
+    ? (category ? (qaSubcategoryMap[category] || []) : [])
+    : isCDD ? []
+    : [...new Set(
+        apiSubcategories
+          .filter((s) => {
+            if (s.status === "Inactive") return false;
+            if (!category) return true;
+            const hasLinked = apiSubcategories.some((x) => x.status !== "Inactive" && x.category === category);
+            return hasLinked ? s.category === category : !s.category;
+          })
+          .map((s) => s.name)
+      )].sort();
  
   // Child categories filtered by selected subcategory
   const childCategoryOptions = [...new Set(
@@ -329,8 +363,10 @@ const RaiseTicketModal = ({ onClose, onSuccess, editMode, editTicket, userRole, 
         return;
       }
       if (onSuccess) {
+        const finalCategory = (isCDDClinic && category === "others" && customType) ? customType : category;
+        const finalSubCategory = (isCDDClinic && subCategory === "others" && customCategory) ? customCategory : subCategory;
         onSuccess({
-          title, description, department, category, subCategory, priority,
+          title, description, department, category: finalCategory, subCategory: finalSubCategory, priority,
           center: isZenoti ? zenotiFields.location : (isCDDToClinics ? assignedCenter : center),
           zenotiChildCategory: childCategory,
           ...(isCDDToClinics && {
@@ -516,26 +552,34 @@ const RaiseTicketModal = ({ onClose, onSuccess, editMode, editTicket, userRole, 
 
             {/* Category / Sub-Category - for non-Zenoti departments */}
             {!isZenoti && (
-              <div className={cn("grid gap-3", (isCDDToClinics || department === "Quality") ? "grid-cols-2" : "grid-cols-3")}>
+              <div className={cn("grid gap-3", (isCDDToClinics || isCDDClinic || isQualityAudit) ? "grid-cols-2" : "grid-cols-3")}>
                 <div>
-                  <label className={labelClass}>Category</label>
+                  <label className={labelClass}>{isCDDClinic ? "Type" : "Category"}</label>
                   <ComboBox
                     value={category}
-                    onChange={handleCategoryChange}
+                    onChange={(val) => { handleCategoryChange(val); if (val !== "others") setCustomType(""); }}
                     options={categoryOptions}
-                    placeholder="Select category"
+                    placeholder={isCDDClinic ? "Select type" : "Select category"}
                   />
+                  {isCDDClinic && category === "others" && (
+                    <input type="text" value={customType} onChange={(e) => setCustomType(e.target.value)}
+                      className={cn(inputClass, "mt-2")} placeholder="Enter custom type..." />
+                  )}
                 </div>
                 <div>
-                  <label className={labelClass}>Sub-Category</label>
+                  <label className={labelClass}>{isCDDClinic ? "Category" : "Sub-Category"}</label>
                   <ComboBox
                     value={subCategory}
-                    onChange={handleSubCategoryChange2}
+                    onChange={(val) => { handleSubCategoryChange2(val); if (val !== "others") setCustomCategory(""); }}
                     options={subCategoryOptions}
-                    placeholder="Select sub-category"
+                    placeholder={isCDDClinic ? "Select category" : "Select sub-category"}
                   />
+                  {isCDDClinic && subCategory === "others" && (
+                    <input type="text" value={customCategory} onChange={(e) => setCustomCategory(e.target.value)}
+                      className={cn(inputClass, "mt-2")} placeholder="Enter custom category..." />
+                  )}
                 </div>
-                {department !== "Quality" && !isCDDToClinics && (
+                {!isQualityAudit && !isCDDToClinics && !isCDDClinic && (
                 <div>
                   <label className={labelClass}>Child Category</label>
                   <ComboBox

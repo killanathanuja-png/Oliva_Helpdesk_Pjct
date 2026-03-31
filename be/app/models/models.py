@@ -371,6 +371,31 @@ class AOMCenterMapping(Base):
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 
 
+class CDDType(Base):
+    """CDD Clinic Type (e.g., Staff, Treatment, Marketing)"""
+    __tablename__ = "cdd_types"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String(200), nullable=False, unique=True)
+    status = Column(SAEnum(StatusEnum), default=StatusEnum.Active)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    categories = relationship("CDDCategory", back_populates="type_rel", cascade="all, delete-orphan")
+
+
+class CDDCategory(Base):
+    """CDD Clinic Category linked to a Type"""
+    __tablename__ = "cdd_categories"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String(200), nullable=False)
+    type_id = Column(Integer, ForeignKey("cdd_types.id"), nullable=False)
+    status = Column(SAEnum(StatusEnum), default=StatusEnum.Active)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    type_rel = relationship("CDDType", back_populates="categories")
+
+
 class Notification(Base):
     __tablename__ = "notifications"
 

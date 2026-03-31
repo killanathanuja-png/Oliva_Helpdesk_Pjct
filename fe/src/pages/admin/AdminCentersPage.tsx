@@ -201,6 +201,11 @@ const AdminCentersPage = () => {
                 "Zone": c.zone,
                 "Pincode": c.pincode,
                 "Status": c.status,
+                "Address": c.address,
+                "Latitude": c.latitude,
+                "Longitude": c.longitude,
+                "Contact Person": c.contactPerson,
+                "Mobile Number": c.phone,
               }));
               exportToExcel(exportData, "Centers", "Centers");
             }}

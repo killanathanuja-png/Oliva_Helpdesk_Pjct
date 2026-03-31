@@ -174,7 +174,9 @@ def create_ticket(req: TicketCreate, current_user: User = Depends(get_current_us
                 ticket_status = TicketStatusEnum.PendingApproval
                 approval_type_value = "aom_only"
 
-            # Non-Zenoti tickets from CMs — no approval, stay Open
+            else:
+                # Non-Zenoti, non-CDD departments (Admin, etc.) — no AOM approval needed
+                approval_required = False
 
         elif is_zenoti_dept and center_value:
             # No AOM mapping found — look up AOM from center's aom_email
@@ -245,22 +247,17 @@ def create_ticket(req: TicketCreate, current_user: User = Depends(get_current_us
         _create_notification(db, current_user.id, f"Ticket {ticket.code} Created",
             f"Your ticket '{ticket.title}' has been raised successfully.", ticket.id, NotificationTypeEnum.success)
 
-        # Notify assigned department users
-        dept = db.query(Department).filter(Department.name == ticket.assigned_dept).first()
-        if dept:
-            dept_users = db.query(User).filter(User.department_id == dept.id, User.id != current_user.id).all()
-            for u in dept_users:
-                _create_notification(db, u.id, f"New Ticket {ticket.code}",
-                    f"New ticket '{ticket.title}' assigned to {ticket.assigned_dept} department.", ticket.id)
+        # Notify the assigned user (if auto-assigned)
+        if ticket.assigned_to_id and ticket.assigned_to_id != current_user.id:
+            _create_notification(db, ticket.assigned_to_id, f"New Ticket {ticket.code}",
+                f"New ticket '{ticket.title}' has been assigned to you.", ticket.id)
 
-        # If center is specified, notify center users
-        if ticket.center:
-            center = db.query(Center).filter(Center.name == ticket.center).first()
-            if center:
-                center_users = db.query(User).filter(User.center_id == center.id, User.id != current_user.id).all()
-                for u in center_users:
-                    _create_notification(db, u.id, f"New Ticket {ticket.code}",
-                        f"New ticket '{ticket.title}' raised for {ticket.center}.", ticket.id)
+        # Notify AOM if ticket needs approval
+        if ticket.approval_required and ticket.approver:
+            aom_user = db.query(User).filter(User.name == ticket.approver).first()
+            if aom_user and aom_user.id != current_user.id:
+                _create_notification(db, aom_user.id, f"New Ticket {ticket.code} - Approval Required",
+                    f"Ticket '{ticket.title}' needs your approval.", ticket.id)
 
         db.commit()
 
@@ -346,24 +343,6 @@ def update_ticket(ticket_id: int, req: TicketUpdate, current_user: User = Depend
 
     db.commit()
     db.refresh(t)
-
-    # --- Notifications ---
-    # Notify on status change
-    if "status" in update_data:
-        status_val = update_data["status"].value if hasattr(update_data["status"], 'value') else str(update_data["status"])
-        # Notify the raiser
-        if t.raised_by_id and t.raised_by_id != current_user.id:
-            _create_notification(db, t.raised_by_id, f"Ticket {t.code} Updated",
-                f"Ticket '{t.title}' status changed to {status_val}.", t.id)
-        # Notify the assignee
-        if t.assigned_to_id and t.assigned_to_id != current_user.id and t.assigned_to_id != t.raised_by_id:
-            _create_notification(db, t.assigned_to_id, f"Ticket {t.code} Updated",
-                f"Ticket '{t.title}' status changed to {status_val}.", t.id)
-
-    # Notify new assignee
-    if new_assignee_id:
-        _create_notification(db, new_assignee_id, f"Ticket {t.code} Assigned",
-            f"Ticket '{t.title}' has been assigned to you.", t.id, NotificationTypeEnum.info)
 
     db.commit()
 
@@ -593,12 +572,20 @@ class EscalateRequest(BaseModel):
 
 @router.patch("/{ticket_id}/cdd-action", response_model=TicketResponse)
 def cdd_ticket_action(ticket_id: int, req: EscalateRequest, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    import traceback
     from datetime import datetime, timezone
     t = db.query(Ticket).filter(Ticket.id == ticket_id).first()
     if not t:
         raise HTTPException(status_code=404, detail="Ticket not found")
 
+    # Validate escalate_to_id exists
+    if req.escalate_to_id:
+        target_user = db.query(User).filter(User.id == req.escalate_to_id).first()
+        if not target_user:
+            raise HTTPException(status_code=400, detail=f"User with ID {req.escalate_to_id} not found")
+
     user = req.user_name or current_user.name
+    print(f"[CDD ACTION] ticket={ticket_id}, action={req.action}, escalate_to={req.escalate_to_id}, user={user}")
 
     if req.action == "Acknowledge":
         # Clinic Manager acknowledges the ticket
@@ -674,6 +661,11 @@ def cdd_ticket_action(ticket_id: int, req: EscalateRequest, current_user: User =
     else:
         raise HTTPException(status_code=400, detail="Invalid action. Use 'Acknowledge', 'Escalate L1', 'Escalate L2', 'Reopen', or 'Final Close'.")
 
-    db.commit()
-    db.refresh(t)
+    try:
+        db.commit()
+        db.refresh(t)
+    except Exception as e:
+        db.rollback()
+        print(f"[CDD ACTION] FAILED: {traceback.format_exc()}")
+        raise HTTPException(status_code=500, detail=f"Failed to save: {str(e)}")
     return _ticket_to_response(t)

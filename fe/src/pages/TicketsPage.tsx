@@ -192,9 +192,9 @@ const TicketsPage = () => {
             const allowedDepts = getUserDepts();
             const isAom = hasAnyRole(currentUserRole, ["Area Operations Manager", "Area Operations Manager Head"]);
             if (isAom) {
-              // AOM only sees tickets assigned to them as approver, or tickets they raised
+              // AOM only sees tickets where they are approver AND approval is required (Zenoti flow), or tickets they raised
               return data.filter((t) =>
-                t.raisedBy === currentUser || t.approver === currentUser
+                t.raisedBy === currentUser || (t.approver === currentUser && t.approvalRequired)
               );
             }
             return allowedDepts.length > 0
