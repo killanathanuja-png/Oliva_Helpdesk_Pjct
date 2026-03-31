@@ -449,6 +449,26 @@ export const ticketsApi = {
     request<ApiTicket>(`/tickets/${id}/cdd-action`, { method: "PATCH", body: JSON.stringify(data) }),
 };
 
+// --- CDD Types ---
+
+export interface ApiCDDCategory {
+  id: number;
+  name: string;
+  type_id: number;
+  status: string | null;
+}
+
+export interface ApiCDDType {
+  id: number;
+  name: string;
+  status: string | null;
+  categories: ApiCDDCategory[];
+}
+
+export const cddTypesApi = {
+  list: () => request<ApiCDDType[]>("/cdd-types"),
+};
+
 // --- Dashboard ---
 
 export interface ApiDashboardStats {

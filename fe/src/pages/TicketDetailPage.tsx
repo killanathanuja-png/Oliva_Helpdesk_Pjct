@@ -258,25 +258,26 @@ const TicketDetailPage = () => {
     }).catch(() => {});
   }, [currentUserRole, currentUserDept]);
 
-  // Fetch L1 (AOM for the ticket's center) and L2 (L2 Manager) users for escalation dropdowns
+  // Fetch L1 (AOM for ticket's center) and L2 (L2 Manager) users for escalation dropdowns
   useEffect(() => {
-    if (currentUserDept?.toUpperCase() !== "CDD") return;
+    if (currentUserDept?.toUpperCase() !== "CDD" || !ticket) return;
     Promise.all([usersApi.list(), centersApi.list()]).then(([users, centers]) => {
       const active = users.filter((u) => u.status === "Active");
-      // L1: Find the AOM for this ticket's center
-      const ticketCenter = ticket?.center || "";
-      const centerData = centers.find((c) => c.name === ticketCenter);
-      if (centerData && centerData.aom_email) {
-        // Show only the AOM whose email matches this center's aom_email
-        const aomForCenter = active.filter((u) => u.email?.toLowerCase() === centerData.aom_email?.toLowerCase());
-        setL1Users(aomForCenter.length > 0 ? aomForCenter : active.filter((u) => hasAnyRole(u.role, ["Area Operations Manager", "Area Operations Manager Head"])));
+      const ticketCenter = centers.find((c) => c.name === ticket.center);
+      if (ticketCenter?.aom_email) {
+        const aomUser = active.find((u) => u.email === ticketCenter.aom_email);
+        if (aomUser) {
+          setL1Users([aomUser]);
+          setCddEscalateTo(aomUser.id);
+        } else {
+          setL1Users(active.filter((u) => hasAnyRole(u.role, ["Area Operations Manager", "Area Operations Manager Head"])));
+        }
       } else {
-        // Fallback: show all AOMs
         setL1Users(active.filter((u) => hasAnyRole(u.role, ["Area Operations Manager", "Area Operations Manager Head"])));
       }
       setL2Users(active.filter((u) => hasAnyRole(u.role, ["L2 Manager"])));
     }).catch(() => {});
-  }, [currentUserDept, ticket?.center]);
+  }, [currentUserDept, ticket]);
 
   const handleCddAction = async (action: string) => {
     if (!ticket) return;
