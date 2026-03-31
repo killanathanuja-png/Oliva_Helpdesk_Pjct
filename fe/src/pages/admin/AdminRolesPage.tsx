@@ -23,8 +23,15 @@ const toLocal = (r: ApiRole): LocalRole => ({
   status: (r.status as "Active" | "Inactive") ?? "Active",
 });
 
+const CDD_ROLES = ["CDD", "CDD Admin"];
+
 const AdminRolesPage = () => {
   const { showToast } = useToast();
+  const _storedUser = localStorage.getItem("oliva_user");
+  const _parsedUser = _storedUser ? JSON.parse(_storedUser) : null;
+  const _userRole = _parsedUser?.role || "";
+  const _isCddAdmin = _userRole.toLowerCase().includes("cdd admin");
+
   const [data, setData] = useState<LocalRole[]>([]);
   const [idMap, setIdMap] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
@@ -40,10 +47,14 @@ const AdminRolesPage = () => {
       .list()
       .then((roles) => {
         if (!cancelled) {
-          if (roles.length > 0) {
-            setData(roles.map(toLocal));
+          let filtered = roles;
+          if (_isCddAdmin) {
+            filtered = roles.filter((r) => CDD_ROLES.some((cr) => r.name.toLowerCase().includes(cr.toLowerCase())));
+          }
+          if (filtered.length > 0) {
+            setData(filtered.map(toLocal));
             const map: Record<string, number> = {};
-            roles.forEach((r) => { map[r.code] = r.id; });
+            filtered.forEach((r) => { map[r.code] = r.id; });
             setIdMap(map);
           } else {
             setData(initialRoles.map((r) => ({ ...r, status: "Active" as const })));

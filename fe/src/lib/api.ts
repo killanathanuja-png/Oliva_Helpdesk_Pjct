@@ -467,6 +467,10 @@ export interface ApiCDDType {
 
 export const cddTypesApi = {
   list: () => request<ApiCDDType[]>("/cdd-types"),
+  create: (data: { name: string }) => request<ApiCDDType>("/cdd-types", { method: "POST", body: JSON.stringify(data) }),
+  delete: (id: number) => request<void>(`/cdd-types/${id}`, { method: "DELETE" }),
+  createCategory: (data: { name: string; type_id: number }) => request<ApiCDDCategory>("/cdd-types/categories", { method: "POST", body: JSON.stringify(data) }),
+  deleteCategory: (id: number) => request<void>(`/cdd-types/categories/${id}`, { method: "DELETE" }),
 };
 
 // --- Dashboard ---

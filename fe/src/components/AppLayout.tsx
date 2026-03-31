@@ -240,11 +240,13 @@ const AppLayout = ({ children }: AppLayoutProps) => {
                       const childActive = child.path.includes("?")
                         ? location.pathname + location.search === child.path
                         : isActive(child.path);
-                      // For CDD users, rename SLA labels to TAT
+                      // For CDD users, rename labels
                       let displayLabel = child.label;
                       if (isCddUser) {
                         if (child.label === "SLA Report") displayLabel = "TAT Report";
                         else if (child.label === "SLA Analytics") displayLabel = "TAT Analytics";
+                        else if (child.label === "Categories") displayLabel = "Type";
+                        else if (child.label === "Subcategory") displayLabel = "Category";
                       }
                       return (
                         <Link
@@ -315,8 +317,8 @@ const AppLayout = ({ children }: AppLayoutProps) => {
               {location.pathname === "/admin/departments" && "Masters / Departments"}
               {location.pathname === "/admin/roles" && "Masters / Roles"}
               {location.pathname === "/admin/centers" && "Masters / Centers"}
-              {location.pathname === "/admin/categories" && "Masters / Categories"}
-              {location.pathname === "/admin/subcategories" && "Masters / Subcategory"}
+              {location.pathname === "/admin/categories" && (isCddUser ? "Masters / Type" : "Masters / Categories")}
+              {location.pathname === "/admin/subcategories" && (isCddUser ? "Masters / Category" : "Masters / Subcategory")}
               {location.pathname === "/admin/child-categories" && "Masters / Child Category"}
               {location.pathname === "/admin/service-titles" && "Masters / Service Titles"}
               {location.pathname === "/admin/sla" && "Masters / SLA Config"}
