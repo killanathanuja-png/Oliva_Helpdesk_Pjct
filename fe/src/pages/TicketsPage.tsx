@@ -114,6 +114,7 @@ const TicketsPage = () => {
   const currentUserRole = parsedUser?.role || "User";
   const currentUserDept = parsedUser?.department || "";
   const currentUserCenter = parsedUser?.center || "";
+  const managedCenters: string[] = parsedUser?.managed_centers || [];
   const isCddUser = currentUserDept.toUpperCase() === "CDD";
 
   const fetchTickets = useCallback(async () => {
@@ -171,11 +172,9 @@ const TicketsPage = () => {
       depts.add(currentUserDept);
       // Quality & Audit team also sees Quality department tickets
       if (currentUserDept.toLowerCase().includes("quality")) depts.add("Quality");
-      // Admin Department team also sees Administration tickets
-      if (currentUserDept.toLowerCase().includes("admin")) {
+      // Admin Department team sees only Admin Department tickets (not Administration)
+      if (currentUserDept === "Admin Department") {
         depts.add("Admin Department");
-        depts.add("Administration");
-        depts.add("Admin");
       }
     }
     return [...depts];
@@ -192,9 +191,12 @@ const TicketsPage = () => {
             const allowedDepts = getUserDepts();
             const isAom = hasAnyRole(currentUserRole, ["Area Operations Manager", "Area Operations Manager Head"]);
             if (isAom) {
-              // AOM only sees tickets where they are approver AND approval is required (Zenoti flow), or tickets they raised
+              // AOM sees: tickets they raised, tickets they are approver for, tickets assigned to them, and tickets from their managed centers
               return data.filter((t) =>
-                t.raisedBy === currentUser || (t.approver === currentUser && t.approvalRequired) || t.assignedTo === currentUser
+                t.raisedBy === currentUser ||
+                (t.approver === currentUser && t.approvalRequired) ||
+                t.assignedTo === currentUser ||
+                (managedCenters.length > 0 && managedCenters.some((c) => c.toLowerCase() === (t.center || "").toLowerCase()))
               );
             }
             return allowedDepts.length > 0

@@ -197,6 +197,7 @@ export interface ApiCenter {
   country: string | null;
   center_manager_email: string | null;
   aom_email: string | null;
+  branch_email: string | null;
   status: string | null;
   created_at: string | null;
 }

@@ -61,6 +61,7 @@ class CenterBase(BaseModel):
     country: Optional[str] = "India"
     center_manager_email: Optional[str] = None
     aom_email: Optional[str] = None
+    branch_email: Optional[str] = None
     status: Optional[str] = "Active"
 
 
@@ -73,6 +74,7 @@ class CenterResponse(CenterBase):
     code: str
     center_manager_email: Optional[str] = None
     aom_email: Optional[str] = None
+    branch_email: Optional[str] = None
     created_at: Optional[datetime] = None
 
     class Config:

@@ -86,7 +86,8 @@ const ApprovalsPage = () => {
           return t.approvalType === "aom_finance" && t.approver === "Finance Team";
         }
         if (isAomRole) {
-          // AOM sees tickets where they are the approver OR the ticket center is in their managed centers
+          // AOM sees tickets where they are the current approver (not already passed to Finance)
+          if (t.approver === "Finance Team") return false;
           const isApprover = t.approver === currentUserName;
           const isManagedCenter = managedCenters.length > 0 && managedCenters.includes(t.center);
           return isApprover || isManagedCenter;

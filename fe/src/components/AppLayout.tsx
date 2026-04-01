@@ -279,7 +279,11 @@ const AppLayout = ({ children }: AppLayoutProps) => {
                 )}
               >
                 <item.icon className="h-[18px] w-[18px] shrink-0" />
-                {!collapsed && <span>{item.label}</span>}
+                {!collapsed && (
+                  <>
+                    <span className="flex-1">{item.label}</span>
+                  </>
+                )}
               </Link>
             )
           )}

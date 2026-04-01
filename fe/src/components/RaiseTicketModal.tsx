@@ -362,6 +362,16 @@ const RaiseTicketModal = ({ onClose, onSuccess, editMode, editTicket, userRole, 
         setShowAlert(true);
         return;
       }
+      // CDD Clinic: Type and Category are mandatory
+      if (isCDDClinic) {
+        const typeVal = category === "others" ? customType : category;
+        const catVal = subCategory === "others" ? customCategory : subCategory;
+        if (!typeVal.trim() || !catVal.trim()) {
+          alert("Please select both Type and Category before submitting.");
+          setSubmitting(false);
+          return;
+        }
+      }
       if (onSuccess) {
         const finalCategory = (isCDDClinic && category === "others" && customType) ? customType : category;
         const finalSubCategory = (isCDDClinic && subCategory === "others" && customCategory) ? customCategory : subCategory;
@@ -554,7 +564,7 @@ const RaiseTicketModal = ({ onClose, onSuccess, editMode, editTicket, userRole, 
             {!isZenoti && (
               <div className={cn("grid gap-3", (isCDDToClinics || isCDDClinic || isQualityAudit) ? "grid-cols-2" : "grid-cols-3")}>
                 <div>
-                  <label className={labelClass}>{isCDDClinic ? "Type" : "Category"}</label>
+                  <label className={labelClass}>{isCDDClinic ? "Type" : "Category"}{isCDDClinic && <span className="text-destructive"> *</span>}</label>
                   <ComboBox
                     value={category}
                     onChange={(val) => { handleCategoryChange(val); if (val !== "others") setCustomType(""); }}
@@ -567,7 +577,7 @@ const RaiseTicketModal = ({ onClose, onSuccess, editMode, editTicket, userRole, 
                   )}
                 </div>
                 <div>
-                  <label className={labelClass}>{isCDDClinic ? "Category" : "Sub-Category"}</label>
+                  <label className={labelClass}>{isCDDClinic ? "Category" : "Sub-Category"}{isCDDClinic && <span className="text-destructive"> *</span>}</label>
                   <ComboBox
                     value={subCategory}
                     onChange={(val) => { handleSubCategoryChange2(val); if (val !== "others") setCustomCategory(""); }}

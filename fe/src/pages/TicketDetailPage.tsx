@@ -203,8 +203,9 @@ const TicketDetailPage = () => {
   // Roles that cannot edit at all (except for approval actions)
   const noEditRoleList = ["Finance", "Finance Head"];
   const noEdit = hasAnyRole(currentUserRole, noEditRoleList);
-  // AOM can edit only when ticket is Pending Approval (for approve/reject/follow-up)
-  const aomCanEdit = isAomRole && ticket && (ticket.status === "Pending Approval" || (ticket.status as string) === "Follow Up");
+  // AOM can edit only when ticket is Pending Approval (for approve/reject/follow-up) AND they are the current approver
+  const aomAlreadyApproved = isAomRole && ticket && ticket.approver === "Finance Team";
+  const aomCanEdit = isAomRole && ticket && !aomAlreadyApproved && (ticket.status === "Pending Approval" || (ticket.status as string) === "Follow Up");
   // Zenoti Team cannot edit/assign if the ticket requires finance approval and finance hasn't approved yet
   const isZenotiTeamRole = hasAnyRole(currentUserRole, ["Zenoti Team", "Zenoti Team Manager"]);
   const zenotiBlockedByFinance = isZenotiTeamRole && ticket && ticket.approvalType === "aom_finance" && ticket.approvalStatus !== "Approved";
@@ -465,10 +466,16 @@ const TicketDetailPage = () => {
             <Clock className="h-3.5 w-3.5" /> Awaiting Finance Approval — editing disabled
           </div>
         )}
-        {canEdit && (
+        {(canEdit || aomAlreadyApproved) && (
           <div className="flex items-center gap-2">
             {!inlineEditing ? (
-              <button onClick={handleStartEdit} className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg gradient-primary text-primary-foreground text-sm font-medium hover:opacity-90 transition-opacity">
+              <button onClick={() => {
+                if (aomAlreadyApproved) {
+                  alert("You have already approved this ticket. It is now pending Finance approval. No further edits are allowed.");
+                  return;
+                }
+                handleStartEdit();
+              }} className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg gradient-primary text-primary-foreground text-sm font-medium hover:opacity-90 transition-opacity">
                 <Pencil className="h-3.5 w-3.5" /> Edit
               </button>
             ) : (
@@ -504,7 +511,7 @@ const TicketDetailPage = () => {
 
               const isRejected = msg.includes("reject");
               const isResolved = msg.includes("resolve") || msg.includes("close") || msg.includes("final close");
-              const isEscalated = msg.includes("escalat");
+              const isEscalated = msg.includes("escalated to l1") || msg.includes("escalated to l2");
               const isReopened = msg.includes("reopen");
               const nodeColor = isRejected ? "bg-destructive ring-red-100" : isEscalated ? "bg-orange-500 ring-orange-100" : isReopened ? "bg-amber-500 ring-amber-100" : isResolved ? "bg-emerald-500 ring-emerald-100" : "bg-primary ring-primary/20";
               const lineColor = isRejected ? "bg-destructive/40" : isEscalated ? "bg-orange-400" : "bg-emerald-400";

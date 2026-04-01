@@ -66,6 +66,7 @@ def get_me(current_user: User = Depends(get_current_user)):
         avatar=current_user.avatar,
         status=current_user.status.value if current_user.status else None,
         last_login=current_user.last_login,
+        map_level_access=current_user.map_level_access,
         created_at=current_user.created_at,
         managed_centers=managed if managed else None,
     )

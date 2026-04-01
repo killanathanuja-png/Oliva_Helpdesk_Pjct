@@ -328,24 +328,6 @@ const SLAReportPage = () => {
               <option value="Custom">Custom</option>
             </select>
           </div>
-          {datePreset === "Custom" && (
-            <>
-              <input
-                type="date"
-                value={customStartDate}
-                onChange={(e) => setCustomStartDate(e.target.value)}
-                className="px-3 py-2 rounded-lg border border-border bg-card text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 transition-shadow"
-                placeholder="Start Date"
-              />
-              <input
-                type="date"
-                value={customEndDate}
-                onChange={(e) => setCustomEndDate(e.target.value)}
-                className="px-3 py-2 rounded-lg border border-border bg-card text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 transition-shadow"
-                placeholder="End Date"
-              />
-            </>
-          )}
           {isCddUser && (
             <select
               value={tatReportView}
@@ -359,158 +341,98 @@ const SLAReportPage = () => {
             </select>
           )}
         </div>
+        {datePreset === "Custom" && (
+          <div className="flex items-center gap-3 ml-8">
+            <div className="flex items-center gap-2">
+              <label className="text-xs font-medium text-muted-foreground">From</label>
+              <input
+                type="date"
+                value={customStartDate}
+                onChange={(e) => setCustomStartDate(e.target.value)}
+                className="px-3 py-2 rounded-lg border border-border bg-card text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 transition-shadow"
+              />
+            </div>
+            <span className="text-muted-foreground">—</span>
+            <div className="flex items-center gap-2">
+              <label className="text-xs font-medium text-muted-foreground">To</label>
+              <input
+                type="date"
+                value={customEndDate}
+                onChange={(e) => setCustomEndDate(e.target.value)}
+                className="px-3 py-2 rounded-lg border border-border bg-card text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 transition-shadow"
+              />
+            </div>
+          </div>
+        )}
       </div>
 
       {/* ── TAT Overview (CDD default view) ── */}
       {isCddUser && !tatReportView && (() => {
-        const tatTotal = filtered.length;
-        const tatBreached = filtered.filter((t) => t.tat_breached).length;
-        const tatOnTrack = tatTotal - tatBreached;
-        const tatOpen = filtered.filter((t) => t.status !== "Resolved" && t.status !== "Closed" && t.status !== "Final Closed").length;
-        const tatResolved = filtered.filter((t) => t.status === "Resolved" || t.status === "Closed" || t.status === "Final Closed").length;
-        const tatComplianceRate = tatTotal > 0 ? Math.round((tatOnTrack / tatTotal) * 100) : 100;
-
-        // Avg resolution time for resolved tickets
-        const resolvedTat = filtered.filter((t) => (t.status === "Resolved" || t.status === "Closed" || t.status === "Final Closed") && t.created_at && t.updated_at);
-        const avgTatHrs = resolvedTat.length > 0
-          ? Math.round(resolvedTat.reduce((sum, t) => {
-              const created = new Date(t.created_at!).getTime();
-              const updated = new Date(t.updated_at!).getTime();
-              return sum + (updated - created) / (1000 * 60 * 60);
-            }, 0) / resolvedTat.length)
-          : null;
-
-        // Center breakdown
-        const centerMap = new Map<string, { total: number; breached: number; onTrack: number }>();
-        filtered.forEach((t) => {
-          const c = t.center || "Unknown";
-          const entry = centerMap.get(c) || { total: 0, breached: 0, onTrack: 0 };
-          entry.total++;
-          if (t.tat_breached) entry.breached++; else entry.onTrack++;
-          centerMap.set(c, entry);
-        });
-
         return (
           <>
-            {/* Summary Cards */}
-            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
-              {[
-                { label: "Total Tickets", value: tatTotal, icon: <BarChart3 className="h-5 w-5" />, color: "text-primary", bg: "bg-primary/10" },
-                { label: "Within TAT", value: tatOnTrack, icon: <CheckCircle className="h-5 w-5" />, color: "text-success", bg: "bg-success/10" },
-                { label: "TAT Breached", value: tatBreached, icon: <AlertTriangle className="h-5 w-5" />, color: "text-destructive", bg: "bg-destructive/10" },
-                { label: "Open", value: tatOpen, icon: <Clock className="h-5 w-5" />, color: "text-warning", bg: "bg-warning/10" },
-                { label: "Resolved", value: tatResolved, icon: <CheckCircle className="h-5 w-5" />, color: "text-emerald-600", bg: "bg-emerald-50" },
-                { label: "Compliance", value: `${tatComplianceRate}%`, icon: <TrendingUp className="h-5 w-5" />, color: tatComplianceRate >= 80 ? "text-success" : "text-destructive", bg: tatComplianceRate >= 80 ? "bg-success/10" : "bg-destructive/10" },
-              ].map((card) => (
-                <div key={card.label} className="bg-card rounded-xl border border-border p-4 flex flex-col gap-2">
-                  <div className={cn("h-10 w-10 rounded-lg flex items-center justify-center", card.bg, card.color)}>{card.icon}</div>
-                  <p className="text-[11px] text-muted-foreground uppercase tracking-wider font-medium">{card.label}</p>
-                  <p className={cn("text-2xl font-bold", card.color)}>{card.value}</p>
+            {/* Resolved / Closed Tickets */}
+            {(() => {
+              const resolvedList = filtered.filter((t) => t.status === "Resolved" || t.status === "Closed" || t.status === "Final Closed");
+              return (
+                <div className="bg-card rounded-2xl card-shadow border border-border overflow-hidden">
+                  <div className="px-6 py-4 border-b border-border bg-gradient-to-r from-success/5 to-transparent flex items-center justify-between">
+                    <h2 className="font-semibold text-sm flex items-center gap-2">
+                      <CheckCircle className="h-4 w-4 text-success" /> Resolved / Closed Tickets
+                    </h2>
+                    <span className="px-2.5 py-1 rounded-full text-[11px] font-bold bg-success/10 text-success border border-success/20">{resolvedList.length}</span>
+                  </div>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="text-left text-[11px] uppercase tracking-wider text-muted-foreground bg-muted/30">
+                          <th className="px-6 py-3.5 font-semibold">Ticket</th>
+                          <th className="px-6 py-3.5 font-semibold">Title</th>
+                          <th className="px-6 py-3.5 font-semibold">Priority</th>
+                          <th className="px-6 py-3.5 font-semibold">Department</th>
+                          <th className="px-6 py-3.5 font-semibold">Status</th>
+                          <th className="px-6 py-3.5 font-semibold">Assigned To</th>
+                          <th className="px-6 py-3.5 font-semibold">Created</th>
+                          <th className="px-6 py-3.5 font-semibold">Closed Time</th>
+                          <th className="px-6 py-3.5 font-semibold">Total Time</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-border">
+                        {resolvedList.length > 0 ? resolvedList.map((t) => {
+                          const created = t.created_at ? new Date(t.created_at) : null;
+                          const closed = t.updated_at ? new Date(t.updated_at) : null;
+                          const diffMs = created && closed ? closed.getTime() - created.getTime() : 0;
+                          const diffHrs = Math.floor(diffMs / (1000 * 60 * 60));
+                          const diffMins = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+                          const totalTime = diffHrs > 0 ? `${diffHrs}h ${diffMins}m` : `${diffMins}m`;
+                          const breached = t.tat_breached;
+                          const formatDate = (d: Date | null) => {
+                            if (!d) return "—";
+                            return d.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }) + "\n" + d.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: true }).toLowerCase();
+                          };
+                          return (
+                            <tr key={t.id} className="hover:bg-muted/20 transition-colors">
+                              <td className="px-6 py-4 font-mono text-xs font-medium text-primary">{t.code}</td>
+                              <td className="px-6 py-4 text-sm max-w-[200px]">{t.title}</td>
+                              <td className="px-6 py-4"><span className={cn("px-2.5 py-0.5 rounded-full text-[11px] font-semibold border", priorityColors[t.priority || "Medium"])}>{t.priority}</span></td>
+                              <td className="px-6 py-4 text-sm text-muted-foreground">{t.assigned_dept || "—"}</td>
+                              <td className="px-6 py-4"><span className={cn("px-2.5 py-0.5 rounded-full text-[11px] font-semibold", t.status === "Resolved" ? "bg-success/10 text-success" : "bg-muted text-muted-foreground")}>{t.status}</span></td>
+                              <td className="px-6 py-4 text-sm text-muted-foreground">{t.assigned_to || "Unassigned"}</td>
+                              <td className="px-6 py-4 text-xs text-muted-foreground whitespace-pre-line">{formatDate(created)}</td>
+                              <td className="px-6 py-4 text-xs text-muted-foreground whitespace-pre-line">{formatDate(closed)}</td>
+                              <td className="px-6 py-4 text-center">
+                                <span className={cn("px-2.5 py-1 rounded-lg text-xs font-bold", breached ? "bg-destructive/10 text-destructive" : "bg-success/10 text-success")}>{totalTime}</span>
+                              </td>
+                            </tr>
+                          );
+                        }) : (
+                          <tr><td colSpan={9} className="px-6 py-8 text-center text-muted-foreground text-sm">No resolved tickets found.</td></tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
-              ))}
-            </div>
-
-            {avgTatHrs !== null && (
-              <div className="bg-card rounded-xl border border-border p-4 flex items-center gap-3">
-                <Clock className="h-5 w-5 text-primary" />
-                <span className="text-sm text-muted-foreground">Average Resolution Time:</span>
-                <span className="text-lg font-bold text-primary">{avgTatHrs}h</span>
-              </div>
-            )}
-
-            {/* Center-wise Breakdown */}
-            <div className="bg-card rounded-2xl card-shadow border border-border overflow-hidden">
-              <div className="px-6 py-4 border-b border-border bg-gradient-to-r from-primary/10 to-transparent">
-                <h2 className="font-semibold text-sm flex items-center gap-2">
-                  <BarChart3 className="h-4 w-4 text-primary" /> Center-wise TAT Breakdown
-                </h2>
-              </div>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="text-left text-[11px] uppercase tracking-wider text-muted-foreground bg-muted/30">
-                      <th className="px-6 py-3 font-semibold">Center</th>
-                      <th className="px-6 py-3 text-center font-semibold">Total</th>
-                      <th className="px-6 py-3 text-center font-semibold">Within TAT</th>
-                      <th className="px-6 py-3 text-center font-semibold">Breached</th>
-                      <th className="px-6 py-3 text-center font-semibold">Compliance</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-border">
-                    {Array.from(centerMap.entries()).sort((a, b) => b[1].total - a[1].total).map(([center, v]) => {
-                      const rate = v.total > 0 ? Math.round((v.onTrack / v.total) * 100) : 100;
-                      return (
-                        <tr key={center} className="hover:bg-muted/20 transition-colors">
-                          <td className="px-6 py-3 font-medium">{center}</td>
-                          <td className="px-6 py-3 text-center font-semibold">{v.total}</td>
-                          <td className="px-6 py-3 text-center text-success font-medium">{v.onTrack}</td>
-                          <td className="px-6 py-3 text-center text-destructive font-medium">{v.breached}</td>
-                          <td className="px-6 py-3 text-center">
-                            <span className={cn("px-2 py-0.5 rounded-full text-xs font-semibold", rate >= 80 ? "bg-success/10 text-success" : "bg-destructive/10 text-destructive")}>{rate}%</span>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-
-            {/* All Tickets Table */}
-            <div className="bg-card rounded-2xl card-shadow border border-border overflow-hidden">
-              <div className="px-6 py-4 border-b border-border bg-gradient-to-r from-primary/10 to-transparent flex items-center justify-between">
-                <h2 className="font-semibold text-sm flex items-center gap-2">
-                  <Clock className="h-4 w-4 text-primary" /> All Tickets — TAT Details
-                </h2>
-                <span className="px-2.5 py-1 rounded-full text-[11px] font-bold bg-primary/10 text-primary border border-primary/20">{filtered.length}</span>
-              </div>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="text-left text-[11px] uppercase tracking-wider text-muted-foreground bg-muted/30">
-                      <th className="px-4 py-3 font-semibold">Ticket</th>
-                      <th className="px-4 py-3 font-semibold">Title</th>
-                      <th className="px-4 py-3 font-semibold">Priority</th>
-                      <th className="px-4 py-3 font-semibold">Status</th>
-                      <th className="px-4 py-3 font-semibold">Center</th>
-                      <th className="px-4 py-3 font-semibold">Assigned To</th>
-                      <th className="px-4 py-3 font-semibold">Created</th>
-                      <th className="px-4 py-3 font-semibold">TAT</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-border">
-                    {filtered.map((t) => {
-                      const tatHrs = t.tat_hours;
-                      const breached = t.tat_breached;
-                      const formatTat = (hrs: number | null | undefined) => {
-                        if (hrs == null) return "—";
-                        if (hrs < 1) return `${Math.round(hrs * 60)}m`;
-                        return `${Math.floor(hrs)}h ${Math.round((hrs % 1) * 60)}m`;
-                      };
-                      return (
-                        <tr key={t.id} className={cn("hover:bg-muted/20 transition-colors", breached && "bg-red-50/50")}>
-                          <td className="px-4 py-2.5 font-mono text-xs font-medium text-primary">{t.code}</td>
-                          <td className="px-4 py-2.5 text-xs max-w-[200px] truncate">{t.title}</td>
-                          <td className="px-4 py-2.5"><span className={cn("px-2 py-0.5 rounded-full text-[10px] font-semibold border", priorityColors[t.priority || "Medium"])}>{t.priority}</span></td>
-                          <td className="px-4 py-2.5 text-xs">{t.status}</td>
-                          <td className="px-4 py-2.5 text-xs text-muted-foreground">{t.center || "—"}</td>
-                          <td className="px-4 py-2.5 text-xs text-muted-foreground">{t.assigned_to || "—"}</td>
-                          <td className="px-4 py-2.5 text-xs text-muted-foreground">{t.created_at ? new Date(t.created_at).toLocaleString() : "—"}</td>
-                          <td className="px-4 py-2.5">
-                            <span className={cn("text-xs font-semibold", breached ? "text-destructive" : "text-success")}>
-                              {breached ? "⚠ " : "✓ "}{formatTat(tatHrs)}
-                            </span>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                    {filtered.length === 0 && (
-                      <tr><td colSpan={8} className="px-4 py-8 text-center text-muted-foreground text-sm">No tickets found for the selected filters.</td></tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </div>
+              );
+            })()}
           </>
         );
       })()}

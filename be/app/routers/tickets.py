@@ -425,7 +425,17 @@ def approve_ticket(ticket_id: int, req: ApprovalRequest, db: Session = Depends(g
         raise HTTPException(status_code=404, detail="Ticket not found")
  
     approver = req.approver_name or "AOM"
- 
+
+    # Prevent AOM from approving twice — if approver is now "Finance Team", AOM cannot act
+    if t.approver == "Finance Team" and approver != "Finance Team" and not any(r in (approver or "").lower() for r in ["finance"]):
+        # Check if this person already approved (AOM approved, now it's Finance's turn)
+        already_approved = any(
+            c.type == CommentTypeEnum.approval and approver in (c.user or "") and "approved" in (c.message or "").lower()
+            for c in t.comments
+        )
+        if already_approved:
+            raise HTTPException(status_code=400, detail="You have already approved this ticket. It is now pending Finance approval.")
+
     if req.action == "Follow-up":
         # AOM needs more info – set status to Follow Up, add comment
         t.status = TicketStatusEnum.FollowUp
