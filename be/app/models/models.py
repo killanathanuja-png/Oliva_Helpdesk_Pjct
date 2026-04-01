@@ -397,6 +397,47 @@ class CDDCategory(Base):
     type_rel = relationship("CDDType", back_populates="categories")
 
 
+class AdminMainCategory(Base):
+    __tablename__ = "admin_main_categories"
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String(200), nullable=False, unique=True)
+    status = Column(SAEnum(StatusEnum), default=StatusEnum.Active)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    modules = relationship("AdminModule", back_populates="main_category_rel", cascade="all, delete-orphan")
+
+
+class AdminModule(Base):
+    __tablename__ = "admin_modules"
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String(200), nullable=False)
+    main_category_id = Column(Integer, ForeignKey("admin_main_categories.id"), nullable=False)
+    status = Column(SAEnum(StatusEnum), default=StatusEnum.Active)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    main_category_rel = relationship("AdminMainCategory", back_populates="modules")
+    sub_categories = relationship("AdminSubCategory", back_populates="module_rel", cascade="all, delete-orphan")
+
+
+class AdminSubCategory(Base):
+    __tablename__ = "admin_sub_categories"
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String(200), nullable=False)
+    module_id = Column(Integer, ForeignKey("admin_modules.id"), nullable=False)
+    status = Column(SAEnum(StatusEnum), default=StatusEnum.Active)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    module_rel = relationship("AdminModule", back_populates="sub_categories")
+    child_categories = relationship("AdminChildCategory", back_populates="sub_category_rel", cascade="all, delete-orphan")
+
+
+class AdminChildCategory(Base):
+    __tablename__ = "admin_child_categories"
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String(200), nullable=False)
+    sub_category_id = Column(Integer, ForeignKey("admin_sub_categories.id"), nullable=False)
+    status = Column(SAEnum(StatusEnum), default=StatusEnum.Active)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    sub_category_rel = relationship("AdminSubCategory", back_populates="child_categories")
+
+
 class Notification(Base):
     __tablename__ = "notifications"
 
@@ -407,4 +448,22 @@ class Notification(Base):
     read = Column(Boolean, default=False)
     ticket_id = Column(Integer, ForeignKey("tickets.id"), nullable=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+
+class AdminUser(Base):
+    __tablename__ = "admin_users"
+    id = Column(Integer, primary_key=True, index=True)
+    code = Column(String(20), unique=True, nullable=False)
+    name = Column(String(150), nullable=False)
+    email = Column(String(200), unique=True, nullable=False)
+    hashed_password = Column(String(200))
+    role = Column(String(200))
+    department = Column(String(100))
+    center_name = Column(String(150))
+    city = Column(String(100))
+    map_level_access = Column(String(50))
+    mobile = Column(String(20))
+    employee_type = Column(String(50))
+    status = Column(String(20), default="Active")
     created_at = Column(DateTime(timezone=True), server_default=func.now())

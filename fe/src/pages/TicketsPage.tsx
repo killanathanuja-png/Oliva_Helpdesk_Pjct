@@ -154,6 +154,8 @@ const TicketsPage = () => {
     "Finance": ["Zenoti"],
     "Finance Head": ["Zenoti"],
     "Help Desk Admin": [], // sees all (handled below)
+    "Helpdesk Admin": ["Admin Department"], // sees their center's admin tickets
+    "Admin Department": ["Admin Department"], // sees all admin dept tickets
     "Helpdesk In-charge": [], // sees all
     "L1 Manager": [], // sees all
     "L2 Manager": [], // sees all
@@ -187,6 +189,10 @@ const TicketsPage = () => {
       ? data.filter((t) => t.raisedBy === currentUser)
       : hasAnyRole(currentUserRole, ["Help Desk Admin", "Helpdesk In-charge", "L1 Manager", "L2 Manager"])
         ? data // these roles see all tickets
+        : hasAnyRole(currentUserRole, ["Helpdesk Admin"])
+        ? data.filter((t) => t.center === currentUserCenter || t.raisedBy === currentUser) // Helpdesk Admin sees center tickets
+        : hasAnyRole(currentUserRole, ["Admin Department"])
+        ? data.filter((t) => t.assignedDept === "Admin Department") // Admin Dept sees all admin tickets
         : (() => {
             const allowedDepts = getUserDepts();
             const isAom = hasAnyRole(currentUserRole, ["Area Operations Manager", "Area Operations Manager Head"]);

@@ -95,11 +95,24 @@ def _ticket_to_response(t: Ticket, aom_name: str = None, aom_email: str = None) 
  
 @router.get("/", response_model=list[TicketResponse])
 def list_tickets(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    # Clinic Managers only see tickets for their center
+    # Role-based ticket filtering
     user_roles = (current_user.role or "").lower()
     is_clinic_manager = "clinic manager" in user_roles or "clinic incharge" in user_roles
+    is_helpdesk_admin = "helpdesk admin" in user_roles
+    is_admin_dept = "admin department" in user_roles
 
-    if is_clinic_manager and current_user.center_rel:
+    if is_helpdesk_admin and current_user.center_rel:
+        # Helpdesk Admin users see only their center's tickets + tickets they raised
+        center_name = current_user.center_rel.name
+        tickets = db.query(Ticket).filter(
+            (Ticket.center == center_name) | (Ticket.raised_by_id == current_user.id)
+        ).order_by(Ticket.created_at.desc()).all()
+    elif is_admin_dept:
+        # Admin Department users see all admin tickets
+        tickets = db.query(Ticket).filter(
+            Ticket.assigned_dept == "Admin Department"
+        ).order_by(Ticket.created_at.desc()).all()
+    elif is_clinic_manager and current_user.center_rel:
         center_name = current_user.center_rel.name
         tickets = db.query(Ticket).filter(
             (Ticket.center == center_name) | (Ticket.raised_by_id == current_user.id)
@@ -125,6 +138,38 @@ def create_ticket(req: TicketCreate, current_user: User = Depends(get_current_us
         approval_status_value = None
         ticket_status = TicketStatusEnum.Open
         assigned_to_id_value = None
+        raised_by_dept_value = req.assigned_dept  # default: same as assigned_dept
+        assigned_dept_value = req.assigned_dept
+
+        # Admin ticket routing: Helpdesk Admin users auto-route to Admin Department
+        user_roles = (current_user.role or "").lower()
+        is_helpdesk_admin = "helpdesk admin" in user_roles
+
+        if is_helpdesk_admin:
+            # Force department to Admin Department
+            assigned_dept_value = "Admin Department"
+            # Keep raised_by_dept as the user's actual department
+            raised_by_dept_value = current_user.department_rel.name if current_user.department_rel else (req.assigned_dept or "Admin Department")
+
+            # Auto-fill center from user's center
+            if current_user.center_rel:
+                center_value = current_user.center_rel.name
+
+            # Look up location assignment based on user's city
+            from sqlalchemy import text as sa_text
+            user_city = current_user.city or ""
+            location_match = db.execute(sa_text(
+                "SELECT assigned_to_email, assigned_to_name FROM admin_location_assignment WHERE LOWER(location) = LOWER(:city)"
+            ), {"city": user_city}).first()
+
+            if location_match:
+                assigned_user = db.query(User).filter(User.email == location_match[0]).first()
+                if assigned_user:
+                    assigned_to_id_value = assigned_user.id
+
+            # Override status and approval
+            ticket_status = TicketStatusEnum.Open
+            approval_required = False
 
         # If CDD user creates a ticket, auto-assign to the selected center's clinic manager
         user_dept_name = current_user.department_rel.name if current_user.department_rel else ""
@@ -209,8 +254,8 @@ def create_ticket(req: TicketCreate, current_user: User = Depends(get_current_us
             priority=PriorityEnum(req.priority) if req.priority else PriorityEnum.Medium,
             status=ticket_status,
             raised_by_id=current_user.id,
-            raised_by_dept=req.assigned_dept,
-            assigned_dept=req.assigned_dept,
+            raised_by_dept=raised_by_dept_value,
+            assigned_dept=assigned_dept_value,
             assigned_to_id=assigned_to_id_value,
             center=center_value,
             approval_required=approval_required,

@@ -3,8 +3,8 @@ import { X, AlertCircle, RotateCcw, Loader2 } from "lucide-react";
 import { departments as fallbackDepartments, centers as fallbackCenters } from "@/data/dummyData";
 import type { Ticket } from "@/data/dummyData";
 import { cn } from "@/lib/utils";
-import { departmentsApi, centersApi, categoriesApi, subcategoriesApi, childCategoriesApi, serviceTitlesApi, aomMappingsApi, cddTypesApi } from "@/lib/api";
-import type { ApiDepartment, ApiCenter, ApiCategory, ApiSubcategory, ApiChildCategory, ApiServiceTitle, ApiCDDType } from "@/lib/api";
+import { departmentsApi, centersApi, categoriesApi, subcategoriesApi, childCategoriesApi, serviceTitlesApi, aomMappingsApi, cddTypesApi, adminMastersApi } from "@/lib/api";
+import type { ApiDepartment, ApiCenter, ApiCategory, ApiSubcategory, ApiChildCategory, ApiServiceTitle, ApiCDDType, AdminMainCategoryApi } from "@/lib/api";
  
 export interface TicketFormData {
   title: string;
@@ -174,7 +174,24 @@ const RaiseTicketModal = ({ onClose, onSuccess, editMode, editTicket, userRole, 
   const [assignedCenter, setAssignedCenter] = useState("");
   const [cddCmEmail, setCddCmEmail] = useState("");
   const [cddAomEmail, setCddAomEmail] = useState("");
+  // Admin Department (Helpdesk Admin) fields
+  const [adminMainCategories, setAdminMainCategories] = useState<AdminMainCategoryApi[]>([]);
+  const [adminMainCategory, setAdminMainCategory] = useState("");
+  const [adminModule, setAdminModule] = useState("");
+  const [adminSubCategory, setAdminSubCategory] = useState("");
+  const [adminChildCategory, setAdminChildCategory] = useState("");
  
+  // Auto-set department for Helpdesk Admin users
+  useEffect(() => {
+    const stored = localStorage.getItem("oliva_user");
+    const parsed = stored ? JSON.parse(stored) : null;
+    const role = (parsed?.role || "").toLowerCase();
+    if (role.includes("helpdesk admin") && !editMode) {
+      setDepartment("Admin Department");
+      if (parsed?.center) setCenter(parsed.center);
+    }
+  }, [editMode]);
+
   // Fetch all master data on mount
   useEffect(() => {
     const fetchAll = async () => {
@@ -220,6 +237,14 @@ const RaiseTicketModal = ({ onClose, onSuccess, editMode, editTicket, userRole, 
         if (svcs) setApiServiceTitles(svcs);
         if (cddTypes) setApiCddTypes(cddTypes);
 
+        // Fetch admin master categories for Helpdesk Admin users
+        try {
+          const adminCats = await adminMastersApi.listMainCategories();
+          if (adminCats && adminCats.length > 0) setAdminMainCategories(adminCats);
+        } catch {
+          // Not needed or API unavailable
+        }
+
         // Auto-fetch CM's mapped center and AOM
         try {
           const cmInfo = await aomMappingsApi.myCenter();
@@ -244,6 +269,23 @@ const RaiseTicketModal = ({ onClose, onSuccess, editMode, editTicket, userRole, 
   const isCDD = (userDepartment || "").toLowerCase().includes("cdd");
   const isQualityAudit = department === "Quality" || department === "Quality & Audit" || (department || "").toLowerCase().includes("quality");
   const isCDDClinic = isCDD && (department === "Clinic" || department === "Clinic Operations");
+
+  // Helpdesk Admin detection
+  const storedUser = localStorage.getItem("oliva_user");
+  const parsedUser = storedUser ? JSON.parse(storedUser) : null;
+  const currentUserRole = parsedUser?.role || "";
+  const currentUserCenter = parsedUser?.center || "";
+  const isHelpdeskAdmin = currentUserRole.toLowerCase().includes("helpdesk admin");
+  const isAdminDept = department === "Admin Department";
+
+  // Admin Department category options (derived from admin master categories)
+  const adminMainCategoryOptions = adminMainCategories.map((mc) => mc.name);
+  const selectedAdminMC = adminMainCategories.find((mc) => mc.name === adminMainCategory);
+  const adminModuleOptions = selectedAdminMC ? selectedAdminMC.modules.map((m) => m.name) : [];
+  const selectedAdminModule = selectedAdminMC?.modules.find((m) => m.name === adminModule);
+  const adminSubCategoryOptions = selectedAdminModule ? selectedAdminModule.sub_categories.map((s) => s.name) : [];
+  const selectedAdminSub = selectedAdminModule?.sub_categories.find((s) => s.name === adminSubCategory);
+  const adminChildCategoryOptions = selectedAdminSub ? selectedAdminSub.child_categories.map((c) => c.name) : [];
 
   // CDD Clinic: Type → Category mapping (from API)
   const cddClinicTypeMap: Record<string, string[]> = {};
@@ -373,12 +415,13 @@ const RaiseTicketModal = ({ onClose, onSuccess, editMode, editTicket, userRole, 
         }
       }
       if (onSuccess) {
-        const finalCategory = (isCDDClinic && category === "others" && customType) ? customType : category;
-        const finalSubCategory = (isCDDClinic && subCategory === "others" && customCategory) ? customCategory : subCategory;
+        const finalCategory = isAdminDept ? adminMainCategory : (isCDDClinic && category === "others" && customType) ? customType : category;
+        const finalSubCategory = isAdminDept ? adminModule : (isCDDClinic && subCategory === "others" && customCategory) ? customCategory : subCategory;
         onSuccess({
-          title, description, department, category: finalCategory, subCategory: finalSubCategory, priority,
-          center: isZenoti ? zenotiFields.location : (isCDDToClinics ? assignedCenter : center),
-          zenotiChildCategory: childCategory,
+          title, description, department, category: finalCategory, subCategory: finalSubCategory,
+          priority: isAdminDept ? "Medium" : priority,
+          center: isZenoti ? zenotiFields.location : (isCDDToClinics ? assignedCenter : (isHelpdeskAdmin && currentUserCenter ? currentUserCenter : center)),
+          zenotiChildCategory: isAdminDept ? adminChildCategory : childCategory,
           ...(isCDDToClinics && {
             actionRequired,
             assignedCenter,
@@ -508,12 +551,21 @@ const RaiseTicketModal = ({ onClose, onSuccess, editMode, editTicket, userRole, 
           <form className="p-6 space-y-4" onSubmit={handleSubmit}>
             <div>
               <label className={labelClass}>Department <span className="text-destructive">*</span></label>
+              {isHelpdeskAdmin ? (
+                <input
+                  type="text"
+                  value="Admin Department"
+                  readOnly
+                  className={cn(inputClass, "bg-muted cursor-not-allowed")}
+                />
+              ) : (
               <ComboBox
                 value={department}
                 onChange={handleDepartmentChange}
                 options={departmentOptions}
                 placeholder="Select department"
               />
+              )}
               {/* CDD to Clinic — Action Required + Assign to Center */}
               {isCDDToClinics && (
                 <div className="mt-3 space-y-3">
@@ -560,8 +612,66 @@ const RaiseTicketModal = ({ onClose, onSuccess, editMode, editTicket, userRole, 
               <textarea rows={3} required value={description} onChange={(e) => setDescription(e.target.value)} className={cn(inputClass, "resize-none")} placeholder="Detailed description of the issue..." />
             </div>
 
+            {/* Admin Department category fields for Helpdesk Admin */}
+            {isAdminDept && (
+              <div className="rounded-xl border border-indigo-200 bg-indigo-50/50 p-4 space-y-3">
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="text-xs font-semibold text-indigo-700">Admin Category Selection</span>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className={labelClass}>Main Category <span className="text-destructive">*</span></label>
+                    <ComboBox
+                      value={adminMainCategory}
+                      onChange={(val) => { setAdminMainCategory(val); setAdminModule(""); setAdminSubCategory(""); setAdminChildCategory(""); }}
+                      options={adminMainCategoryOptions}
+                      placeholder="Select main category"
+                    />
+                  </div>
+                  <div>
+                    <label className={labelClass}>Module <span className="text-destructive">*</span></label>
+                    <ComboBox
+                      value={adminModule}
+                      onChange={(val) => { setAdminModule(val); setAdminSubCategory(""); setAdminChildCategory(""); }}
+                      options={adminModuleOptions}
+                      placeholder="Select module"
+                    />
+                  </div>
+                  <div>
+                    <label className={labelClass}>Sub Category</label>
+                    <ComboBox
+                      value={adminSubCategory}
+                      onChange={(val) => { setAdminSubCategory(val); setAdminChildCategory(""); }}
+                      options={adminSubCategoryOptions}
+                      placeholder="Select sub category"
+                    />
+                  </div>
+                  <div>
+                    <label className={labelClass}>Child Category</label>
+                    <ComboBox
+                      value={adminChildCategory}
+                      onChange={(val) => setAdminChildCategory(val)}
+                      options={adminChildCategoryOptions}
+                      placeholder="Select child category"
+                    />
+                  </div>
+                </div>
+                {isHelpdeskAdmin && (
+                  <div>
+                    <label className={labelClass}>Center <span className="text-xs text-emerald-600 ml-1">(Auto-filled)</span></label>
+                    <input
+                      type="text"
+                      value={currentUserCenter || center}
+                      readOnly
+                      className={cn(inputClass, "bg-muted cursor-not-allowed")}
+                    />
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* Category / Sub-Category - for non-Zenoti departments */}
-            {!isZenoti && (
+            {!isZenoti && !isAdminDept && (
               <div className={cn("grid gap-3", (isCDDToClinics || isCDDClinic || isQualityAudit) ? "grid-cols-2" : "grid-cols-3")}>
                 <div>
                   <label className={labelClass}>{isCDDClinic ? "Type" : "Category"}{isCDDClinic && <span className="text-destructive"> *</span>}</label>
@@ -747,8 +857,8 @@ const RaiseTicketModal = ({ onClose, onSuccess, editMode, editTicket, userRole, 
             )}
  
  
-            {/* Priority & Center — hidden for CDD→Clinic */}
-            {!isCDDToClinics && (
+            {/* Priority & Center — hidden for CDD→Clinic and Admin Department */}
+            {!isCDDToClinics && !isAdminDept && (
               <div className={cn("grid gap-3", isZenoti ? "grid-cols-1" : "grid-cols-2")}>
                 <div>
                   <label className={labelClass}>Priority <span className="text-destructive">*</span></label>

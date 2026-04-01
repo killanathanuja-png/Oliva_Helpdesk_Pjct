@@ -26,6 +26,7 @@ const AdminDepartmentsPage = () => {
   const _userDept = _parsedUser?.department || "";
   const _userRole = _parsedUser?.role || "";
   const _isCddAdmin = _userRole.toLowerCase().includes("cdd admin");
+  const _isAdminDept = _userRole.toLowerCase().includes("admin department");
   const _isDeptFiltered = _userDept.toLowerCase().includes("quality") || _userRole.toLowerCase().includes("zenoti team manager") || _isCddAdmin;
   const [data, setData] = useState<DeptWithStatus[]>([]);
   const [idMap, setIdMap] = useState<Record<string, number>>({});
@@ -40,7 +41,12 @@ const AdminDepartmentsPage = () => {
     departmentsApi.list()
       .then((res) => {
         let filtered = res;
-        if (_isDeptFiltered) {
+        if (_isAdminDept) {
+          filtered = res.filter((d) => {
+            const n = d.name.toLowerCase();
+            return n.includes("admin") || n.includes("help desk") || n.includes("helpdesk");
+          });
+        } else if (_isDeptFiltered) {
           filtered = res.filter((d) => d.name.toLowerCase().includes(_userDept.toLowerCase().split(" ")[0]));
         }
         if (filtered.length > 0) {

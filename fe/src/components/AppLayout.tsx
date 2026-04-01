@@ -110,6 +110,7 @@ const AppLayout = ({ children }: AppLayoutProps) => {
   const userRole: string = user?.role || "User";
   const userDepartment: string = user?.department || "";
   const isCddUser: boolean = userDepartment.toUpperCase() === "CDD";
+  const isAdminDeptUser: boolean = userRole.toLowerCase().includes("admin department");
   const userInitials: string = userName.split(" ").map((w: string) => w[0]).join("").toUpperCase().slice(0, 2);
 
   // Re-fetch user profile on mount so role changes are always reflected
@@ -242,7 +243,13 @@ const AppLayout = ({ children }: AppLayoutProps) => {
                         : isActive(child.path);
                       // For CDD users, rename labels
                       let displayLabel = child.label;
-                      if (isCddUser) {
+                      if (isAdminDeptUser) {
+                        if (child.label === "Categories") displayLabel = "Main Category";
+                        else if (child.label === "Subcategory") displayLabel = "Module";
+                        else if (child.label === "Child Category") displayLabel = "Sub Category";
+                        else if (child.label === "SLA Report") displayLabel = "TAT Report";
+                        else if (child.label === "SLA Analytics") displayLabel = "TAT Analytics";
+                      } else if (isCddUser) {
                         if (child.label === "SLA Report") displayLabel = "TAT Report";
                         else if (child.label === "SLA Analytics") displayLabel = "TAT Analytics";
                         else if (child.label === "Categories") displayLabel = "Type";
@@ -321,9 +328,9 @@ const AppLayout = ({ children }: AppLayoutProps) => {
               {location.pathname === "/admin/departments" && "Masters / Departments"}
               {location.pathname === "/admin/roles" && "Masters / Roles"}
               {location.pathname === "/admin/centers" && "Masters / Centers"}
-              {location.pathname === "/admin/categories" && (isCddUser ? "Masters / Type" : "Masters / Categories")}
-              {location.pathname === "/admin/subcategories" && (isCddUser ? "Masters / Category" : "Masters / Subcategory")}
-              {location.pathname === "/admin/child-categories" && "Masters / Child Category"}
+              {location.pathname === "/admin/categories" && (isAdminDeptUser ? "Masters / Main Category" : isCddUser ? "Masters / Type" : "Masters / Categories")}
+              {location.pathname === "/admin/subcategories" && (isAdminDeptUser ? "Masters / Module" : isCddUser ? "Masters / Category" : "Masters / Subcategory")}
+              {location.pathname === "/admin/child-categories" && (isAdminDeptUser ? "Masters / Sub Category" : "Masters / Child Category")}
               {location.pathname === "/admin/service-titles" && "Masters / Service Titles"}
               {location.pathname === "/admin/sla" && "Masters / SLA Config"}
               {location.pathname === "/admin/login-history" && "Masters / Login History"}

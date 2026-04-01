@@ -1,8 +1,8 @@
 import { useState, useRef, useEffect } from "react";
 import { centers as dummyCenters, roles as dummyRoles, departments as dummyDepartments } from "@/data/dummyData";
 import type { User } from "@/data/dummyData";
-import { usersApi, departmentsApi, centersApi, rolesApi, designationsApi } from "@/lib/api";
-import type { ApiUser } from "@/lib/api";
+import { usersApi, departmentsApi, centersApi, rolesApi, designationsApi, adminUsersApi } from "@/lib/api";
+import type { ApiUser, ApiAdminUser } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { X, Pencil, Trash2, Loader2, AlertTriangle, Download, Search, Upload, Eye, EyeOff, ArrowLeft, RefreshCw } from "lucide-react";
 import { exportToExcel } from "@/lib/exportExcel";
@@ -249,7 +249,8 @@ const AdminUsersPage = () => {
   const _isQualityHead = _userDept.toLowerCase().includes("quality");
   const _isZenotiManager = _userRole.toLowerCase().includes("zenoti team manager");
   const _isCddAdmin = _userRole.toLowerCase().includes("cdd admin");
-  const _isDeptFiltered = _isQualityHead || _isZenotiManager || _isCddAdmin;
+  const _isAdminDept = _userRole.toLowerCase().includes("admin department");
+  const _isDeptFiltered = _isQualityHead || _isZenotiManager || _isCddAdmin || _isAdminDept;
   const [data, setData] = useState<LocalUser[]>([]);
   const [idMap, setIdMap] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
@@ -278,16 +279,54 @@ const AdminUsersPage = () => {
 
       // Fetch users
       try {
-        let apiUsers = await usersApi.list();
-        // Department heads only see their department's users
-        if (_isDeptFiltered) {
-          apiUsers = apiUsers.filter((u) => (u.department || "").toLowerCase().includes(_userDept.toLowerCase().split(" ")[0]));
-        }
-        if (!cancelled) {
-          setData(apiUsers.map(apiUserToUser));
-          const map: Record<string, number> = {};
-          apiUsers.forEach((u) => { map[u.code] = u.id; });
-          setIdMap(map);
+        if (_isAdminDept) {
+          // Admin Department: fetch from admin_users table
+          const adminUsers = await adminUsersApi.list();
+          if (!cancelled) {
+            setData(adminUsers.map((a: ApiAdminUser): LocalUser => ({
+              id: a.code,
+              employeeId: a.code,
+              name: a.name,
+              email: a.email,
+              role: a.role || "Helpdesk Admin",
+              mapLevelAccess: a.map_level_access || "",
+              designation: "",
+              entity: "",
+              vertical: "",
+              costcenter: "",
+              department: a.department || "",
+              center: a.center_name || "",
+              gender: "",
+              mobile: a.mobile || "",
+              reportingTo: "",
+              grade: "",
+              employeeType: a.employee_type || "",
+              city: a.city || "",
+              employeeDob: "",
+              employeeDoj: "",
+              lwd: "",
+              effectiveDate: "",
+              remarks: "",
+              managedCenters: [],
+              avatar: a.name.split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase(),
+              status: (a.status as "Active" | "Inactive") || "Active",
+              lastLogin: "",
+            })));
+            const map: Record<string, number> = {};
+            adminUsers.forEach((u) => { map[u.code] = u.id; });
+            setIdMap(map);
+          }
+        } else {
+          let apiUsers = await usersApi.list();
+          if (_isDeptFiltered) {
+            apiUsers = apiUsers.filter((u) => (u.department || "").toLowerCase().includes(_userDept.toLowerCase().split(" ")[0]));
+          }
+          if (!cancelled) {
+            setData(apiUsers.map(apiUserToUser));
+            const map: Record<string, number> = {};
+            apiUsers.forEach((u) => { map[u.code] = u.id; });
+            setIdMap(map);
+          }
         }
       } catch {
         // API failed — keep existing data, only use dummy if we have nothing
@@ -341,27 +380,82 @@ const AdminUsersPage = () => {
   }, []);
 
   const refreshUsers = async () => {
-    try {
-      const apiUsers = await usersApi.list();
-      setData(apiUsers.map(apiUserToUser));
-      const map: Record<string, number> = {};
-      apiUsers.forEach((u) => { map[u.code] = u.id; });
-      setIdMap(map);
-    } catch { /* ignore */ }
+    if (_isAdminDept) {
+      try {
+        const adminUsers = await adminUsersApi.list();
+        setData(adminUsers.map((a: ApiAdminUser): LocalUser => ({
+          id: a.code, employeeId: a.code, name: a.name, email: a.email,
+          role: a.role || "Helpdesk Admin", mapLevelAccess: a.map_level_access || "",
+          designation: "", entity: "", vertical: "", costcenter: "",
+          department: a.department || "", center: a.center_name || "",
+          gender: "", mobile: a.mobile || "", reportingTo: "", grade: "",
+          employeeType: a.employee_type || "", city: a.city || "",
+          employeeDob: "", employeeDoj: "", lwd: "", effectiveDate: "", remarks: "",
+          managedCenters: [],
+          avatar: a.name.split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase(),
+          status: (a.status as "Active" | "Inactive") || "Active", lastLogin: "",
+        })));
+        const map: Record<string, number> = {};
+        adminUsers.forEach((u) => { map[u.code] = u.id; });
+        setIdMap(map);
+      } catch { /* ignore */ }
+    } else {
+      try {
+        const apiUsers = await usersApi.list();
+        setData(apiUsers.map(apiUserToUser));
+        const map: Record<string, number> = {};
+        apiUsers.forEach((u) => { map[u.code] = u.id; });
+        setIdMap(map);
+      } catch { /* ignore */ }
+    }
   };
 
   const handleSave = async () => {
     const missing: string[] = [];
     if (!form.name.trim()) missing.push("Name");
     if (!form.email.trim()) missing.push("Email");
-    if (!editingId && !form.password.trim()) missing.push("Password");
-    if (!form.role) missing.push("Role");
-    if (!form.department.trim()) missing.push("Department");
+    if (!editingId && !form.password.trim() && !_isAdminDept) missing.push("Password");
+    if (!_isAdminDept && !form.role) missing.push("Role");
+    if (!_isAdminDept && !form.department.trim()) missing.push("Department");
     if (missing.length > 0) {
       setFormError(`Please fill: ${missing.join(", ")}`);
       return;
     }
     setFormError("");
+
+    if (_isAdminDept) {
+      // Admin Department: use admin_users API
+      const numericId = editingId ? idMap[editingId] : null;
+      try {
+        if (editingId && numericId) {
+          await adminUsersApi.update(numericId, {
+            name: form.name, email: form.email, role: form.role || "Helpdesk Admin",
+            department: form.department || "Help desk", center_name: form.center,
+            city: form.city, map_level_access: form.mapLevelAccess || "Can View and Edit",
+            mobile: form.mobile, employee_type: form.employeeType, status: form.status,
+          });
+          showToast("User updated successfully");
+        } else {
+          await adminUsersApi.create({
+            name: form.name, email: form.email, password: form.password || "oliva@123",
+            role: form.role || "Helpdesk Admin", department: form.department || "Help desk",
+            center_name: form.center, city: form.city,
+            map_level_access: form.mapLevelAccess || "Can View and Edit",
+            mobile: form.mobile, employee_type: form.employeeType,
+          });
+          showToast("User created successfully");
+        }
+        await refreshUsers();
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : "Unknown error";
+        setFormError(`Failed: ${msg}`);
+        showToast("Failed", "error");
+        return;
+      }
+      setShowModal(false); setEditingId(null);
+      setForm({ name: "", email: "", password: "", role: "", designation: "", center: "", department: "", gender: "", mobile: "", reportingTo: "", employeeId: "", mapLevelAccess: "", entity: "", vertical: "", costcenter: "", grade: "", employeeType: "", city: "", employeeDob: "", employeeDoj: "", lwd: "", effectiveDate: "", remarks: "", status: "Active" });
+      return;
+    }
 
     if (editingId) {
       const numericId = idMap[editingId];
@@ -480,7 +574,11 @@ const AdminUsersPage = () => {
     const numericId = idMap[deleteConfirm];
     if (numericId) {
       try {
-        await usersApi.updateStatus(numericId, "Inactive");
+        if (_isAdminDept) {
+          await adminUsersApi.delete(numericId);
+        } else {
+          await usersApi.updateStatus(numericId, "Inactive");
+        }
       } catch { /* fall through to local update */ }
     }
     showToast("User deleted successfully");

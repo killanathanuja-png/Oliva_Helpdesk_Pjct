@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { subcategories as initialSubcategories } from "@/data/dummyData";
 import type { Subcategory } from "@/data/dummyData";
-import { subcategoriesApi, categoriesApi, cddTypesApi } from "@/lib/api";
+import { subcategoriesApi, categoriesApi, cddTypesApi, adminMastersApi } from "@/lib/api";
 import type { ApiSubcategory, ApiCategory } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { X, Pencil, Trash2, Loader2, AlertTriangle, Download, Search, ArrowLeft, RefreshCw } from "lucide-react";
@@ -104,6 +104,7 @@ const AdminSubcategoriesPage = () => {
   const _userDept = _parsedUser?.department || "";
   const _userRole = _parsedUser?.role || "";
   const _isCddAdmin = _userRole.toLowerCase().includes("cdd admin");
+  const _isAdminDept = _userRole.toLowerCase().includes("admin department");
   const _isDeptFiltered = _userDept.toLowerCase().includes("quality") || _userRole.toLowerCase().includes("zenoti team manager") || _isCddAdmin;
   const [data, setData] = useState<LocalSubcategory[]>([]);
   const [apiCategories, setApiCategories] = useState<ApiCategory[]>([]);
@@ -120,7 +121,30 @@ const AdminSubcategoriesPage = () => {
     const fetchData = async () => {
       setLoading(true);
       try {
-        if (_isCddAdmin) {
+        if (_isAdminDept) {
+          // Admin Department: fetch modules from admin_main_categories
+          const mainCats = await adminMastersApi.listMainCategories().catch(() => []);
+          const localData: LocalSubcategory[] = [];
+          const map: Record<string, number> = {};
+          mainCats.forEach((mc) => {
+            (mc.modules || []).forEach((m) => {
+              const localId = `AMM${m.id}`;
+              localData.push({
+                id: localId,
+                name: m.name,
+                category: mc.name,
+                module: "",
+                serviceTitleCount: (m.sub_categories || []).length,
+                status: (m.status as "Active" | "Inactive") || "Active",
+              });
+              map[localId] = m.id;
+            });
+          });
+          setData(localData);
+          setIdMap(map);
+          // Set category options as main category names
+          setApiCategories(mainCats.map((mc) => ({ id: mc.id, code: `AMC${mc.id}`, name: mc.name, department: "Administration", module: null, description: null, subcategory_count: 0, status: mc.status, created_at: null } as any)));
+        } else if (_isCddAdmin) {
           // CDD Admin: fetch from cdd_types (which includes categories)
           const cddTypes = await cddTypesApi.list().catch(() => []);
           const localData: LocalSubcategory[] = [];
@@ -183,10 +207,37 @@ const AdminSubcategoriesPage = () => {
 
   const handleSave = async () => {
     const missing: string[] = [];
-    if (!form.subcategory) missing.push(_isCddAdmin ? "Category Name" : "Sub Category Name");
-    if (!form.category) missing.push(_isCddAdmin ? "Type" : "Main Category");
+    if (!form.subcategory) missing.push(_isAdminDept ? "Module Name" : _isCddAdmin ? "Category Name" : "Sub Category Name");
+    if (!form.category) missing.push(_isAdminDept ? "Main Category" : _isCddAdmin ? "Type" : "Main Category");
     if (missing.length > 0) { setFormError(`Please fill: ${missing.join(", ")}`); return; }
     setFormError("");
+
+    if (_isAdminDept) {
+      // Admin Department: create/update module via admin_masters API
+      try {
+        const selectedMC = apiCategories.find((c) => c.name === form.category);
+        if (!selectedMC) { setFormError("Please select a valid Main Category"); return; }
+        if (editingId) {
+          const numericId = idMap[editingId];
+          if (numericId) {
+            const updated = await adminMastersApi.updateModule(numericId, { name: form.subcategory, main_category_id: selectedMC.id });
+            setData((prev) => prev.map((s) => s.id === editingId ? { ...s, name: updated.name, category: form.category } : s));
+            showToast("Module updated successfully");
+          }
+        } else {
+          const created = await adminMastersApi.createModule({ name: form.subcategory, main_category_id: selectedMC.id });
+          setIdMap((prev) => ({ ...prev, [`AMM${created.id}`]: created.id }));
+          setData((prev) => [...prev, { id: `AMM${created.id}`, name: created.name, category: form.category, module: "", serviceTitleCount: 0, status: "Active" }]);
+          showToast("Module created successfully");
+        }
+      } catch {
+        showToast(editingId ? "Failed to update Module" : "Failed to create Module", "error");
+      }
+      setForm({ ...emptyForm });
+      setEditingId(null);
+      setShowModal(false);
+      return;
+    }
 
     if (_isCddAdmin) {
       // CDD Admin: create via cdd_types API
@@ -261,11 +312,15 @@ const AdminSubcategoriesPage = () => {
     const numericId = idMap[deleteConfirm];
     if (numericId) {
       try {
-        await subcategoriesApi.updateStatus(numericId, "Inactive");
+        if (_isAdminDept) {
+          await adminMastersApi.deleteModule(numericId);
+        } else {
+          await subcategoriesApi.updateStatus(numericId, "Inactive");
+        }
       } catch { /* fall through */ }
     }
     setData((prev) => prev.map((s) => s.id === deleteConfirm ? { ...s, status: "Inactive" as const } : s));
-    showToast("Subcategory deleted successfully");
+    showToast(_isAdminDept ? "Module deleted successfully" : "Subcategory deleted successfully");
     setDeleteConfirm(null);
   };
 
@@ -291,7 +346,7 @@ const AdminSubcategoriesPage = () => {
         <div className="shrink-0 flex items-center gap-3">
           <button onClick={() => window.history.back()} className="p-2 rounded-lg border border-border hover:bg-muted transition-colors" title="Back"><ArrowLeft className="h-4 w-4" /></button>
           <div>
-            <h1 className="text-xl font-bold font-display">{_isCddAdmin ? "Category Management" : "Subcategory Management"}</h1>
+            <h1 className="text-xl font-bold font-display">{_isAdminDept ? "Module Management" : _isCddAdmin ? "Category Management" : "Subcategory Management"}</h1>
             <p className="text-xs text-muted-foreground mt-0.5">Total: <span className="font-semibold text-foreground">{activeData.length}</span></p>
           </div>
         </div>
@@ -323,7 +378,7 @@ const AdminSubcategoriesPage = () => {
             onClick={() => { setEditingId(null); setForm({ ...emptyForm }); setFormError(""); setShowModal(true); }}
             className="px-4 py-2.5 rounded-lg gradient-primary text-primary-foreground text-sm font-medium hover:opacity-90 transition-opacity"
           >
-            + {_isCddAdmin ? "Add Category" : "Add Subcategory"}
+            + {_isAdminDept ? "Add Module" : _isCddAdmin ? "Add Category" : "Add Subcategory"}
           </button>
         </div>
       </div>
@@ -332,22 +387,22 @@ const AdminSubcategoriesPage = () => {
         <table className="w-full text-sm">
           <thead>
             <tr className="text-left text-[11px] uppercase tracking-wider text-muted-foreground border-b border-border bg-muted/30 whitespace-nowrap">
-              {!_isCddAdmin && <th className="px-4 py-3 font-semibold">Sub Category Code</th>}
-              <th className="px-4 py-3 font-semibold">{_isCddAdmin ? "Category" : "Sub Category Name"}</th>
-              {!_isCddAdmin && <th className="px-4 py-3 font-semibold">Main Category</th>}
-              {!_isCddAdmin && <th className="px-4 py-3 font-semibold">Module</th>}
-              {!_isCddAdmin && <th className="px-4 py-3 font-semibold">Status</th>}
+              {!_isCddAdmin && !_isAdminDept && <th className="px-4 py-3 font-semibold">Sub Category Code</th>}
+              <th className="px-4 py-3 font-semibold">{_isAdminDept ? "Module Name" : _isCddAdmin ? "Category" : "Sub Category Name"}</th>
+              <th className="px-4 py-3 font-semibold">{_isAdminDept ? "Main Category" : "Main Category"}</th>
+              {!_isCddAdmin && !_isAdminDept && <th className="px-4 py-3 font-semibold">Module</th>}
+              {!_isCddAdmin && !_isAdminDept && <th className="px-4 py-3 font-semibold">Status</th>}
               <th className="px-4 py-3 font-semibold">Actions</th>
             </tr>
           </thead>
           <tbody>
             {filteredData.map((s) => (
               <tr key={s.id} className="border-b border-border last:border-0 hover:bg-muted/20 transition-colors">
-                {!_isCddAdmin && <td className="px-4 py-3 font-mono text-xs text-primary font-semibold">{s.id}</td>}
+                {!_isCddAdmin && !_isAdminDept && <td className="px-4 py-3 font-mono text-xs text-primary font-semibold">{s.id}</td>}
                 <td className="px-4 py-3 text-xs font-medium">{s.name}</td>
-                {!_isCddAdmin && <td className="px-4 py-3 text-xs text-muted-foreground">{s.category}</td>}
-                {!_isCddAdmin && <td className="px-4 py-3 text-xs text-muted-foreground">{s.module || ""}</td>}
-                {!_isCddAdmin && <td className="px-4 py-3">
+                <td className="px-4 py-3 text-xs text-muted-foreground">{s.category}</td>
+                {!_isCddAdmin && !_isAdminDept && <td className="px-4 py-3 text-xs text-muted-foreground">{s.module || ""}</td>}
+                {!_isCddAdmin && !_isAdminDept && <td className="px-4 py-3">
                   <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${s.status === "Active" ? "bg-success/10 text-success" : "bg-muted text-muted-foreground"}`}>{s.status}</span>
                 </td>}
                 <td className="px-4 py-3">
@@ -371,13 +426,13 @@ const AdminSubcategoriesPage = () => {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={handleCancel}>
           <div className="bg-card rounded-xl shadow-xl border border-border w-full max-w-md mx-4 animate-fade-in" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between px-6 py-4 border-b border-border">
-              <h2 className="text-lg font-bold font-display">{editingId ? (_isCddAdmin ? "Edit Category" : "Edit Subcategory") : (_isCddAdmin ? "Add Category" : "Add Subcategory")}</h2>
+              <h2 className="text-lg font-bold font-display">{editingId ? (_isAdminDept ? "Edit Module" : _isCddAdmin ? "Edit Category" : "Edit Subcategory") : (_isAdminDept ? "Add Module" : _isCddAdmin ? "Add Category" : "Add Subcategory")}</h2>
               <button onClick={handleCancel} className="text-muted-foreground hover:text-foreground transition-colors">
                 <X className="h-5 w-5" />
               </button>
             </div>
             <div className="px-6 py-5 space-y-4">
-              {!_isCddAdmin && (
+              {!_isCddAdmin && !_isAdminDept && (
                 <div>
                   <label className="block text-xs font-medium text-muted-foreground mb-1.5">Sub Category Code</label>
                   <input type="text" value={form.subCategoryCode} onChange={(e) => setForm({ ...form, subCategoryCode: e.target.value })} placeholder="e.g. SUB001"
@@ -385,14 +440,14 @@ const AdminSubcategoriesPage = () => {
                 </div>
               )}
               <div>
-                <label className="block text-xs font-medium text-muted-foreground mb-1.5">{_isCddAdmin ? "Category Name" : "Sub Category Name"} <span className="text-destructive">*</span></label>
-                <ComboBox value={form.subcategory} onChange={(val) => setForm({ ...form, subcategory: val })} options={[]} placeholder={_isCddAdmin ? "Enter category name" : "Type subcategory name"} allowCreate />
+                <label className="block text-xs font-medium text-muted-foreground mb-1.5">{_isAdminDept ? "Module Name" : _isCddAdmin ? "Category Name" : "Sub Category Name"} <span className="text-destructive">*</span></label>
+                <ComboBox value={form.subcategory} onChange={(val) => setForm({ ...form, subcategory: val })} options={[]} placeholder={_isAdminDept ? "Enter module name" : _isCddAdmin ? "Enter category name" : "Type subcategory name"} allowCreate />
               </div>
               <div>
-                <label className="block text-xs font-medium text-muted-foreground mb-1.5">{_isCddAdmin ? "Type" : "Main Category"} <span className="text-destructive">*</span></label>
-                <ComboBox value={form.category} onChange={handleCategoryChange} options={categoryOptions} placeholder={_isCddAdmin ? "Select type" : "Select main category"} allowCreate />
+                <label className="block text-xs font-medium text-muted-foreground mb-1.5">{_isAdminDept ? "Main Category" : _isCddAdmin ? "Type" : "Main Category"} <span className="text-destructive">*</span></label>
+                <ComboBox value={form.category} onChange={handleCategoryChange} options={categoryOptions} placeholder={_isAdminDept ? "Select main category" : _isCddAdmin ? "Select type" : "Select main category"} allowCreate />
               </div>
-              {!_isCddAdmin && (
+              {!_isCddAdmin && !_isAdminDept && (
                 <div>
                   <label className="block text-xs font-medium text-muted-foreground mb-1.5">Module</label>
                   <ComboBox value={form.module} onChange={(val) => setForm({ ...form, module: val })} options={MODULE_OPTIONS} placeholder="Select module" allowCreate />
@@ -405,7 +460,7 @@ const AdminSubcategoriesPage = () => {
             <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-border">
               <button onClick={handleCancel} className="px-4 py-2 rounded-lg border border-border text-sm font-medium hover:bg-muted transition-colors">Cancel</button>
               <button onClick={handleSave} className="px-5 py-2 rounded-lg gradient-primary text-primary-foreground text-sm font-medium hover:opacity-90 transition-opacity">
-                {editingId ? (_isCddAdmin ? "Update Category" : "Update Subcategory") : (_isCddAdmin ? "Create Category" : "Create Subcategory")}
+                {editingId ? (_isAdminDept ? "Update Module" : _isCddAdmin ? "Update Category" : "Update Subcategory") : (_isAdminDept ? "Create Module" : _isCddAdmin ? "Create Category" : "Create Subcategory")}
               </button>
             </div>
           </div>

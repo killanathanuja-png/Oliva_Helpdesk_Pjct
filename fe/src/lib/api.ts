@@ -474,6 +474,88 @@ export const cddTypesApi = {
   deleteCategory: (id: number) => request<void>(`/cdd-types/categories/${id}`, { method: "DELETE" }),
 };
 
+// --- Admin Masters (Admin Department) ---
+
+export interface AdminChildCategoryApi {
+  id: number; name: string; sub_category_id: number; status: string | null;
+}
+export interface AdminSubCategoryApi {
+  id: number; name: string; module_id: number; status: string | null;
+  child_categories: AdminChildCategoryApi[];
+}
+export interface AdminModuleApi {
+  id: number; name: string; main_category_id: number; status: string | null;
+  sub_categories: AdminSubCategoryApi[];
+}
+export interface AdminMainCategoryApi {
+  id: number; name: string; status: string | null;
+  modules: AdminModuleApi[];
+}
+
+export interface AdminLocationAssignment {
+  id: number;
+  location: string;
+  assigned_to_email: string;
+  assigned_to_name: string | null;
+  created_at: string | null;
+}
+
+export interface AdminEscalationMatrix {
+  id: number;
+  location: string;
+  l1_email: string;
+  l1_name: string | null;
+  l2_email: string;
+  l2_name: string | null;
+  l3_email: string;
+  l3_name: string | null;
+  sla_hours: number | null;
+  created_at: string | null;
+}
+
+export const adminMastersApi = {
+  listMainCategories: () => request<AdminMainCategoryApi[]>("/admin-masters/main-categories"),
+  createMainCategory: (data: { name: string }) => request<AdminMainCategoryApi>("/admin-masters/main-categories", { method: "POST", body: JSON.stringify(data) }),
+  updateMainCategory: (id: number, data: { name: string }) => request<AdminMainCategoryApi>(`/admin-masters/main-categories/${id}`, { method: "PUT", body: JSON.stringify(data) }),
+  deleteMainCategory: (id: number) => request<void>(`/admin-masters/main-categories/${id}`, { method: "DELETE" }),
+  listModules: () => request<AdminModuleApi[]>("/admin-masters/modules"),
+  createModule: (data: { name: string; main_category_id: number }) => request<AdminModuleApi>("/admin-masters/modules", { method: "POST", body: JSON.stringify(data) }),
+  updateModule: (id: number, data: { name: string; main_category_id: number }) => request<AdminModuleApi>(`/admin-masters/modules/${id}`, { method: "PUT", body: JSON.stringify(data) }),
+  deleteModule: (id: number) => request<void>(`/admin-masters/modules/${id}`, { method: "DELETE" }),
+  createSubCategory: (data: { name: string; module_id: number }) => request<any>("/admin-masters/sub-categories", { method: "POST", body: JSON.stringify(data) }),
+  updateSubCategory: (id: number, data: { name: string; module_id: number }) => request<any>(`/admin-masters/sub-categories/${id}`, { method: "PUT", body: JSON.stringify(data) }),
+  deleteSubCategory: (id: number) => request<void>(`/admin-masters/sub-categories/${id}`, { method: "DELETE" }),
+  createChildCategory: (data: { name: string; sub_category_id: number }) => request<any>("/admin-masters/child-categories", { method: "POST", body: JSON.stringify(data) }),
+  updateChildCategory: (id: number, data: { name: string; sub_category_id: number }) => request<any>(`/admin-masters/child-categories/${id}`, { method: "PUT", body: JSON.stringify(data) }),
+  deleteChildCategory: (id: number) => request<void>(`/admin-masters/child-categories/${id}`, { method: "DELETE" }),
+  listLocationAssignments: () => request<AdminLocationAssignment[]>("/admin-masters/location-assignments"),
+  listEscalationMatrix: () => request<AdminEscalationMatrix[]>("/admin-masters/escalation-matrix"),
+};
+
+// --- Admin Users ---
+
+export interface ApiAdminUser {
+  id: number;
+  code: string;
+  name: string;
+  email: string;
+  role: string | null;
+  department: string | null;
+  center_name: string | null;
+  city: string | null;
+  map_level_access: string | null;
+  mobile: string | null;
+  employee_type: string | null;
+  status: string | null;
+}
+
+export const adminUsersApi = {
+  list: () => request<ApiAdminUser[]>("/admin-users"),
+  create: (data: Record<string, unknown>) => request<ApiAdminUser>("/admin-users", { method: "POST", body: JSON.stringify(data) }),
+  update: (id: number, data: Record<string, unknown>) => request<ApiAdminUser>(`/admin-users/${id}`, { method: "PUT", body: JSON.stringify(data) }),
+  delete: (id: number) => request<void>(`/admin-users/${id}`, { method: "DELETE" }),
+};
+
 // --- Dashboard ---
 
 export interface ApiDashboardStats {

@@ -33,8 +33,13 @@ const roleAccess: Record<string, string[]> = {
   "Zenoti Team Manager": ["/", "/tickets", "/zenoti-requests", "/finance-approvals", "/sla-report", "/admin/users", "/admin/departments", "/admin/roles", "/admin/centers", "/admin/categories", "/admin/subcategories", "/admin/child-categories"],
   "CDD": ["/", "/tickets", "/sla-report", "/analytics"],
   "CDD Admin": ["/", "/tickets", "/sla-report", "/analytics", "/admin/users", "/admin/departments", "/admin/centers", "/admin/roles", "/admin/categories", "/admin/subcategories"],
+<<<<<<< Updated upstream
   "Administration": ["/", "/tickets", "/sla-report", "/analytics"],
   "Admin Department": ["/", "/tickets", "/sla-report", "/analytics"],
+=======
+  "Admin Department": ["/", "/tickets", "/sla-report", "/analytics", "/admin/users", "/admin/departments", "/admin/centers", "/admin/roles", "/admin/categories", "/admin/subcategories", "/admin/child-categories"],
+  "Helpdesk Admin": ["/", "/tickets", "/sla-report", "/analytics"],
+>>>>>>> Stashed changes
   "Employee": ["/", "/tickets", "/sla-report", "/analytics"],
   "Others": ["/", "/tickets", "/sla-report", "/analytics"],
 };

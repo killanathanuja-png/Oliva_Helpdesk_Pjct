@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { categories as initialCategories } from "@/data/dummyData";
 import type { Category } from "@/data/dummyData";
-import { categoriesApi, cddTypesApi } from "@/lib/api";
+import { categoriesApi, cddTypesApi, adminMastersApi } from "@/lib/api";
 import type { ApiCategory } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { X, Pencil, Trash2, Loader2, AlertTriangle, Download, Search, ArrowLeft, RefreshCw } from "lucide-react";
@@ -134,6 +134,7 @@ const AdminCategoriesPage = () => {
   const _userDept = _parsedUser?.department || "";
   const _userRole = _parsedUser?.role || "";
   const _isCddAdmin = _userRole.toLowerCase().includes("cdd admin");
+  const _isAdminDept = _userRole.toLowerCase().includes("admin department");
   const _isDeptFiltered = _userDept.toLowerCase().includes("quality") || _userRole.toLowerCase().includes("zenoti team manager") || _isCddAdmin;
   const [data, setData] = useState<LocalCategory[]>([]);
   const [idMap, setIdMap] = useState<Record<string, number>>({});
@@ -149,7 +150,23 @@ const AdminCategoriesPage = () => {
     async function fetchData() {
       setLoading(true);
       try {
-        if (_isCddAdmin) {
+        if (_isAdminDept) {
+          // Admin Department: fetch from admin_main_categories
+          const mainCats = await adminMastersApi.listMainCategories().catch(() => []);
+          const localData: LocalCategory[] = mainCats.map((mc) => ({
+            id: `AMC${mc.id}`,
+            name: mc.name,
+            module: "",
+            department: "Administration",
+            description: "",
+            subcategoryCount: (mc.modules || []).length,
+            status: (mc.status as "Active" | "Inactive") || "Active",
+          }));
+          setData(localData);
+          const map: Record<string, number> = {};
+          mainCats.forEach((mc) => { map[`AMC${mc.id}`] = mc.id; });
+          setIdMap(map);
+        } else if (_isCddAdmin) {
           // CDD Admin: fetch from cdd_types table
           const cddTypes = await cddTypesApi.list().catch(() => []);
           const localData: LocalCategory[] = cddTypes.map((t) => ({
@@ -191,9 +208,34 @@ const AdminCategoriesPage = () => {
 
   const handleSave = async () => {
     const missing: string[] = [];
-    if (!form.category) missing.push(_isCddAdmin ? "Type Name" : "Main Category Name");
+    if (!form.category) missing.push(_isAdminDept ? "Main Category Name" : _isCddAdmin ? "Type Name" : "Main Category Name");
     if (missing.length > 0) { setFormError(`Please fill: ${missing.join(", ")}`); return; }
     setFormError("");
+
+    if (_isAdminDept) {
+      // Admin Department: use admin_masters API
+      try {
+        if (editingId) {
+          const numericId = idMap[editingId];
+          if (numericId) {
+            const updated = await adminMastersApi.updateMainCategory(numericId, { name: form.category });
+            setData((prev) => prev.map((c) => c.id === editingId ? { ...c, name: updated.name } : c));
+            showToast("Main Category updated successfully");
+          }
+        } else {
+          const created = await adminMastersApi.createMainCategory({ name: form.category });
+          setIdMap((prev) => ({ ...prev, [`AMC${created.id}`]: created.id }));
+          setData((prev) => [...prev, { id: `AMC${created.id}`, name: created.name, module: "", department: "Administration", description: "", subcategoryCount: 0, status: "Active" }]);
+          showToast("Main Category created successfully");
+        }
+      } catch {
+        showToast(editingId ? "Failed to update Main Category" : "Failed to create Main Category", "error");
+      }
+      setForm({ categoryCode: "", category: "", module: "" });
+      setEditingId(null);
+      setShowModal(false);
+      return;
+    }
 
     if (_isCddAdmin) {
       // CDD Admin: use cdd_types API
@@ -267,11 +309,15 @@ const AdminCategoriesPage = () => {
     const numericId = idMap[deleteConfirm];
     if (numericId) {
       try {
-        await categoriesApi.updateStatus(numericId, "Inactive");
+        if (_isAdminDept) {
+          await adminMastersApi.deleteMainCategory(numericId);
+        } else {
+          await categoriesApi.updateStatus(numericId, "Inactive");
+        }
       } catch { /* fall through */ }
     }
     setData((prev) => prev.map((c) => c.id === deleteConfirm ? { ...c, status: "Inactive" as const } : c));
-    showToast("Category deleted successfully");
+    showToast(_isAdminDept ? "Main Category deleted successfully" : "Category deleted successfully");
     setDeleteConfirm(null);
   };
 
@@ -297,8 +343,8 @@ const AdminCategoriesPage = () => {
         <div className="shrink-0 flex items-center gap-3">
           <button onClick={() => window.history.back()} className="p-2 rounded-lg border border-border hover:bg-muted transition-colors" title="Back"><ArrowLeft className="h-4 w-4" /></button>
           <div>
-            <h1 className="text-xl font-bold font-display">{_isCddAdmin ? "Type Management" : "Category Management"}</h1>
-            <p className="text-xs text-muted-foreground mt-0.5">Total {_isCddAdmin ? "Types" : "Categories"}: <span className="font-semibold text-foreground">{activeData.length}</span></p>
+            <h1 className="text-xl font-bold font-display">{_isAdminDept ? "Main Category Management" : _isCddAdmin ? "Type Management" : "Category Management"}</h1>
+            <p className="text-xs text-muted-foreground mt-0.5">Total {_isAdminDept ? "Main Categories" : _isCddAdmin ? "Types" : "Categories"}: <span className="font-semibold text-foreground">{activeData.length}</span></p>
           </div>
         </div>
         <div className="relative flex-1 max-w-sm">
@@ -332,7 +378,7 @@ const AdminCategoriesPage = () => {
             onClick={() => { setEditingId(null); setForm({ categoryCode: "", category: "", module: "" }); setFormError(""); setShowModal(true); }}
             className="px-4 py-2.5 rounded-lg gradient-primary text-primary-foreground text-sm font-medium hover:opacity-90 transition-opacity"
           >
-            + {_isCddAdmin ? "Add Type" : "Add Category"}
+            + {_isAdminDept ? "Add Main Category" : _isCddAdmin ? "Add Type" : "Add Category"}
           </button>
         </div>
       </div>
@@ -340,20 +386,20 @@ const AdminCategoriesPage = () => {
         <table className="w-full text-sm">
           <thead>
             <tr className="text-left text-[11px] uppercase tracking-wider text-muted-foreground border-b border-border bg-muted/30 whitespace-nowrap">
-              {!_isCddAdmin && <th className="px-4 py-3 font-semibold">Main Category Code</th>}
-              <th className="px-4 py-3 font-semibold">{_isCddAdmin ? "Type" : "Main Category Name"}</th>
-              {!_isCddAdmin && <th className="px-4 py-3 font-semibold">Module</th>}
-              {!_isCddAdmin && <th className="px-4 py-3 font-semibold">Status</th>}
+              {!_isCddAdmin && !_isAdminDept && <th className="px-4 py-3 font-semibold">Main Category Code</th>}
+              <th className="px-4 py-3 font-semibold">{_isAdminDept ? "Main Category Name" : _isCddAdmin ? "Type" : "Main Category Name"}</th>
+              {!_isCddAdmin && !_isAdminDept && <th className="px-4 py-3 font-semibold">Module</th>}
+              {!_isCddAdmin && !_isAdminDept && <th className="px-4 py-3 font-semibold">Status</th>}
               <th className="px-4 py-3 font-semibold">Actions</th>
             </tr>
           </thead>
           <tbody>
             {filteredData.map((c) => (
               <tr key={c.id} className="border-b border-border last:border-0 hover:bg-muted/20 transition-colors">
-                {!_isCddAdmin && <td className="px-4 py-3 font-mono text-xs text-primary font-semibold">{c.id}</td>}
+                {!_isCddAdmin && !_isAdminDept && <td className="px-4 py-3 font-mono text-xs text-primary font-semibold">{c.id}</td>}
                 <td className="px-4 py-3 text-xs font-medium">{c.name}</td>
-                {!_isCddAdmin && <td className="px-4 py-3 text-xs text-muted-foreground">{c.module || ""}</td>}
-                {!_isCddAdmin && <td className="px-4 py-3">
+                {!_isCddAdmin && !_isAdminDept && <td className="px-4 py-3 text-xs text-muted-foreground">{c.module || ""}</td>}
+                {!_isCddAdmin && !_isAdminDept && <td className="px-4 py-3">
                   <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${c.status === "Active" ? "bg-success/10 text-success" : "bg-muted text-muted-foreground"}`}>{c.status}</span>
                 </td>}
                 <td className="px-4 py-3">
@@ -377,13 +423,13 @@ const AdminCategoriesPage = () => {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={handleCancel}>
           <div className="bg-card rounded-xl shadow-xl border border-border w-full max-w-md mx-4 animate-fade-in" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between px-6 py-4 border-b border-border">
-              <h2 className="text-lg font-bold font-display">{editingId ? (_isCddAdmin ? "Edit Type" : "Edit Category") : (_isCddAdmin ? "Add Type" : "Add Category")}</h2>
+              <h2 className="text-lg font-bold font-display">{editingId ? (_isAdminDept ? "Edit Main Category" : _isCddAdmin ? "Edit Type" : "Edit Category") : (_isAdminDept ? "Add Main Category" : _isCddAdmin ? "Add Type" : "Add Category")}</h2>
               <button onClick={handleCancel} className="text-muted-foreground hover:text-foreground transition-colors">
                 <X className="h-5 w-5" />
               </button>
             </div>
             <div className="px-6 py-5 space-y-4">
-              {!_isCddAdmin && (
+              {!_isCddAdmin && !_isAdminDept && (
                 <div>
                   <label className="block text-xs font-medium text-muted-foreground mb-1.5">Main Category Code</label>
                   <input type="text" value={form.categoryCode} onChange={(e) => setForm({ ...form, categoryCode: e.target.value })} placeholder="e.g. CAT001"
@@ -391,7 +437,7 @@ const AdminCategoriesPage = () => {
                 </div>
               )}
               <div>
-                <label className="block text-xs font-medium text-muted-foreground mb-1.5">{_isCddAdmin ? "Type Name" : "Main Category Name"} <span className="text-destructive">*</span></label>
+                <label className="block text-xs font-medium text-muted-foreground mb-1.5">{_isAdminDept ? "Main Category Name" : _isCddAdmin ? "Type Name" : "Main Category Name"} <span className="text-destructive">*</span></label>
                 <ComboBox
                   value={form.category}
                   onChange={(val) => setForm({ ...form, category: val })}
@@ -400,7 +446,7 @@ const AdminCategoriesPage = () => {
                   allowCreate
                 />
               </div>
-              {!_isCddAdmin && (
+              {!_isCddAdmin && !_isAdminDept && (
                 <div>
                   <label className="block text-xs font-medium text-muted-foreground mb-1.5">Module</label>
                   <ComboBox
@@ -421,7 +467,7 @@ const AdminCategoriesPage = () => {
                 Cancel
               </button>
               <button onClick={handleSave} className="px-5 py-2 rounded-lg gradient-primary text-primary-foreground text-sm font-medium hover:opacity-90 transition-opacity">
-                {editingId ? (_isCddAdmin ? "Update Type" : "Update Category") : (_isCddAdmin ? "Create Type" : "Create Category")}
+                {editingId ? (_isAdminDept ? "Update Main Category" : _isCddAdmin ? "Update Type" : "Update Category") : (_isAdminDept ? "Create Main Category" : _isCddAdmin ? "Create Type" : "Create Category")}
               </button>
             </div>
           </div>

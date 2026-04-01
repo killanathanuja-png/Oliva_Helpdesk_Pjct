@@ -24,6 +24,7 @@ const toLocal = (r: ApiRole): LocalRole => ({
 });
 
 const CDD_ROLES = ["CDD", "CDD Admin"];
+const ADMIN_DEPT_ROLES = ["Admin", "Helpdesk", "Admin Department"];
 
 const AdminRolesPage = () => {
   const { showToast } = useToast();
@@ -31,6 +32,7 @@ const AdminRolesPage = () => {
   const _parsedUser = _storedUser ? JSON.parse(_storedUser) : null;
   const _userRole = _parsedUser?.role || "";
   const _isCddAdmin = _userRole.toLowerCase().includes("cdd admin");
+  const _isAdminDept = _userRole.toLowerCase().includes("admin department");
 
   const [data, setData] = useState<LocalRole[]>([]);
   const [idMap, setIdMap] = useState<Record<string, number>>({});
@@ -48,7 +50,9 @@ const AdminRolesPage = () => {
       .then((roles) => {
         if (!cancelled) {
           let filtered = roles;
-          if (_isCddAdmin) {
+          if (_isAdminDept) {
+            filtered = roles.filter((r) => ADMIN_DEPT_ROLES.some((ar) => r.name.toLowerCase().includes(ar.toLowerCase())));
+          } else if (_isCddAdmin) {
             filtered = roles.filter((r) => CDD_ROLES.some((cr) => r.name.toLowerCase().includes(cr.toLowerCase())));
           }
           if (filtered.length > 0) {
