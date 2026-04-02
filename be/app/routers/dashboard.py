@@ -19,9 +19,8 @@ def get_dashboard_stats(
     base = db.query(Ticket)
     # Department alias mapping (departments that share tickets)
     DEPT_ALIASES = {
-        "Admin Department": ["Admin Department", "Administration", "Admin"],
-        "Administration": ["Admin Department", "Administration", "Admin"],
-        "Admin": ["Admin Department", "Administration", "Admin"],
+        "Admin Department": ["Admin Department"],
+        "Administration": ["Administration"],
         "Quality & Audit": ["Quality & Audit", "Quality"],
         "Quality": ["Quality & Audit", "Quality"],
     }
