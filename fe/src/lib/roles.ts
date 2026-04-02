@@ -33,13 +33,9 @@ const roleAccess: Record<string, string[]> = {
   "Zenoti Team Manager": ["/", "/tickets", "/zenoti-requests", "/finance-approvals", "/sla-report", "/admin/users", "/admin/departments", "/admin/roles", "/admin/centers", "/admin/categories", "/admin/subcategories", "/admin/child-categories"],
   "CDD": ["/", "/tickets", "/sla-report", "/analytics"],
   "CDD Admin": ["/", "/tickets", "/sla-report", "/analytics", "/admin/users", "/admin/departments", "/admin/centers", "/admin/roles", "/admin/categories", "/admin/subcategories"],
-<<<<<<< Updated upstream
   "Administration": ["/", "/tickets", "/sla-report", "/analytics"],
   "Admin Department": ["/", "/tickets", "/sla-report", "/analytics"],
-=======
-  "Admin Department": ["/", "/tickets", "/sla-report", "/analytics", "/admin/users", "/admin/departments", "/admin/centers", "/admin/roles", "/admin/categories", "/admin/subcategories", "/admin/child-categories"],
   "Helpdesk Admin": ["/", "/tickets", "/sla-report", "/analytics"],
->>>>>>> Stashed changes
   "Employee": ["/", "/tickets", "/sla-report", "/analytics"],
   "Others": ["/", "/tickets", "/sla-report", "/analytics"],
 };
@@ -77,25 +73,27 @@ export function getUserRole(): AppRole {
   return "Employee";
 }
 
-export function canAccess(path: string): boolean {
-  const role = getUserRole();
-  const roles = role.split(",").map((r) => r.trim());
-  // If user has any super role, use ADMIN_PATHS only
-  if (roles.some((r) => SUPER_ROLES.includes(r))) {
-    return ADMIN_PATHS.includes(path);
-  }
-  for (const r of roles) {
-    const allowed = roleAccess[r];
-    if (allowed && allowed.includes(path)) return true;
-  }
-  const allowed = roleAccess[role] || DEFAULT_ACCESS;
-  return allowed.includes(path);
+// Master pages for users with "Can View and Edit" map_level_access (e.g. Rajesh)
+const MASTER_PATHS = [
+  "/admin/users", "/admin/departments", "/admin/centers",
+  "/admin/categories", "/admin/subcategories", "/admin/child-categories",
+  "/admin/roles", "/admin/cdd-types",
+];
+
+function getUserMapLevelAccess(): string {
+  try {
+    const stored = localStorage.getItem("oliva_user");
+    if (stored) {
+      const user = JSON.parse(stored);
+      return user?.map_level_access || "";
+    }
+  } catch { /* ignore */ }
+  return "";
 }
 
 export function getAllowedPaths(): string[] {
   const role = getUserRole();
   const roles = role.split(",").map((r) => r.trim());
-  // If user has any super role, use ADMIN_PATHS only (no approvals)
   if (roles.some((r) => SUPER_ROLES.includes(r))) {
     return [...ADMIN_PATHS];
   }
@@ -108,5 +106,13 @@ export function getAllowedPaths(): string[] {
     const fallback = roleAccess[role] || DEFAULT_ACCESS;
     fallback.forEach((p) => paths.add(p));
   }
+  // Only users with "Can View and Edit" map_level_access get master pages
+  if (getUserMapLevelAccess() === "Can View and Edit") {
+    MASTER_PATHS.forEach((p) => paths.add(p));
+  }
   return [...paths];
+}
+
+export function canAccess(path: string): boolean {
+  return getAllowedPaths().includes(path);
 }

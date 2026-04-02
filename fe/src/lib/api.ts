@@ -110,6 +110,7 @@ export interface ApiTicket {
   // CDD Escalation fields
   escalation_level: number | null;
   escalated_to: string | null;
+  original_assigned_to: string | null;
   escalated_at: string | null;
   acknowledged_at: string | null;
   // TAT fields

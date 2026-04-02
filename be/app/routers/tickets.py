@@ -3,7 +3,7 @@ from pydantic import BaseModel
 from typing import Optional
 from sqlalchemy.orm import Session
 from app.database import get_db
-from app.models.models import Ticket, TicketComment, User, TicketStatusEnum, PriorityEnum, CommentTypeEnum, ApprovalStatusEnum, AOMCenterMapping, StatusEnum, Notification, NotificationTypeEnum, Department, Center
+from app.models.models import Ticket, TicketComment, User, TicketStatusEnum, PriorityEnum, CommentTypeEnum, ApprovalStatusEnum, AOMCenterMapping, StatusEnum, Notification, NotificationTypeEnum, Department, Center, AdminEscalationMatrix
 from app.schemas.schemas import TicketCreate, TicketUpdate, TicketResponse, TicketCommentCreate, TicketCommentResponse
 from app.auth import get_current_user
 from app.config import DEPT_EMAIL_MAP
@@ -81,6 +81,7 @@ def _ticket_to_response(t: Ticket, aom_name: str = None, aom_email: str = None) 
         aom_email=aom_email,
         escalation_level=t.escalation_level or 0,
         escalated_to=t.escalated_to_rel.name if t.escalated_to_rel else None,
+        original_assigned_to=t.original_assigned_to_rel.name if t.original_assigned_to_rel else None,
         escalated_at=t.escalated_at,
         acknowledged_at=t.acknowledged_at,
         tat_hours=tat_hours,
@@ -132,6 +133,9 @@ def create_ticket(req: TicketCreate, current_user: User = Depends(get_current_us
 
         # Auto-fetch center and AOM for CM (Center Manager) users
         center_value = req.center
+        # If no center provided, use the user's primary center
+        if not center_value and current_user.center_rel:
+            center_value = current_user.center_rel.name
         approval_required = req.approval_required or False
         approval_type_value = req.approval_type if hasattr(req, 'approval_type') else None
         approver_value = None
@@ -170,6 +174,21 @@ def create_ticket(req: TicketCreate, current_user: User = Depends(get_current_us
             # Override status and approval
             ticket_status = TicketStatusEnum.Open
             approval_required = False
+
+        # Auto-assign Admin Department tickets to L1 based on center location
+        if (req.assigned_dept or "").lower() in ("admin department", "admin") and center_value:
+            center_obj = db.query(Center).filter(Center.name == center_value).first()
+            center_city = center_obj.city if center_obj else None
+            if center_city:
+                esc_matrix = db.query(AdminEscalationMatrix).filter(
+                    AdminEscalationMatrix.location == center_city,
+                    AdminEscalationMatrix.status == StatusEnum.Active,
+                ).first()
+                if esc_matrix:
+                    l1_user = db.query(User).filter(User.email == esc_matrix.l1_email).first()
+                    if l1_user:
+                        assigned_to_id_value = l1_user.id
+                        print(f"[ADMIN TICKET] Auto-assigned to L1: {l1_user.name} ({center_city})")
 
         # If CDD user creates a ticket, auto-assign to the selected center's clinic manager
         user_dept_name = current_user.department_rel.name if current_user.department_rel else ""
@@ -726,3 +745,85 @@ def cdd_ticket_action(ticket_id: int, req: EscalateRequest, current_user: User =
         print(f"[CDD ACTION] FAILED: {traceback.format_exc()}")
         raise HTTPException(status_code=500, detail=f"Failed to save: {str(e)}")
     return _ticket_to_response(t)
+
+
+# --- Admin Department Auto-Escalation ---
+
+@router.post("/admin-escalation-check")
+def check_admin_escalations(db: Session = Depends(get_db)):
+    """Check Admin Department tickets for SLA breach and auto-escalate to L2/L3."""
+    now = datetime.now(timezone.utc)
+    escalated_count = 0
+
+    # Get all open/in-progress Admin Department tickets
+    admin_tickets = db.query(Ticket).filter(
+        Ticket.assigned_dept.in_(["Admin Department", "Admin"]),
+        Ticket.status.notin_([
+            TicketStatusEnum.Resolved, TicketStatusEnum.Closed,
+            TicketStatusEnum.Rejected, TicketStatusEnum.FinalClosed,
+        ]),
+    ).all()
+
+    for t in admin_tickets:
+        if not t.created_at:
+            continue
+
+        created = t.created_at.replace(tzinfo=timezone.utc) if t.created_at.tzinfo is None else t.created_at
+        hours_elapsed = (now - created).total_seconds() / 3600
+
+        # Find center city
+        center_obj = db.query(Center).filter(Center.name == t.center).first()
+        center_city = center_obj.city if center_obj else None
+        if not center_city:
+            continue
+
+        # Get escalation matrix
+        esc = db.query(AdminEscalationMatrix).filter(
+            AdminEscalationMatrix.location == center_city,
+            AdminEscalationMatrix.status == StatusEnum.Active,
+        ).first()
+        if not esc:
+            continue
+
+        current_level = t.escalation_level or 0
+        l1_threshold = esc.l1_sla_hours or 8
+        l2_threshold = l1_threshold + (esc.l2_sla_hours or 10)
+
+        # Escalate to L3 if > l1+l2 hours and currently at L2
+        if hours_elapsed > l2_threshold and current_level < 3:
+            l3_user = db.query(User).filter(User.email == esc.l3_email).first()
+            if l3_user:
+                t.escalation_level = 3
+                t.escalated_to_id = l3_user.id
+                t.assigned_to_id = l3_user.id
+                t.escalated_at = now
+                t.status = TicketStatusEnum.EscalatedL2
+                db.add(TicketComment(
+                    ticket_id=t.id, user="System",
+                    message=f"Auto-escalated to L3 ({l3_user.name}) after {round(hours_elapsed, 1)} hours. SLA threshold: {l2_threshold}h.",
+                    type=CommentTypeEnum.status_change,
+                ))
+                escalated_count += 1
+                print(f"[ESCALATION] {t.code} -> L3 ({l3_user.name}) after {round(hours_elapsed, 1)}h")
+
+        # Escalate to L2 if > l1 hours and currently at L1
+        elif hours_elapsed > l1_threshold and current_level < 2:
+            l2_user = db.query(User).filter(User.email == esc.l2_email).first()
+            if l2_user:
+                t.escalation_level = 2
+                t.escalated_to_id = l2_user.id
+                t.assigned_to_id = l2_user.id
+                t.escalated_at = now
+                t.status = TicketStatusEnum.EscalatedL1
+                db.add(TicketComment(
+                    ticket_id=t.id, user="System",
+                    message=f"Auto-escalated to L2 ({l2_user.name}) after {round(hours_elapsed, 1)} hours. SLA threshold: {l1_threshold}h.",
+                    type=CommentTypeEnum.status_change,
+                ))
+                escalated_count += 1
+                print(f"[ESCALATION] {t.code} -> L2 ({l2_user.name}) after {round(hours_elapsed, 1)}h")
+
+    if escalated_count > 0:
+        db.commit()
+
+    return {"escalated": escalated_count, "checked": len(admin_tickets)}

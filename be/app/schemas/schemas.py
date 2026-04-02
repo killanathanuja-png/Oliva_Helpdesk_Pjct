@@ -413,6 +413,7 @@ class TicketResponse(TicketBase):
     aom_email: Optional[str] = None
     escalation_level: Optional[int] = 0
     escalated_to: Optional[str] = None
+    original_assigned_to: Optional[str] = None
     escalated_at: Optional[datetime] = None
     acknowledged_at: Optional[datetime] = None
     tat_hours: Optional[float] = None

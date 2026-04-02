@@ -82,7 +82,9 @@ function apiToTicket(t: ApiTicket): Ticket & { _dbId: number; tatHours: number |
     _dbId: t.id, // keep DB id for API calls
     tatHours: t.tat_hours,
     tatBreached: t.tat_breached,
-  } as Ticket & { _dbId: number; tatHours: number | null; tatBreached: boolean };
+    originalAssignedTo: t.original_assigned_to || null,
+    escalationLevel: t.escalation_level || 0,
+  } as Ticket & { _dbId: number; tatHours: number | null; tatBreached: boolean; originalAssignedTo: string | null; escalationLevel: number };
 }
 
 type TabKey = "all" | "assigned" | "mytickets" | "raised" | "resolved";
@@ -192,7 +194,18 @@ const TicketsPage = () => {
         : hasAnyRole(currentUserRole, ["Helpdesk Admin"])
         ? data.filter((t) => t.center === currentUserCenter || t.raisedBy === currentUser) // Helpdesk Admin sees center tickets
         : hasAnyRole(currentUserRole, ["Admin Department"])
-        ? data.filter((t) => t.assignedDept === "Admin Department") // Admin Dept sees all admin tickets
+        ? data.filter((t) => {
+            if (t.raisedBy === currentUser) return true;
+            if (t.assignedDept !== "Admin Department") return false;
+            // Users with "Can View and Edit" (e.g. Rajesh) see all admin dept tickets
+            const mapAccess = parsedUser?.map_level_access || "";
+            if (mapAccess === "Can View and Edit") return true;
+            // Others: filter by managed centers (assigned locations)
+            if (managedCenters.length > 0) {
+              return managedCenters.some((c) => c.toLowerCase() === (t.center || "").toLowerCase());
+            }
+            return true;
+          })
         : (() => {
             const allowedDepts = getUserDepts();
             const isAom = hasAnyRole(currentUserRole, ["Area Operations Manager", "Area Operations Manager Head"]);
@@ -561,7 +574,16 @@ const TicketsPage = () => {
                   </span>
                 </td>
                 <td className="px-4 py-3 text-xs text-muted-foreground">{t.assignedDept}</td>
-                <td className="px-4 py-3 text-xs text-muted-foreground">{t.assignedTo || "—"}</td>
+                <td className="px-4 py-3 text-xs text-muted-foreground">
+                  {t.assignedTo || "—"}
+                  {(() => {
+                    const ext = t as Ticket & { originalAssignedTo?: string | null; escalationLevel?: number };
+                    if (ext.escalationLevel && ext.escalationLevel >= 2 && ext.originalAssignedTo) {
+                      return <p className="text-[10px] text-destructive mt-0.5">L1: {ext.originalAssignedTo}</p>;
+                    }
+                    return null;
+                  })()}
+                </td>
                 <td className="px-4 py-3 text-xs text-muted-foreground">{t.center}</td>
                 <td className="px-4 py-3 text-xs text-muted-foreground">{t.createdAt}</td>
                 <td className="px-4 py-3">

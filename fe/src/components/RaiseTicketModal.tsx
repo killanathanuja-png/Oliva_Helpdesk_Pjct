@@ -320,7 +320,9 @@ const RaiseTicketModal = ({ onClose, onSuccess, editMode, editTicket, userRole, 
   };
 
   // Department options from API + "Others"
-  const departmentOptions = [...apiDepartments.map((d) => d.name).sort(), "Others"];
+  // Hide "Admin Department" for all users except Admin Department role users and super admins
+  const canSeeAdminDept = (userRole || "").toLowerCase().includes("admin department") || (userRole || "").toLowerCase().includes("super admin") || (userRole || "").toLowerCase().includes("global admin") || (userRole || "").toLowerCase().includes("super user") || (userRole || "").toLowerCase().includes("help desk admin") || (userRole || "").toLowerCase().includes("helpdesk in-charge");
+  const departmentOptions = [...apiDepartments.map((d) => d.name).filter((name) => canSeeAdminDept ? true : name !== "Admin Department").sort(), "Others"];
  
   // Categories filtered by selected department
   // If a department is selected: show categories assigned to that department + unassigned categories
@@ -646,6 +648,7 @@ const RaiseTicketModal = ({ onClose, onSuccess, editMode, editTicket, userRole, 
                       placeholder="Select sub category"
                     />
                   </div>
+                  {currentUserRole.toLowerCase().includes("admin department") && (
                   <div>
                     <label className={labelClass}>Child Category</label>
                     <ComboBox
@@ -655,6 +658,7 @@ const RaiseTicketModal = ({ onClose, onSuccess, editMode, editTicket, userRole, 
                       placeholder="Select child category"
                     />
                   </div>
+                  )}
                 </div>
                 {isHelpdeskAdmin && (
                   <div>

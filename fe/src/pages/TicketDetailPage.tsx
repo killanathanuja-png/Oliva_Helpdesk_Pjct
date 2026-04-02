@@ -94,6 +94,7 @@ function apiToTicket(t: ApiTicket): Ticket & { _dbId: number; rawCreatedAt: stri
     escalatedTo: t.escalated_to || undefined,
     escalatedAt: t.escalated_at || undefined,
     acknowledgedAt: t.acknowledged_at || undefined,
+    originalAssignedTo: t.original_assigned_to || undefined,
     _dbId: t.id,
     rawCreatedAt: t.created_at || "",
   } as Ticket & { _dbId: number; rawCreatedAt: string };
@@ -105,7 +106,7 @@ function buildTimeline(ticket: Ticket & { _dbId: number; rawCreatedAt: string })
     id: "created",
     type: "created",
     user: ticket.raisedBy,
-    message: `Ticket raised and assigned to ${ticket.assignedDept || "Unassigned"} department`,
+    message: `Ticket raised and assigned to ${ticket.assignedDept || "Unassigned"} department${(ticket as any).originalAssignedTo ? ` (${(ticket as any).originalAssignedTo})` : ticket.assignedTo && ticket.assignedTo !== "Unassigned" ? ` (${ticket.assignedTo})` : ""}`,
     timestamp: ticket.rawCreatedAt ? new Date(ticket.rawCreatedAt).toLocaleString() : ticket.createdAt,
     rawDate: ticket.rawCreatedAt ? new Date(ticket.rawCreatedAt) : undefined,
   });

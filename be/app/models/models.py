@@ -315,6 +315,7 @@ class Ticket(Base):
     escalated_to_id = Column(Integer, ForeignKey("users.id"), nullable=True)
     escalated_at = Column(DateTime(timezone=True), nullable=True)
     acknowledged_at = Column(DateTime(timezone=True), nullable=True)
+    original_assigned_to_id = Column(Integer, ForeignKey("users.id"), nullable=True)
 
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
@@ -322,6 +323,7 @@ class Ticket(Base):
     raised_by_rel = relationship("User", back_populates="tickets_raised", foreign_keys=[raised_by_id])
     assigned_to_rel = relationship("User", back_populates="tickets_assigned", foreign_keys=[assigned_to_id])
     escalated_to_rel = relationship("User", foreign_keys=[escalated_to_id])
+    original_assigned_to_rel = relationship("User", foreign_keys=[original_assigned_to_id])
     comments = relationship("TicketComment", back_populates="ticket_rel", cascade="all, delete-orphan")
 
 
@@ -466,4 +468,22 @@ class AdminUser(Base):
     mobile = Column(String(20))
     employee_type = Column(String(50))
     status = Column(String(20), default="Active")
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+
+class AdminEscalationMatrix(Base):
+    """Admin Department escalation matrix: Location -> L1, L2, L3 with SLA hours."""
+    __tablename__ = "admin_escalation_matrix"
+
+    id = Column(Integer, primary_key=True, index=True)
+    location = Column(String(100), nullable=False)
+    l1_email = Column(String(200), nullable=False)
+    l1_name = Column(String(150))
+    l2_email = Column(String(200))
+    l2_name = Column(String(150))
+    l3_email = Column(String(200))
+    l3_name = Column(String(150))
+    l1_sla_hours = Column(Float, default=8)    # Escalate to L2 after 8 hours
+    l2_sla_hours = Column(Float, default=10)   # Escalate to L3 after 10 more hours (18 total)
+    status = Column(SAEnum(StatusEnum), default=StatusEnum.Active)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
