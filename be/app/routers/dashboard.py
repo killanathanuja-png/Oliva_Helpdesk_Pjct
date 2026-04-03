@@ -2,16 +2,34 @@ from typing import Optional
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 from sqlalchemy import func, case
+from datetime import datetime, timezone, timedelta
 from app.database import get_db
-from app.models.models import Ticket, TicketStatusEnum, PriorityEnum
+from app.models.models import Ticket, TicketStatusEnum, PriorityEnum, Department, SLAConfig
 from app.schemas.schemas import DashboardStats
 
 router = APIRouter(prefix="/api/dashboard", tags=["Dashboard"])
 
 
+# Statuses that mean "not resolved"
+_OPEN_STATUSES = [
+    TicketStatusEnum.Open,
+    TicketStatusEnum.InProgress,
+    TicketStatusEnum.PendingApproval,
+    TicketStatusEnum.Approved,
+    TicketStatusEnum.Acknowledged,
+    TicketStatusEnum.AwaitingUserInputs,
+    TicketStatusEnum.UserInputsReceived,
+    TicketStatusEnum.FollowUp,
+    TicketStatusEnum.EscalatedL1,
+    TicketStatusEnum.EscalatedL2,
+    TicketStatusEnum.ReopenedByCDD,
+]
+
+
 @router.get("/stats", response_model=DashboardStats)
 def get_dashboard_stats(
     department: Optional[str] = Query(None, description="Filter by department"),
+    category: Optional[str] = Query(None, description="Filter by category"),
     user_id: Optional[int] = Query(None, description="Filter by user (raised_by)"),
     db: Session = Depends(get_db),
 ):
@@ -31,10 +49,18 @@ def get_dashboard_stats(
         dept_names = DEPT_ALIASES.get(department, [department])
         base = base.filter(Ticket.assigned_dept.in_(dept_names))
 
+    if category:
+        base = base.filter(Ticket.category == category)
+
     total = base.count()
 
     def _count(status: TicketStatusEnum) -> int:
         return base.filter(Ticket.status == status).count()
+
+    open_tickets = base.filter(Ticket.status.in_(_OPEN_STATUSES)).count()
+    resolved_count = base.filter(
+        Ticket.status.in_([TicketStatusEnum.Resolved, TicketStatusEnum.Closed, TicketStatusEnum.FinalClosed])
+    ).count()
 
     breached = base.filter(Ticket.sla_breached == True).count()
 
@@ -63,6 +89,44 @@ def get_dashboard_stats(
         if count > 0:
             avg_resolution_hours = round(total_hours / count, 1)
 
+    # ── Escalation: tickets breaching SLA within next 4 hours ──
+    now = datetime.now(timezone.utc)
+    threshold = now + timedelta(hours=4)
+
+    # Method 1: tickets that have due_date set
+    escalation_with_due = (
+        base.filter(
+            Ticket.status.in_(_OPEN_STATUSES),
+            Ticket.due_date.isnot(None),
+            Ticket.due_date <= threshold,
+        )
+        .count()
+    )
+
+    # Method 2: for tickets without due_date, calculate from dept sla_hours
+    tickets_no_due = (
+        base.filter(
+            Ticket.status.in_(_OPEN_STATUSES),
+            Ticket.due_date.is_(None),
+            Ticket.created_at.isnot(None),
+        )
+        .all()
+    )
+    # Cache dept SLA hours
+    dept_sla_cache: dict = {}
+    escalation_no_due = 0
+    for t in tickets_no_due:
+        dept_name = t.assigned_dept or ""
+        if dept_name not in dept_sla_cache:
+            dept_obj = db.query(Department).filter(Department.name == dept_name).first()
+            dept_sla_cache[dept_name] = float(dept_obj.sla_hours) if dept_obj and dept_obj.sla_hours else 24.0
+        sla_hrs = dept_sla_cache[dept_name]
+        deadline = t.created_at + timedelta(hours=sla_hrs)
+        if deadline <= threshold:
+            escalation_no_due += 1
+
+    escalation_count = escalation_with_due + escalation_no_due
+
     by_priority = {}
     for p in PriorityEnum:
         by_priority[p.value] = base.filter(Ticket.priority == p).count()
@@ -77,6 +141,16 @@ def get_dashboard_stats(
         .all()
     )
     status_list = [{"name": s.value if s else "Unknown", "count": c} for s, c in by_status]
+
+    # Tickets by category
+    by_category = (
+        base.filter(Ticket.category.isnot(None), Ticket.category != "")
+        .with_entities(Ticket.category, func.count(Ticket.id))
+        .group_by(Ticket.category)
+        .order_by(func.count(Ticket.id).desc())
+        .all()
+    )
+    category_list = [{"name": cat, "count": cnt} for cat, cnt in by_category]
 
     # Department-wise SLA compliance
     dept_sla = (
@@ -156,7 +230,7 @@ def get_dashboard_stats(
 
     return DashboardStats(
         total_tickets=total,
-        open_tickets=_count(TicketStatusEnum.Open),
+        open_tickets=open_tickets,
         in_progress=_count(TicketStatusEnum.InProgress),
         pending_approval=_count(TicketStatusEnum.PendingApproval),
         approved=_count(TicketStatusEnum.Approved),
@@ -164,15 +238,17 @@ def get_dashboard_stats(
         awaiting_user_inputs=_count(TicketStatusEnum.AwaitingUserInputs),
         user_inputs_received=_count(TicketStatusEnum.UserInputsReceived),
         follow_up=_count(TicketStatusEnum.FollowUp),
-        resolved=_count(TicketStatusEnum.Resolved),
+        resolved=_count(TicketStatusEnum.Resolved) + _count(TicketStatusEnum.Closed) + _count(TicketStatusEnum.FinalClosed),
         closed=_count(TicketStatusEnum.Closed),
         rejected=_count(TicketStatusEnum.Rejected),
         sla_breached=breached,
         sla_compliance_pct=round(sla_compliance_pct, 1),
         avg_resolution_hours=avg_resolution_hours,
+        escalation_count=escalation_count,
         tickets_by_priority=by_priority,
         tickets_by_department=dept_list,
         tickets_by_status=status_list,
+        tickets_by_category=category_list,
         dept_sla_compliance=dept_sla_compliance,
         priority_sla_compliance=priority_sla_compliance,
         recent_tickets=recent_list,

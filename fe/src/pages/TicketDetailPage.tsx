@@ -787,7 +787,6 @@ const TicketDetailPage = () => {
                 ) : ["Employee", "Others"].includes(currentUserRole) ? (
                   <>
                     <option value={ticket.status}>{ticket.status}</option>
-                    {(ticket.status as string) !== "User Inputs Received" && <option value="User Inputs Received">User Inputs Received</option>}
                     {((ticket.status as string) === "Resolved" || (ticket.status as string) === "Closed") && <option value="Re-Open">Re-Open</option>}
                   </>
                 ) : currentUserDept?.toUpperCase() === "CDD" ? (
@@ -803,11 +802,19 @@ const TicketDetailPage = () => {
                     {(ticket.status as string) === "Open" && <option value="Acknowledged">Acknowledged</option>}
                     {(ticket.status as string) === "Reopened by CDD" && <option value="Acknowledged">Acknowledged</option>}
                     {(ticket.status as string) !== "In Progress" && <option value="In Progress">In Progress</option>}
-                    {(ticket.status as string) !== "Follow Up" && <option value="Follow Up">Follow Up</option>}
-                    {(ticket.status as string) !== "Awaiting User Inputs" && <option value="Awaiting User Inputs">Awaiting User Inputs</option>}
+                    {isZenoti && (ticket.status as string) !== "Follow Up" && <option value="Follow Up">Follow Up</option>}
                     {(ticket.status as string) !== "Resolved" && <option value="Resolved">Resolved</option>}
                     {(ticket.status as string) !== "Closed" && <option value="Closed">Closed</option>}
                     {((ticket.status as string) === "Resolved" || (ticket.status as string) === "Closed") && <option value="Re-Open">Re-Open</option>}
+                  </>
+                ) : isZenoti ? (
+                  <>
+                    <option value="Open">Open</option>
+                    <option value="In Progress">In Progress</option>
+                    <option value="Follow Up">Follow Up</option>
+                    <option value="Pending Approval">Pending Approval</option>
+                    <option value="Resolved">Resolved</option>
+                    <option value="Closed">Closed</option>
                   </>
                 ) : (
                   <>

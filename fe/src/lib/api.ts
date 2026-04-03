@@ -575,9 +575,11 @@ export interface ApiDashboardStats {
   sla_breached: number;
   sla_compliance_pct: number;
   avg_resolution_hours: number | null;
+  escalation_count: number;
   tickets_by_priority: Record<string, number>;
   tickets_by_department: { name: string; count: number }[];
   tickets_by_status: { name: string; count: number }[];
+  tickets_by_category: { name: string; count: number }[];
   dept_sla_compliance: { name: string; total: number; breached: number; on_track: number; compliance_pct: number }[];
   priority_sla_compliance: { name: string; total: number; breached: number; on_track: number; compliance_pct: number }[];
   recent_tickets: { id: string; title: string; priority: string; status: string; department: string; center: string; sla_breached: boolean; created_at?: string; raised_by?: string }[];
@@ -585,9 +587,10 @@ export interface ApiDashboardStats {
 }
 
 export const dashboardApi = {
-  stats: (params?: { department?: string; user_id?: number }) => {
+  stats: (params?: { department?: string; category?: string; user_id?: number }) => {
     const qs = new URLSearchParams();
     if (params?.department) qs.set("department", params.department);
+    if (params?.category) qs.set("category", params.category);
     if (params?.user_id) qs.set("user_id", String(params.user_id));
     const q = qs.toString();
     return request<ApiDashboardStats>(`/dashboard/stats${q ? `?${q}` : ""}`);

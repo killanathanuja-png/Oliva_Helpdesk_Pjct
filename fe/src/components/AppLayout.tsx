@@ -116,14 +116,20 @@ const AppLayout = ({ children }: AppLayoutProps) => {
 
   // Re-fetch user profile on mount so role changes are always reflected
   useEffect(() => {
+    if (!localStorage.getItem("oliva_token")) return;
     authApi.me().then((fresh) => {
-      localStorage.setItem("oliva_user", JSON.stringify(fresh));
-      setUser(fresh);
+      const freshStr = JSON.stringify(fresh);
+      const currentStr = localStorage.getItem("oliva_user");
+      if (freshStr !== currentStr) {
+        localStorage.setItem("oliva_user", freshStr);
+        setUser(fresh);
+      }
     }).catch(() => {});
   }, []);
 
   // Fetch notifications on mount and poll every 30 seconds
   const fetchNotifications = () => {
+    if (!localStorage.getItem("oliva_token")) return;
     notificationsApi.list().then(setNotifications).catch(() => {});
     notificationsApi.unreadCount().then((r) => setUnreadCount(r.count)).catch(() => {});
   };
@@ -328,8 +334,8 @@ const AppLayout = ({ children }: AppLayoutProps) => {
               {location.pathname === "/approvals" && "Pending Approvals"}
               {location.pathname === "/finance-approvals" && "Finance Approvals"}
               {location.pathname === "/zenoti-requests" && "Zenoti Requests"}
-              {location.pathname === "/sla-report" && (isCddUser ? "Reports / TAT Report" : "Reports / SLA Report")}
-              {location.pathname === "/analytics" && (isCddUser ? "Reports / TAT Analytics" : "Reports / SLA Analytics")}
+              {location.pathname === "/sla-report" && ((isCddUser || isAdminDeptUser) ? "Reports / TAT Report" : "Reports / SLA Report")}
+              {location.pathname === "/analytics" && ((isCddUser || isAdminDeptUser) ? "Reports / TAT Analytics" : "Reports / SLA Analytics")}
               {location.pathname === "/admin/users" && "Masters / Users"}
               {location.pathname === "/admin/departments" && "Masters / Departments"}
               {location.pathname === "/admin/roles" && "Masters / Roles"}

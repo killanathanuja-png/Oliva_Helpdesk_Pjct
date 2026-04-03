@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { isSuperRole } from "@/lib/roles";
-import { ticketsApi, slaApi, categoriesApi, subcategoriesApi, centersApi, cddTypesApi } from "@/lib/api";
-import type { ApiTicket, ApiSLAConfig, ApiCenter, ApiCDDType } from "@/lib/api";
+import { ticketsApi, slaApi, categoriesApi, subcategoriesApi, centersApi, cddTypesApi, adminMastersApi } from "@/lib/api";
+import type { ApiTicket, ApiSLAConfig, ApiCenter, ApiCDDType, AdminMainCategoryApi } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { Loader2, AlertTriangle, CheckCircle, Clock, BarChart3, TrendingUp, Shield, ShieldAlert, ArrowUpRight, ArrowDownRight, Filter, Calendar } from "lucide-react";
 
@@ -76,7 +76,8 @@ const SLAReportPage = () => {
   const userDept = parsedUser?.department || "";
 
   const isCddUser = userDept.toUpperCase() === "CDD";
-  const reportLabel = isCddUser ? "TAT" : "SLA";
+  const isAdminDeptUser = userRole.toLowerCase().includes("admin department");
+  const reportLabel = (isCddUser || isAdminDeptUser) ? "TAT" : "SLA";
 
   const [tickets, setTickets] = useState<ApiTicket[]>([]);
   const [slaConfigs, setSlaConfigs] = useState<ApiSLAConfig[]>([]);
@@ -90,13 +91,25 @@ const SLAReportPage = () => {
   const [customEndDate, setCustomEndDate] = useState("");
   const [categoryOptions, setCategoryOptions] = useState<string[]>([]);
   const [subCategoryOptions, setSubCategoryOptions] = useState<string[]>([]);
+  const [filterModule, setFilterModule] = useState("All");
   const [tatReportView, setTatReportView] = useState<"" | "CM Response" | "AOM Response" | "AMH Response">("");
   const [centers, setCenters] = useState<ApiCenter[]>([]);
   const [cddTypesData, setCddTypesData] = useState<ApiCDDType[]>([]);
+  const [adminMainCategories, setAdminMainCategories] = useState<AdminMainCategoryApi[]>([]);
 
   // Fetch categories, subcategories, and centers
   useEffect(() => {
-    if (isCddUser) {
+    if (isAdminDeptUser) {
+      // Admin Department: fetch from admin masters API
+      adminMastersApi.listMainCategories().then((mcs) => {
+        setAdminMainCategories(mcs);
+        setCategoryOptions(mcs.map((mc) => mc.name));
+        // Collect all module names as sub-category options
+        const allModules: string[] = [];
+        mcs.forEach((mc) => mc.modules.forEach((m) => { if (!allModules.includes(m.name)) allModules.push(m.name); }));
+        setSubCategoryOptions(allModules.sort());
+      }).catch(() => {});
+    } else if (isCddUser) {
       // CDD: fetch from cdd_types API
       cddTypesApi.list().then((types) => {
         setCddTypesData(types);
@@ -115,7 +128,7 @@ const SLAReportPage = () => {
         setSubCategoryOptions(subs.map((s) => s.name));
       }).catch(() => {});
     }
-  }, [isCddUser]);
+  }, [isCddUser, isAdminDeptUser]);
 
   // CDD: always show all cdd_categories regardless of type selection
   useEffect(() => {
@@ -124,6 +137,20 @@ const SLAReportPage = () => {
     cddTypesData.forEach((t) => (t.categories || []).forEach((c) => { if (!allCats.includes(c.name)) allCats.push(c.name); }));
     setSubCategoryOptions(allCats.sort());
   }, [cddTypesData, isCddUser]);
+
+  // Admin Dept: derive module options from selected main category, sub-category options from selected module
+  const adminModuleOptions = isAdminDeptUser
+    ? adminMainCategories
+        .filter((mc) => filterCategory === "All" || mc.name === filterCategory)
+        .flatMap((mc) => mc.modules.map((m) => m.name))
+    : [];
+  const adminSubCatOptions = isAdminDeptUser
+    ? adminMainCategories
+        .flatMap((mc) => mc.modules
+          .filter((m) => filterModule === "All" || m.name === filterModule)
+          .flatMap((m) => m.sub_categories.map((sc) => sc.name))
+        )
+    : [];
 
   useEffect(() => {
     Promise.all([ticketsApi.list(), slaApi.list()])
@@ -143,7 +170,13 @@ const SLAReportPage = () => {
           ? t
           : t.filter((tk) => tk.raised_by === userName || tk.assigned_to === userName ||
               (allowedDepts.length > 0 && allowedDepts.includes(tk.assigned_dept || "")));
-        setTickets(isCddUser ? myTickets : myTickets.filter((tk) => tk.status === "Resolved" || tk.status === "Closed"));
+        let finalTickets = myTickets;
+        if (isAdminDeptUser) {
+          finalTickets = myTickets.filter((tk) => tk.assigned_dept === "Admin Department");
+        } else if (!isCddUser) {
+          finalTickets = myTickets.filter((tk) => tk.status === "Resolved" || tk.status === "Closed");
+        }
+        setTickets(finalTickets);
         setSlaConfigs(s);
       })
       .catch(() => {})
@@ -178,7 +211,19 @@ const SLAReportPage = () => {
     if (filterPriority !== "All" && t.priority !== filterPriority) return false;
     if (filterDept !== "All" && t.assigned_dept !== filterDept) return false;
     if (filterCategory !== "All" && t.category !== filterCategory) return false;
-    if (filterSubCategory !== "All" && t.sub_category !== filterSubCategory) return false;
+    if (isAdminDeptUser) {
+      // Module filter maps to ticket.sub_category for admin dept
+      if (filterModule !== "All" && t.sub_category !== filterModule) return false;
+      // Sub Category filter: reverse lookup — find modules under selected sub category
+      if (filterSubCategory !== "All") {
+        const modulesWithSub = adminMainCategories.flatMap((mc) =>
+          mc.modules.filter((m) => m.sub_categories.some((sc) => sc.name === filterSubCategory)).map((m) => m.name)
+        );
+        if (!modulesWithSub.includes(t.sub_category || "")) return false;
+      }
+    } else {
+      if (filterSubCategory !== "All" && t.sub_category !== filterSubCategory) return false;
+    }
     // Date range filter
     const { start, end } = getDateRange();
     if (start && end && t.created_at) {
@@ -264,14 +309,14 @@ const SLAReportPage = () => {
           <div>
             <h1 className="text-2xl font-bold font-display tracking-tight">{reportLabel} Report</h1>
             <p className="text-sm text-muted-foreground mt-0.5">
-              {isCddUser ? "Turn Around Time performance overview" : "Service Level Agreement performance overview"}
+              {(isCddUser || isAdminDeptUser) ? "Turn Around Time performance overview" : "Service Level Agreement performance overview"}
             </p>
           </div>
         </div>
         {/* Filters */}
         <div className="flex flex-wrap items-end gap-2">
           <Filter className="h-4 w-4 text-muted-foreground mt-2" />
-          {!isCddUser && (
+          {!isCddUser && !isAdminDeptUser && (
             <select
               value={filterPriority}
               onChange={(e) => setFilterPriority(e.target.value)}
@@ -284,36 +329,75 @@ const SLAReportPage = () => {
               <option value="Low">Low</option>
             </select>
           )}
-          <select
-            value={filterDept}
-            onChange={(e) => setFilterDept(e.target.value)}
-            className="px-3 py-2 rounded-lg border border-border bg-card text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 transition-shadow"
-          >
-            <option value="All">All Departments</option>
-            {departments.map((d) => (
-              <option key={d} value={d}>{d}</option>
-            ))}
-          </select>
-          <select
-            value={filterCategory}
-            onChange={(e) => setFilterCategory(e.target.value)}
-            className="px-3 py-2 rounded-lg border border-border bg-card text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 transition-shadow"
-          >
-            <option value="All">{isCddUser ? "All Types" : "All Categories"}</option>
-            {categoryOptions.map((c) => (
-              <option key={c} value={c}>{c}</option>
-            ))}
-          </select>
-          <select
-            value={filterSubCategory}
-            onChange={(e) => setFilterSubCategory(e.target.value)}
-            className="px-3 py-2 rounded-lg border border-border bg-card text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 transition-shadow"
-          >
-            <option value="All">{isCddUser ? "All Category" : "All Sub-Categories"}</option>
-            {subCategoryOptions.map((s) => (
-              <option key={s} value={s}>{s}</option>
-            ))}
-          </select>
+          {!isAdminDeptUser && (
+            <select
+              value={filterDept}
+              onChange={(e) => setFilterDept(e.target.value)}
+              className="px-3 py-2 rounded-lg border border-border bg-card text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 transition-shadow"
+            >
+              <option value="All">All Departments</option>
+              {departments.map((d) => (
+                <option key={d} value={d}>{d}</option>
+              ))}
+            </select>
+          )}
+          {isAdminDeptUser ? (
+            <>
+              <select
+                value={filterCategory}
+                onChange={(e) => { setFilterCategory(e.target.value); setFilterModule("All"); setFilterSubCategory("All"); }}
+                className="px-3 py-2 rounded-lg border border-border bg-card text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 transition-shadow"
+              >
+                <option value="All">All Main Categories</option>
+                {categoryOptions.map((c) => (
+                  <option key={c} value={c}>{c}</option>
+                ))}
+              </select>
+              <select
+                value={filterModule}
+                onChange={(e) => { setFilterModule(e.target.value); setFilterSubCategory("All"); }}
+                className="px-3 py-2 rounded-lg border border-border bg-card text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 transition-shadow"
+              >
+                <option value="All">All Modules</option>
+                {adminModuleOptions.map((m) => (
+                  <option key={m} value={m}>{m}</option>
+                ))}
+              </select>
+              <select
+                value={filterSubCategory}
+                onChange={(e) => setFilterSubCategory(e.target.value)}
+                className="px-3 py-2 rounded-lg border border-border bg-card text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 transition-shadow"
+              >
+                <option value="All">All Sub Categories</option>
+                {adminSubCatOptions.map((s) => (
+                  <option key={s} value={s}>{s}</option>
+                ))}
+              </select>
+            </>
+          ) : (
+            <>
+              <select
+                value={filterCategory}
+                onChange={(e) => setFilterCategory(e.target.value)}
+                className="px-3 py-2 rounded-lg border border-border bg-card text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 transition-shadow"
+              >
+                <option value="All">{isCddUser ? "All Types" : "All Categories"}</option>
+                {categoryOptions.map((c) => (
+                  <option key={c} value={c}>{c}</option>
+                ))}
+              </select>
+              <select
+                value={filterSubCategory}
+                onChange={(e) => setFilterSubCategory(e.target.value)}
+                className="px-3 py-2 rounded-lg border border-border bg-card text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 transition-shadow"
+              >
+                <option value="All">{isCddUser ? "All Category" : "All Sub-Categories"}</option>
+                {subCategoryOptions.map((s) => (
+                  <option key={s} value={s}>{s}</option>
+                ))}
+              </select>
+            </>
+          )}
           <div className="flex items-center gap-2">
             <Calendar className="h-4 w-4 text-muted-foreground" />
             <select
@@ -366,8 +450,8 @@ const SLAReportPage = () => {
         )}
       </div>
 
-      {/* ── TAT Overview (CDD default view) ── */}
-      {isCddUser && !tatReportView && (() => {
+      {/* ── TAT Overview (CDD / Admin Dept default view) ── */}
+      {(isCddUser || isAdminDeptUser) && !tatReportView && (() => {
         return (
           <>
             {/* Resolved / Closed Tickets */}
@@ -555,8 +639,8 @@ const SLAReportPage = () => {
         );
       })()}
 
-      {/* Resolved / Closed Tickets with Resolution Time — hidden for CDD */}
-      {!isCddUser && <div className="bg-card rounded-2xl card-shadow border border-border overflow-hidden">
+      {/* Resolved / Closed Tickets with Resolution Time — hidden for CDD and Admin Dept */}
+      {!isCddUser && !isAdminDeptUser && <div className="bg-card rounded-2xl card-shadow border border-border overflow-hidden">
         <div className="px-6 py-4 border-b border-border bg-gradient-to-r from-success/5 to-transparent flex items-center justify-between">
           <h2 className="font-semibold text-sm flex items-center gap-2">
             <CheckCircle className="h-4 w-4 text-success" />

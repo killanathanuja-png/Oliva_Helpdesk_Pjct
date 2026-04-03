@@ -485,9 +485,11 @@ class DashboardStats(BaseModel):
     sla_breached: int = 0
     sla_compliance_pct: float = 0.0
     avg_resolution_hours: Optional[float] = None
+    escalation_count: int = 0
     tickets_by_priority: dict = {}
     tickets_by_department: list = []
     tickets_by_status: list = []
+    tickets_by_category: list = []
     dept_sla_compliance: list = []
     priority_sla_compliance: list = []
     recent_tickets: list = []

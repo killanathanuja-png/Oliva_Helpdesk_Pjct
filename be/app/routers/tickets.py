@@ -3,7 +3,7 @@ from pydantic import BaseModel
 from typing import Optional
 from sqlalchemy.orm import Session
 from app.database import get_db
-from app.models.models import Ticket, TicketComment, User, TicketStatusEnum, PriorityEnum, CommentTypeEnum, ApprovalStatusEnum, AOMCenterMapping, StatusEnum, Notification, NotificationTypeEnum, Department, Center, AdminEscalationMatrix
+from app.models.models import Ticket, TicketComment, User, TicketStatusEnum, PriorityEnum, CommentTypeEnum, ApprovalStatusEnum, AOMCenterMapping, StatusEnum, Notification, NotificationTypeEnum, Department, Center, AdminEscalationMatrix, SLAConfig
 from app.schemas.schemas import TicketCreate, TicketUpdate, TicketResponse, TicketCommentCreate, TicketCommentResponse
 from app.auth import get_current_user
 from app.config import DEPT_EMAIL_MAP
@@ -312,6 +312,22 @@ def create_ticket(req: TicketCreate, current_user: User = Depends(get_current_us
             zenoti_amount=req.zenoti_amount,
             zenoti_description=req.zenoti_description,
         )
+        # Calculate due_date from SLA config
+        try:
+            dept_obj = db.query(Department).filter(Department.name == assigned_dept_value).first()
+            sla_hours = None
+            if dept_obj:
+                sla_cfg = db.query(SLAConfig).filter(
+                    SLAConfig.department_id == dept_obj.id,
+                    SLAConfig.priority == ticket.priority,
+                    SLAConfig.active == True,
+                ).first()
+                sla_hours = sla_cfg.resolution_time_hrs if sla_cfg else dept_obj.sla_hours
+            if sla_hours:
+                ticket.due_date = datetime.now(timezone.utc) + timedelta(hours=float(sla_hours))
+        except Exception:
+            pass  # don't block ticket creation if SLA lookup fails
+
         db.add(ticket)
         try:
             db.commit()
@@ -460,6 +476,17 @@ def update_ticket_status(ticket_id: int, status: str, db: Session = Depends(get_
     t = db.query(Ticket).filter(Ticket.id == ticket_id).first()
     if not t:
         raise HTTPException(status_code=404, detail="Ticket not found")
+    # Validate allowed statuses per department
+    zenoti_statuses = {"Open", "In Progress", "Follow Up", "Pending Approval", "Resolved", "Closed"}
+    general_statuses = {"Open", "In Progress", "Resolved", "Closed"}
+    dept = t.assigned_dept or ""
+    if dept.lower() == "zenoti":
+        if status not in zenoti_statuses:
+            raise HTTPException(status_code=400, detail=f"Invalid status '{status}' for Zenoti department")
+    else:
+        if status not in general_statuses:
+            # Allow CDD/Admin escalation statuses set by other endpoints
+            pass
     t.status = TicketStatusEnum(status)
     db.commit()
     return {"message": "Status updated"}

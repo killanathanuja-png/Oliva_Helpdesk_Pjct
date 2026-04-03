@@ -80,6 +80,7 @@ function apiToTicket(t: ApiTicket): Ticket & { _dbId: number; tatHours: number |
     zenotiAmount: t.zenoti_amount || undefined,
     zenotiDescription: t.zenoti_description || undefined,
     _dbId: t.id, // keep DB id for API calls
+    dueDateRaw: t.due_date || null,
     tatHours: t.tat_hours,
     tatBreached: t.tat_breached,
     originalAssignedTo: t.original_assigned_to || null,
@@ -106,6 +107,7 @@ const TicketsPage = () => {
   const isZenotiAssignee = ZENOTI_ASSIGNEE_IDS.includes(storedUserId);
   const [searchParams] = useSearchParams();
   const tabFromUrl = searchParams.get("tab") as TabKey | null;
+  const escalationFilter = searchParams.get("filter") === "escalation";
   const [activeTab, setActiveTab] = useState<TabKey>(tabFromUrl || "all");
   const [editingTicket, setEditingTicket] = useState<Ticket | null>(null);
 
@@ -120,6 +122,10 @@ const TicketsPage = () => {
   const isCddUser = currentUserDept.toUpperCase() === "CDD";
 
   const fetchTickets = useCallback(async () => {
+    if (!localStorage.getItem("oliva_token")) {
+      setLoading(false);
+      return;
+    }
     try {
       const apiTickets = await ticketsApi.list();
       setData(apiTickets.map(apiToTicket));
@@ -239,6 +245,17 @@ const TicketsPage = () => {
   });
 
   const filtered = tabFiltered.filter((t) => {
+    // Escalation filter: show only open tickets near SLA breach (within 4 hours)
+    if (escalationFilter) {
+      const resolvedStatuses = ["Resolved", "Closed", "Final Closed", "Rejected"];
+      if (resolvedStatuses.includes(t.status)) return false;
+      const dueDateRaw = (t as any).dueDateRaw;
+      if (!dueDateRaw) return false;
+      const dueTime = new Date(dueDateRaw).getTime();
+      const now = Date.now();
+      const fourHoursMs = 4 * 60 * 60 * 1000;
+      if (dueTime > now + fourHoursMs) return false;
+    }
     const q = search.toLowerCase();
     const matchSearch = t.title.toLowerCase().includes(q) || t.id.toLowerCase().includes(q) || ((t as Ticket & { zenotiCustomerId?: string }).zenotiCustomerId || "").toLowerCase().includes(q);
     const matchStatus = statusFilter === "All" || t.status === statusFilter;
@@ -421,6 +438,16 @@ const TicketsPage = () => {
 
   return (
     <div className="space-y-4 animate-fade-in">
+      {escalationFilter && (
+        <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-red-50 border border-red-200 text-red-700">
+          <AlertTriangle className="h-5 w-5 flex-shrink-0" />
+          <div className="flex-1">
+            <span className="font-semibold text-sm">Escalation View</span>
+            <span className="text-xs ml-2 text-red-600">Showing tickets breaching SLA within next 4 hours</span>
+          </div>
+          <a href="/tickets" className="text-xs font-medium underline hover:no-underline">Clear filter</a>
+        </div>
+      )}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div className="flex items-center gap-3">
           <button onClick={() => window.history.back()} className="p-2 rounded-lg border border-border hover:bg-muted transition-colors" title="Back"><ArrowLeft className="h-4 w-4" /></button>
@@ -493,11 +520,14 @@ const TicketsPage = () => {
           <option value="All">All Status</option>
           <option>Open</option>
           <option>In Progress</option>
-          <option>Pending Approval</option>
-          <option>Follow Up</option>
+          {(deptFilter === "Zenoti" || currentUserDept === "Zenoti" || hasAnyRole(currentUserRole, ["Zenoti Team", "Zenoti Team Manager", "Area Operations Manager", "Area Operations Manager Head", "Finance", "Finance Head"])) && (
+            <>
+              <option>Pending Approval</option>
+              <option>Follow Up</option>
+            </>
+          )}
           <option>Resolved</option>
           <option>Closed</option>
-          <option>Cancelled</option>
         </select>
         <select
           value={priorityFilter}
