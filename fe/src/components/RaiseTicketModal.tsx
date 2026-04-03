@@ -226,7 +226,7 @@ const RaiseTicketModal = ({ onClose, onSuccess, editMode, editTicket, userRole, 
             department: c.department, contact_person: c.contactPerson,
             phone: c.phone, address: null, pincode: null, latitude: null,
             longitude: null, zone: null, country: c.country,
-            center_manager_email: null, aom_email: null,
+            center_manager_email: null, aom_email: null, branch_email: null,
             status: c.status, created_at: null,
           })));
         }
@@ -322,7 +322,13 @@ const RaiseTicketModal = ({ onClose, onSuccess, editMode, editTicket, userRole, 
   // Department options from API + "Others"
   // Hide "Admin Department" for all users except Admin Department role users and super admins
   const canSeeAdminDept = (userRole || "").toLowerCase().includes("admin department") || (userRole || "").toLowerCase().includes("super admin") || (userRole || "").toLowerCase().includes("global admin") || (userRole || "").toLowerCase().includes("super user") || (userRole || "").toLowerCase().includes("help desk admin") || (userRole || "").toLowerCase().includes("helpdesk in-charge");
-  const departmentOptions = [...apiDepartments.map((d) => d.name).filter((name) => canSeeAdminDept ? true : name !== "Admin Department").sort(), "Others"];
+  const isClinicManagerRole = currentUserRole.toLowerCase().includes("clinic manager") || currentUserRole.toLowerCase().includes("clinic incharge");
+  const cmHiddenDepts = ["CDD", "Clinic", "Clinic Operations"];
+  const departmentOptions = [...apiDepartments.map((d) => d.name).filter((name) => {
+    if (!canSeeAdminDept && name === "Admin Department") return false;
+    if (isClinicManagerRole && cmHiddenDepts.includes(name)) return false;
+    return true;
+  }).sort(), "Others"];
  
   // Categories filtered by selected department
   // If a department is selected: show categories assigned to that department + unassigned categories

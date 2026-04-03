@@ -111,6 +111,7 @@ const AppLayout = ({ children }: AppLayoutProps) => {
   const userDepartment: string = user?.department || "";
   const isCddUser: boolean = userDepartment.toUpperCase() === "CDD";
   const isAdminDeptUser: boolean = userRole.toLowerCase().includes("admin department");
+  const isClinicManagerUser: boolean = userRole.toLowerCase().includes("clinic manager") || userRole.toLowerCase().includes("clinic incharge");
   const userInitials: string = userName.split(" ").map((w: string) => w[0]).join("").toUpperCase().slice(0, 2);
 
   // Re-fetch user profile on mount so role changes are always reflected
@@ -178,7 +179,12 @@ const AppLayout = ({ children }: AppLayoutProps) => {
     return isPathAllowed(item.path!);
   }).map((item) => {
     if (item.children) {
-      return { ...item, children: item.children.filter((c) => isPathAllowed(c.path)) };
+      const cmHiddenLabels = ["My Tickets", "Raised Tickets"];
+      return { ...item, children: item.children.filter((c) => {
+        if (!isPathAllowed(c.path)) return false;
+        if (isClinicManagerUser && cmHiddenLabels.includes(c.label)) return false;
+        return true;
+      }) };
     }
     return item;
   });

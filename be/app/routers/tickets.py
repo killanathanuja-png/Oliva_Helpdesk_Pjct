@@ -8,7 +8,7 @@ from app.schemas.schemas import TicketCreate, TicketUpdate, TicketResponse, Tick
 from app.auth import get_current_user
 from app.config import DEPT_EMAIL_MAP
 from app.email_utils import send_ticket_created, send_ticket_assigned, send_status_changed, send_comment_added
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
  
 router = APIRouter(prefix="/api/tickets", tags=["Tickets"])
 
@@ -38,18 +38,36 @@ def _next_code(db: Session) -> str:
     return f"TKT{(max_num + 1):04d}"
  
  
+def _calc_working_hours(start_utc, end_utc):
+    """Calculate working hours (10AM-6PM IST, Mon-Sat) between two UTC timestamps."""
+    from zoneinfo import ZoneInfo
+    IST = ZoneInfo("Asia/Kolkata")
+    start = start_utc.astimezone(IST) if start_utc.tzinfo else start_utc.replace(tzinfo=timezone.utc).astimezone(IST)
+    end = end_utc.astimezone(IST) if end_utc.tzinfo else end_utc.replace(tzinfo=timezone.utc).astimezone(IST)
+    total = 0.0
+    current = start
+    while current < end:
+        if current.weekday() == 6:
+            current = current.replace(hour=0, minute=0, second=0) + timedelta(days=1)
+            continue
+        day_start = current.replace(hour=10, minute=0, second=0, microsecond=0)
+        day_end = current.replace(hour=18, minute=0, second=0, microsecond=0)
+        effective_start = max(current, day_start)
+        effective_end = min(end, day_end)
+        if effective_start < effective_end:
+            total += (effective_end - effective_start).total_seconds() / 3600
+        current = current.replace(hour=0, minute=0, second=0, microsecond=0) + timedelta(days=1)
+    return total
+
 def _ticket_to_response(t: Ticket, aom_name: str = None, aom_email: str = None) -> TicketResponse:
-    # Calculate TAT
+    # Calculate TAT using working hours only (10AM-6PM IST, Mon-Sat)
     tat_hours = None
     tat_breached = False
     if t.created_at:
         end_time = t.updated_at if t.status in (TicketStatusEnum.Resolved, TicketStatusEnum.Closed, TicketStatusEnum.FinalClosed) else datetime.now(timezone.utc)
-        # Handle timezone-naive datetimes
         created = t.created_at.replace(tzinfo=timezone.utc) if t.created_at.tzinfo is None else t.created_at
         end = end_time.replace(tzinfo=timezone.utc) if end_time and end_time.tzinfo is None else (end_time or datetime.now(timezone.utc))
-        delta = end - created
-        tat_hours = round(delta.total_seconds() / 3600, 1)
-        # TAT breach: check against default 8 hours for L1
+        tat_hours = round(_calc_working_hours(created, end), 1)
         tat_breached = tat_hours > 8
 
     return TicketResponse(
@@ -588,9 +606,26 @@ def approve_ticket(ticket_id: int, req: ApprovalRequest, db: Session = Depends(g
  
     db.commit()
     db.refresh(t)
+
+    # ── Email: Approval action ──
+    try:
+        status_val = t.status.value if t.status else ""
+        if t.raised_by_rel and t.raised_by_rel.email:
+            send_status_changed(t.raised_by_rel.email, t.code, t.title, "Pending Approval", status_val, approver, req.comment or "")
+        if t.approver == "Finance Team":
+            for fu in db.query(User).filter(User.role.ilike("%Finance%")).all():
+                if fu.email:
+                    send_ticket_assigned(fu.email, t.code, t.title, fu.name, approver, t.assigned_dept or "", t.center or "", t.priority.value if t.priority else "")
+        if t.assigned_dept == "Zenoti" and t.status == TicketStatusEnum.InProgress:
+            for zu in db.query(User).filter(User.role.ilike("%Zenoti Team%")).all():
+                if zu.email:
+                    send_ticket_assigned(zu.email, t.code, t.title, zu.name, approver, "Zenoti", t.center or "", t.priority.value if t.priority else "")
+    except Exception as email_err:
+        print(f"[EMAIL] Approval email failed: {email_err}")
+
     return _ticket_to_response(t)
- 
- 
+
+
 # --- Zenoti Team resolve/close ---
  
 class ResolveRequest(BaseModel):
@@ -632,6 +667,17 @@ def resolve_ticket(ticket_id: int, req: ResolveRequest, db: Session = Depends(ge
 
     db.commit()
     db.refresh(t)
+
+    # ── Email: Resolve/Close ──
+    try:
+        status_val = t.status.value if t.status else ""
+        if t.raised_by_rel and t.raised_by_rel.email:
+            send_status_changed(t.raised_by_rel.email, t.code, t.title, "In Progress", status_val, user, req.resolution or "")
+        if t.assigned_to_rel and t.assigned_to_rel.email and t.assigned_to_id != t.raised_by_id:
+            send_status_changed(t.assigned_to_rel.email, t.code, t.title, "In Progress", status_val, user, req.resolution or "")
+    except Exception as email_err:
+        print(f"[EMAIL] Resolve/Close email failed: {email_err}")
+
     return _ticket_to_response(t)
 
 
@@ -647,7 +693,7 @@ class EscalateRequest(BaseModel):
 @router.patch("/{ticket_id}/cdd-action", response_model=TicketResponse)
 def cdd_ticket_action(ticket_id: int, req: EscalateRequest, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     import traceback
-    from datetime import datetime, timezone
+    from datetime import datetime, timezone, timedelta
     t = db.query(Ticket).filter(Ticket.id == ticket_id).first()
     if not t:
         raise HTTPException(status_code=404, detail="Ticket not found")
@@ -744,6 +790,19 @@ def cdd_ticket_action(ticket_id: int, req: EscalateRequest, current_user: User =
         db.rollback()
         print(f"[CDD ACTION] FAILED: {traceback.format_exc()}")
         raise HTTPException(status_code=500, detail=f"Failed to save: {str(e)}")
+
+    # ── Email: CDD Action ──
+    try:
+        status_val = t.status.value if t.status else ""
+        # Notify raiser
+        if t.raised_by_rel and t.raised_by_rel.email:
+            send_status_changed(t.raised_by_rel.email, t.code, t.title, "Previous", status_val, user, req.comment or "")
+        # Notify assignee (escalated to)
+        if t.assigned_to_rel and t.assigned_to_rel.email and t.assigned_to_id != t.raised_by_id:
+            send_ticket_assigned(t.assigned_to_rel.email, t.code, t.title, t.assigned_to_rel.name, user, t.assigned_dept or "", t.center or "", t.priority.value if t.priority else "")
+    except Exception as email_err:
+        print(f"[EMAIL] CDD action email failed: {email_err}")
+
     return _ticket_to_response(t)
 
 
@@ -752,6 +811,28 @@ def cdd_ticket_action(ticket_id: int, req: EscalateRequest, current_user: User =
 @router.post("/admin-escalation-check")
 def check_admin_escalations(db: Session = Depends(get_db)):
     """Check Admin Department tickets for SLA breach and auto-escalate to L2/L3."""
+    from zoneinfo import ZoneInfo
+    IST = ZoneInfo("Asia/Kolkata")
+    WORK_START, WORK_END = 10, 18
+
+    def calc_working_hours(start_utc, end_utc):
+        start = start_utc.astimezone(IST) if start_utc.tzinfo else start_utc.replace(tzinfo=timezone.utc).astimezone(IST)
+        end = end_utc.astimezone(IST) if end_utc.tzinfo else end_utc.replace(tzinfo=timezone.utc).astimezone(IST)
+        total = 0.0
+        current = start
+        while current < end:
+            if current.weekday() == 6:
+                current = current.replace(hour=0, minute=0, second=0) + timedelta(days=1)
+                continue
+            day_start = current.replace(hour=WORK_START, minute=0, second=0, microsecond=0)
+            day_end = current.replace(hour=WORK_END, minute=0, second=0, microsecond=0)
+            effective_start = max(current, day_start)
+            effective_end = min(end, day_end)
+            if effective_start < effective_end:
+                total += (effective_end - effective_start).total_seconds() / 3600
+            current = current.replace(hour=0, minute=0, second=0, microsecond=0) + timedelta(days=1)
+        return total
+
     now = datetime.now(timezone.utc)
     escalated_count = 0
 
@@ -769,7 +850,7 @@ def check_admin_escalations(db: Session = Depends(get_db)):
             continue
 
         created = t.created_at.replace(tzinfo=timezone.utc) if t.created_at.tzinfo is None else t.created_at
-        hours_elapsed = (now - created).total_seconds() / 3600
+        hours_elapsed = calc_working_hours(created, now)
 
         # Find center city
         center_obj = db.query(Center).filter(Center.name == t.center).first()
@@ -789,25 +870,12 @@ def check_admin_escalations(db: Session = Depends(get_db)):
         l1_threshold = esc.l1_sla_hours or 8
         l2_threshold = l1_threshold + (esc.l2_sla_hours or 10)
 
-        # Escalate to L3 if > l1+l2 hours and currently at L2
-        if hours_elapsed > l2_threshold and current_level < 3:
-            l3_user = db.query(User).filter(User.email == esc.l3_email).first()
-            if l3_user:
-                t.escalation_level = 3
-                t.escalated_to_id = l3_user.id
-                t.assigned_to_id = l3_user.id
-                t.escalated_at = now
-                t.status = TicketStatusEnum.EscalatedL2
-                db.add(TicketComment(
-                    ticket_id=t.id, user="System",
-                    message=f"Auto-escalated to L3 ({l3_user.name}) after {round(hours_elapsed, 1)} hours. SLA threshold: {l2_threshold}h.",
-                    type=CommentTypeEnum.status_change,
-                ))
-                escalated_count += 1
-                print(f"[ESCALATION] {t.code} -> L3 ({l3_user.name}) after {round(hours_elapsed, 1)}h")
+        if not t.original_assigned_to_id and t.assigned_to_id:
+            t.original_assigned_to_id = t.assigned_to_id
+        orig_name = t.original_assigned_to_rel.name if t.original_assigned_to_rel else "L1"
 
-        # Escalate to L2 if > l1 hours and currently at L1
-        elif hours_elapsed > l1_threshold and current_level < 2:
+        # Step 1: Escalate to L2 if not already
+        if hours_elapsed > l1_threshold and current_level < 2:
             l2_user = db.query(User).filter(User.email == esc.l2_email).first()
             if l2_user:
                 t.escalation_level = 2
@@ -817,7 +885,27 @@ def check_admin_escalations(db: Session = Depends(get_db)):
                 t.status = TicketStatusEnum.EscalatedL1
                 db.add(TicketComment(
                     ticket_id=t.id, user="System",
-                    message=f"Auto-escalated to L2 ({l2_user.name}) after {round(hours_elapsed, 1)} hours. SLA threshold: {l1_threshold}h.",
+                    message=f"Auto-escalated to L2 ({l2_user.name}) after {round(l1_threshold, 1)}h. Originally assigned to {orig_name}.",
+                    type=CommentTypeEnum.status_change,
+                ))
+                escalated_count += 1
+                current_level = 2
+                print(f"[ESCALATION] {t.code} -> L2 ({l2_user.name}) after {round(l1_threshold, 1)}h")
+
+        # Step 2: Escalate to L3 if past L2 threshold
+        if hours_elapsed > l2_threshold and current_level < 3:
+            l3_user = db.query(User).filter(User.email == esc.l3_email).first()
+            l2_user = db.query(User).filter(User.email == esc.l2_email).first()
+            if l3_user:
+                t.escalation_level = 3
+                t.escalated_to_id = l3_user.id
+                t.assigned_to_id = l3_user.id
+                t.escalated_at = now
+                t.status = TicketStatusEnum.EscalatedL2
+                l2_display = l2_user.name if l2_user else "L2"
+                db.add(TicketComment(
+                    ticket_id=t.id, user="System",
+                    message=f"Auto-escalated to L3 ({l3_user.name}) after {round(hours_elapsed, 1)}h. L2 ({l2_display}) did not resolve.",
                     type=CommentTypeEnum.status_change,
                 ))
                 escalated_count += 1

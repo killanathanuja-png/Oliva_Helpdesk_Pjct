@@ -131,17 +131,17 @@ function buildTimeline(ticket: Ticket & { _dbId: number; rawCreatedAt: string })
 // Light rounded-box read-only field
 const Field = ({ label, value, icon: Icon, fullWidth, badge }: { label: string; value: string; icon?: typeof User; fullWidth?: boolean; badge?: boolean }) => (
   <div className={fullWidth ? "col-span-full" : ""}>
-    <label className="flex items-center gap-1.5 text-[11px] font-medium text-muted-foreground uppercase tracking-wider mb-1">
+    <label className="flex items-center gap-1 text-[10px] font-bold text-primary uppercase tracking-wider mb-0.5">
       {Icon && <Icon className="h-3 w-3" />}
       {label}
     </label>
     {badge ? (
-      <div className="px-3 py-2.5 rounded-lg bg-muted/30 border border-border/60 min-h-[40px] flex items-center">
-        <span className="px-3 py-1 rounded-full text-sm font-semibold bg-emerald-100 text-emerald-700">{value || "—"}</span>
+      <div className="px-2 py-1.5 rounded-md bg-muted/30 border border-border/60 flex items-center">
+        <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-700">{value || "—"}</span>
       </div>
     ) : (
-      <div className="px-3 py-2.5 rounded-lg bg-muted/30 border border-border/60 min-h-[40px] flex items-center">
-        <span className="text-sm font-medium">{value || "—"}</span>
+      <div className="px-2 py-1.5 rounded-md bg-muted/30 border border-border/60 flex items-center">
+        <span className="text-xs font-medium">{value || "—"}</span>
       </div>
     )}
   </div>
@@ -149,11 +149,11 @@ const Field = ({ label, value, icon: Icon, fullWidth, badge }: { label: string; 
 
 // Section card wrapper
 const Section = ({ title, green, compact, children }: { title: string; green?: boolean; compact?: boolean; children: React.ReactNode }) => (
-  <div className="rounded-xl border border-border bg-card shadow-sm overflow-hidden">
-    <div className={cn("px-5 py-2.5 border-b", green ? "border-l-4 border-l-emerald-500 bg-emerald-50/50" : "border-l-4 border-l-transparent bg-muted/30")}>
-      <h2 className={cn("text-sm font-bold uppercase tracking-wider", green ? "text-emerald-700" : "text-foreground")}>{title}</h2>
+  <div className="rounded-lg border border-border bg-card shadow-sm overflow-hidden">
+    <div className={cn("px-4 py-2.5 border-b", green ? "border-l-4 border-l-emerald-500 bg-gradient-to-r from-emerald-50 to-emerald-50/30" : "border-l-4 border-l-primary bg-gradient-to-r from-primary/10 to-transparent")}>
+      <h2 className={cn("text-xs font-bold uppercase tracking-wider", green ? "text-emerald-700" : "text-primary")}>{title}</h2>
     </div>
-    <div className={compact ? "px-3 py-2" : "p-5"}>{children}</div>
+    <div className={compact ? "px-2 py-1.5" : "px-4 py-3"}>{children}</div>
   </div>
 );
 
@@ -442,7 +442,7 @@ const TicketDetailPage = () => {
   };
 
   return (
-    <div className="animate-fade-in space-y-5 max-w-[1200px] mx-auto">
+    <div className="animate-fade-in space-y-3 max-w-[1400px] mx-auto">
       {/* ── Header ── */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
@@ -492,7 +492,7 @@ const TicketDetailPage = () => {
       {/* ── Ticket Journey ── */}
       <Section title="Ticket Journey" compact>
         <div>
-          <div className="flex items-center py-3 px-2 justify-center w-full">
+          <div className="flex items-center py-1 px-2 justify-center w-full">
             {timeline.map((event, idx) => {
               const isLast = idx === timeline.length - 1;
               const msg = event.message.toLowerCase();
@@ -512,16 +512,14 @@ const TicketDetailPage = () => {
 
               const isRejected = msg.includes("reject");
               const isResolved = msg.includes("resolve") || msg.includes("close") || msg.includes("final close");
-              const isEscalated = msg.includes("escalated to l1") || msg.includes("escalated to l2");
-              const isReopened = msg.includes("reopen");
-              const nodeColor = isRejected ? "bg-destructive ring-red-100" : isEscalated ? "bg-orange-500 ring-orange-100" : isReopened ? "bg-amber-500 ring-amber-100" : isResolved ? "bg-emerald-500 ring-emerald-100" : "bg-primary ring-primary/20";
-              const lineColor = isRejected ? "bg-destructive/40" : isEscalated ? "bg-orange-400" : "bg-emerald-400";
-              const labelColor = isRejected ? "text-destructive" : isEscalated ? "text-orange-700" : isReopened ? "text-amber-700" : isResolved ? "text-emerald-700" : "text-primary";
+              const nodeColor = isRejected ? "bg-destructive ring-red-100" : isResolved ? "bg-emerald-500 ring-emerald-100" : "bg-primary ring-primary/20";
+              const lineColor = isRejected ? "bg-destructive/40" : isResolved ? "bg-emerald-400" : "bg-primary";
+              const labelColor = isRejected ? "text-destructive" : isResolved ? "text-emerald-700" : "text-primary";
 
               return (
                 <div key={event.id} className="flex items-start flex-1 min-w-0">
                   <div className="flex flex-col items-center flex-1 min-w-0 px-1">
-                    <div className={cn("h-11 w-11 rounded-full flex items-center justify-center shrink-0 shadow-lg ring-4", nodeColor)}>
+                    <div className={cn("h-9 w-9 rounded-full flex items-center justify-center shrink-0 shadow-md ring-3", nodeColor)}>
                       <CheckCircle2 className="h-5 w-5 text-white" />
                     </div>
                     <p className={cn("text-xs font-bold mt-2 text-center", labelColor)}>{label}</p>
@@ -550,7 +548,7 @@ const TicketDetailPage = () => {
                   const lc = isRej ? "text-destructive" : isComplete ? "text-emerald-700" : "text-primary";
                   return (
                     <>
-                      <div className={cn("h-11 w-11 rounded-full flex items-center justify-center shrink-0 shadow-lg ring-4", nc)}>
+                      <div className={cn("h-9 w-9 rounded-full flex items-center justify-center shrink-0 shadow-md ring-3", nc)}>
                         {isComplete || isRej ? <CheckCircle2 className={cn("h-5 w-5", ic)} /> : <Circle className={cn("h-4 w-4", ic)} />}
                       </div>
                       <p className={cn("text-xs font-bold mt-2 text-center", lc)}>Current Status</p>
@@ -570,8 +568,9 @@ const TicketDetailPage = () => {
           const s = ticket.status as string;
           const showReopen = s === "Resolved" || s === "Closed";
           const showFinalClose = s === "Resolved" || s === "Closed";
-          const showEscalateL1 = s === "Open" || s === "In Progress" || s === "Acknowledged" || s === "Reopened by CDD";
-          const showEscalateL2 = s === "Escalated to L1";
+          const isClinicDept = ticket.assignedDept === "Clinic" || ticket.assignedDept === "Clinic Operations";
+          const showEscalateL1 = !isClinicDept && (s === "Open" || s === "In Progress" || s === "Acknowledged" || s === "Reopened by CDD");
+          const showEscalateL2 = !isClinicDept && s === "Escalated to L1";
           const showAny = showReopen || showFinalClose || showEscalateL1 || showEscalateL2;
           if (!showAny) return null;
           return (
@@ -654,14 +653,21 @@ const TicketDetailPage = () => {
 
       {/* ── Ticket Information ── */}
       <Section title="Ticket Information">
-        <div className="grid grid-cols-2 gap-x-6 gap-y-4">
-          <Field label="Title" value={ticket.title} icon={Tag} fullWidth />
-          <div className="col-span-full">
-            <label className="flex items-center gap-1.5 text-[11px] font-medium text-muted-foreground uppercase tracking-wider mb-1">
+        <div className="grid grid-cols-3 gap-x-4 gap-y-2">
+          <div>
+            <label className="flex items-center gap-1 text-[10px] font-bold text-primary uppercase tracking-wider mb-0.5">
+              <Tag className="h-3 w-3" /> Title
+            </label>
+            <div className="px-2 py-1.5 rounded-md bg-muted/30 border border-border/60">
+              <span className="text-sm font-bold text-foreground">{ticket.title || "—"}</span>
+            </div>
+          </div>
+          <div className="col-span-2">
+            <label className="flex items-center gap-1 text-[10px] font-bold text-primary uppercase tracking-wider mb-0.5">
               <FileText className="h-3 w-3" /> Description
             </label>
-            <div className="px-3 py-2.5 rounded-lg bg-muted/30 border border-border/60 min-h-[48px]">
-              <p className="text-sm leading-relaxed">{ticket.description || "No description provided."}</p>
+            <div className="px-2 py-1.5 rounded-md bg-muted/30 border border-border/60">
+              <p className="text-sm font-semibold leading-relaxed">{ticket.description || "No description provided."}</p>
             </div>
           </div>
           <Field label="Raised By" value={`${ticket.raisedBy}${ticket.raisedByDept ? ` (${ticket.raisedByDept})` : ""}`} icon={User} />
@@ -693,15 +699,7 @@ const TicketDetailPage = () => {
         </Section>
       )}
 
-      {/* ── Dates & SLA ── */}
-      <Section title="Dates & SLA">
-        <div className="grid grid-cols-4 gap-x-6 gap-y-4">
-          <Field label="Created At" value={ticket.rawCreatedAt ? new Date(ticket.rawCreatedAt).toLocaleString() : ticket.createdAt} icon={Calendar} />
-          <Field label="Last Updated" value={ticket.updatedAt} icon={Clock} />
-          <Field label="Due Date" value={ticket.dueDate || "Not set"} icon={Timer} />
-          <Field label="SLA Status" value={ticket.slaBreached ? "Breached" : "On Track"} badge />
-        </div>
-      </Section>
+      {/* Dates & SLA section removed */}
 
       {/* ── Approval Information ── */}
       {ticket.approvalRequired && (
@@ -917,12 +915,12 @@ const TicketDetailPage = () => {
       )}
 
       {/* ── Activity & Comments ── */}
-      <div className="rounded-xl border border-border bg-card shadow-sm overflow-hidden">
-        <div className="px-5 py-3 border-b border-l-4 border-l-transparent bg-muted/30 flex items-center gap-2">
-          <MessageSquare className="h-4 w-4 text-muted-foreground" />
-          <h2 className="text-sm font-bold uppercase tracking-wider">Activity & Comments ({timeline.length})</h2>
+      <div className="rounded-lg border border-border bg-card shadow-sm overflow-hidden">
+        <div className="px-4 py-2.5 border-b border-l-4 border-l-primary bg-gradient-to-r from-primary/10 to-transparent flex items-center gap-2">
+          <MessageSquare className="h-3.5 w-3.5 text-primary" />
+          <h2 className="text-xs font-bold uppercase tracking-wider text-primary">Activity & Comments ({timeline.length})</h2>
         </div>
-        <div className="p-5 space-y-3">
+        <div className="px-4 py-3 space-y-2 max-h-[300px] overflow-y-auto">
           {timeline.map((ev) => {
             const badge = commentTypeBadge[ev.type] || commentTypeBadge.comment;
             const bgColor =
@@ -948,13 +946,13 @@ const TicketDetailPage = () => {
               badge.cls;
 
             return (
-              <div key={ev.id} className={cn("rounded-xl px-4 py-3 flex items-start gap-3", bgColor)}>
-                <div className={cn("h-8 w-8 rounded-full flex items-center justify-center shrink-0 mt-0.5", iconBg)}>
+              <div key={ev.id} className={cn("rounded-lg px-3 py-2 flex items-start gap-2", bgColor)}>
+                <div className={cn("h-6 w-6 rounded-full flex items-center justify-center shrink-0 mt-0.5", iconBg)}>
                   {iconEl}
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <span className="text-sm font-bold">{ev.user}</span>
+                    <span className="text-xs font-bold">{ev.user}</span>
                     <span className="text-[10px] text-muted-foreground">{ev.timestamp}</span>
                     <span className={cn("px-2 py-0.5 rounded-full text-[10px] font-semibold border", badgeCls)}>{badgeLabel}</span>
                   </div>
@@ -965,14 +963,14 @@ const TicketDetailPage = () => {
           })}
 
           {/* Add comment input */}
-          <div className="flex gap-3 pt-3 border-t border-border mt-4">
+          <div className="flex gap-2 pt-2 border-t border-border mt-2">
             <input
               type="text"
               placeholder="Add a comment..."
               value={commentText}
               onChange={(e) => setCommentText(e.target.value)}
               onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleSendComment(); } }}
-              className="flex-1 px-4 py-2.5 rounded-full border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+              className="flex-1 px-3 py-2 rounded-full border border-border bg-background text-xs focus:outline-none focus:ring-2 focus:ring-ring"
             />
             <button onClick={handleSendComment} disabled={sendingComment || !commentText.trim()}
               className="px-6 py-2.5 rounded-full gradient-primary text-primary-foreground text-sm font-medium hover:opacity-90 transition-opacity disabled:opacity-50 flex items-center gap-1.5">
