@@ -31,6 +31,8 @@ def get_dashboard_stats(
     department: Optional[str] = Query(None, description="Filter by department"),
     category: Optional[str] = Query(None, description="Filter by category"),
     user_id: Optional[int] = Query(None, description="Filter by user (raised_by)"),
+    from_date: Optional[str] = Query(None, description="Start date (YYYY-MM-DD)"),
+    to_date: Optional[str] = Query(None, description="End date (YYYY-MM-DD)"),
     db: Session = Depends(get_db),
 ):
     # Base query — optionally filtered by department or user
@@ -43,7 +45,14 @@ def get_dashboard_stats(
         "Quality": ["Quality & Audit", "Quality"],
     }
 
-    if user_id:
+    if department and user_id:
+        # Show tickets assigned to the department OR raised by this user
+        dept_names = DEPT_ALIASES.get(department, [department])
+        base = base.filter(
+            Ticket.assigned_dept.in_(dept_names)
+            | (Ticket.raised_by_id == user_id)
+        )
+    elif user_id:
         base = base.filter((Ticket.raised_by_id == user_id) | (Ticket.assigned_to_id == user_id))
     elif department:
         dept_names = DEPT_ALIASES.get(department, [department])
@@ -51,6 +60,20 @@ def get_dashboard_stats(
 
     if category:
         base = base.filter(Ticket.category == category)
+
+    # Time-based filtering
+    if from_date:
+        try:
+            start = datetime.strptime(from_date, "%Y-%m-%d").replace(tzinfo=timezone.utc)
+            base = base.filter(Ticket.created_at >= start)
+        except ValueError:
+            pass
+    if to_date:
+        try:
+            end = datetime.strptime(to_date, "%Y-%m-%d").replace(hour=23, minute=59, second=59, tzinfo=timezone.utc)
+            base = base.filter(Ticket.created_at <= end)
+        except ValueError:
+            pass
 
     total = base.count()
 

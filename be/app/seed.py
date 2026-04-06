@@ -162,10 +162,12 @@ def seed():
             changed = True
             print(f"Updated {sa_email} to Super Admin role")
         # Re-hash password to ensure it works with current bcrypt library
-        if existing_sa.hashed_password.startswith("$pbkdf2") or not existing_sa.hashed_password.startswith("$2"):
+        # Always re-hash: old hashes may have been created by an incompatible library
+        from app.auth import verify_password
+        if not verify_password("admin123", existing_sa.hashed_password):
             existing_sa.hashed_password = hash_password("admin123")
             changed = True
-            print(f"Re-hashed password for {sa_email} (migrated to pbkdf2)")
+            print(f"Re-hashed password for {sa_email} (migrated to current bcrypt)")
         if changed:
             db.commit()
         else:

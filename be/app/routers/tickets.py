@@ -112,8 +112,57 @@ def _ticket_to_response(t: Ticket, aom_name: str = None, aom_email: str = None) 
     )
  
  
+_OPEN_STATUSES = [
+    TicketStatusEnum.Open,
+    TicketStatusEnum.InProgress,
+    TicketStatusEnum.PendingApproval,
+    TicketStatusEnum.Approved,
+    TicketStatusEnum.Acknowledged,
+    TicketStatusEnum.AwaitingUserInputs,
+    TicketStatusEnum.UserInputsReceived,
+    TicketStatusEnum.FollowUp,
+    TicketStatusEnum.EscalatedL1,
+    TicketStatusEnum.EscalatedL2,
+    TicketStatusEnum.ReopenedByCDD,
+]
+
+
+def _get_escalated_tickets(base_tickets: list[Ticket], db: Session) -> list[Ticket]:
+    """Filter tickets that are breaching SLA within next 4 hours (same logic as dashboard)."""
+    now = datetime.now(timezone.utc)
+    threshold = now + timedelta(hours=4)
+    dept_sla_cache: dict = {}
+    result = []
+    for t in base_tickets:
+        if t.status not in _OPEN_STATUSES:
+            continue
+        # Method 1: ticket has due_date set
+        if t.due_date:
+            due = t.due_date.replace(tzinfo=timezone.utc) if t.due_date.tzinfo is None else t.due_date
+            if due <= threshold:
+                result.append(t)
+            continue
+        # Method 2: calculate deadline from created_at + dept SLA hours
+        if not t.created_at:
+            continue
+        dept_name = t.assigned_dept or ""
+        if dept_name not in dept_sla_cache:
+            dept_obj = db.query(Department).filter(Department.name == dept_name).first()
+            dept_sla_cache[dept_name] = float(dept_obj.sla_hours) if dept_obj and dept_obj.sla_hours else 24.0
+        sla_hrs = dept_sla_cache[dept_name]
+        created = t.created_at.replace(tzinfo=timezone.utc) if t.created_at.tzinfo is None else t.created_at
+        deadline = created + timedelta(hours=sla_hrs)
+        if deadline <= threshold:
+            result.append(t)
+    return result
+
+
 @router.get("/", response_model=list[TicketResponse])
-def list_tickets(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+def list_tickets(
+    escalation: Optional[bool] = None,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
     # Role-based ticket filtering
     user_roles = (current_user.role or "").lower()
     is_clinic_manager = "clinic manager" in user_roles or "clinic incharge" in user_roles
@@ -138,6 +187,9 @@ def list_tickets(current_user: User = Depends(get_current_user), db: Session = D
         ).order_by(Ticket.created_at.desc()).all()
     else:
         tickets = db.query(Ticket).order_by(Ticket.created_at.desc()).all()
+
+    if escalation:
+        tickets = _get_escalated_tickets(tickets, db)
 
     return [_ticket_to_response(t) for t in tickets]
  

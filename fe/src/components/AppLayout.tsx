@@ -44,10 +44,7 @@ const allNavItems = [
     path: "/tickets",
     children: [
       { label: "All Tickets", icon: ListChecks, path: "/tickets?tab=all" },
-      { label: "Assigned Tickets", icon: Eye, path: "/tickets?tab=assigned" },
-      { label: "My Tickets", icon: UserCheck, path: "/tickets?tab=mytickets" },
-      { label: "Raised Tickets", icon: Send, path: "/tickets?tab=raised" },
-      { label: "Resolved Tickets", icon: CheckCircle2, path: "/tickets?tab=resolved" },
+      { label: "View & Update Tickets", icon: Eye, path: "/tickets?tab=mytickets" },
     ],
   },
   { label: "Approvals", icon: ShieldCheck, path: "/approvals" },
@@ -185,12 +182,7 @@ const AppLayout = ({ children }: AppLayoutProps) => {
     return isPathAllowed(item.path!);
   }).map((item) => {
     if (item.children) {
-      const cmHiddenLabels = ["My Tickets", "Raised Tickets"];
-      return { ...item, children: item.children.filter((c) => {
-        if (!isPathAllowed(c.path)) return false;
-        if (isClinicManagerUser && cmHiddenLabels.includes(c.label)) return false;
-        return true;
-      }) };
+      return { ...item, children: item.children.filter((c) => isPathAllowed(c.path)) };
     }
     return item;
   });

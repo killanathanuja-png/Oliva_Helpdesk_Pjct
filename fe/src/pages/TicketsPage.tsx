@@ -128,7 +128,9 @@ const TicketsPage = () => {
       return;
     }
     try {
-      const apiTickets = await ticketsApi.list();
+      const apiTickets = await ticketsApi.list(
+        escalationFilter ? { escalation: true } : undefined
+      );
       setData(apiTickets.map(apiToTicket));
       setUsingApi(true);
     } catch {
@@ -138,7 +140,7 @@ const TicketsPage = () => {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [escalationFilter]);
 
   // Sync tab from URL when sidebar link is clicked
   useEffect(() => {
@@ -246,17 +248,6 @@ const TicketsPage = () => {
   });
 
   const filtered = tabFiltered.filter((t) => {
-    // Escalation filter: show only open tickets near SLA breach (within 4 hours)
-    if (escalationFilter) {
-      const resolvedStatuses = ["Resolved", "Closed", "Final Closed", "Rejected"];
-      if (resolvedStatuses.includes(t.status)) return false;
-      const dueDateRaw = (t as any).dueDateRaw;
-      if (!dueDateRaw) return false;
-      const dueTime = new Date(dueDateRaw).getTime();
-      const now = Date.now();
-      const fourHoursMs = 4 * 60 * 60 * 1000;
-      if (dueTime > now + fourHoursMs) return false;
-    }
     const q = search.toLowerCase();
     const matchSearch = t.title.toLowerCase().includes(q) || t.id.toLowerCase().includes(q) || ((t as Ticket & { zenotiCustomerId?: string }).zenotiCustomerId || "").toLowerCase().includes(q);
     const matchStatus = statusFilter === "All" || t.status === statusFilter;
