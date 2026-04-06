@@ -3,7 +3,7 @@ import { isSuperRole } from "@/lib/roles";
 import { ticketsApi, slaApi, categoriesApi, subcategoriesApi, centersApi, cddTypesApi, adminMastersApi } from "@/lib/api";
 import type { ApiTicket, ApiSLAConfig, ApiCenter, ApiCDDType, AdminMainCategoryApi } from "@/lib/api";
 import { cn } from "@/lib/utils";
-import { Loader2, AlertTriangle, CheckCircle, Clock, BarChart3, TrendingUp, Shield, ShieldAlert, ArrowUpRight, ArrowDownRight, Filter, Calendar } from "lucide-react";
+import { Loader2, AlertTriangle, CheckCircle, Clock, BarChart3, TrendingUp, Shield, ShieldAlert, ArrowUpRight, ArrowDownRight, Filter, Calendar, RefreshCw } from "lucide-react";
 
 interface SLASummary {
   total: number;
@@ -86,13 +86,15 @@ const SLAReportPage = () => {
   const [filterDept, setFilterDept] = useState("All");
   const [filterCategory, setFilterCategory] = useState("All");
   const [filterSubCategory, setFilterSubCategory] = useState("All");
-  const [datePreset, setDatePreset] = useState("All");
+  const [datePreset, setDatePreset] = useState("This Month");
   const [customStartDate, setCustomStartDate] = useState("");
   const [customEndDate, setCustomEndDate] = useState("");
   const [categoryOptions, setCategoryOptions] = useState<string[]>([]);
   const [subCategoryOptions, setSubCategoryOptions] = useState<string[]>([]);
   const [filterModule, setFilterModule] = useState("All");
-  const [tatReportView, setTatReportView] = useState<"" | "CM Response" | "AOM Response" | "AMH Response">("");
+  const [tatReportView, setTatReportView] = useState<"CM Response" | "AOM Response" | "AMH Response" | "Other Dept">("CM Response");
+  // Applied filters — only update on Submit click
+  const [appliedFilters, setAppliedFilters] = useState({ tatReportView: "CM Response" as string, filterCategory: "All", filterSubCategory: "All", filterModule: "All", filterPriority: "All", filterDept: "All", datePreset: "This Month", customStartDate: "", customEndDate: "" });
   const [centers, setCenters] = useState<ApiCenter[]>([]);
   const [cddTypesData, setCddTypesData] = useState<ApiCDDType[]>([]);
   const [adminMainCategories, setAdminMainCategories] = useState<AdminMainCategoryApi[]>([]);
@@ -183,46 +185,86 @@ const SLAReportPage = () => {
       .finally(() => setLoading(false));
   }, [userRole, userDept]);
 
-  // Compute date range from preset
+  // Apply filters on Submit
+  const handleSubmit = () => {
+    setAppliedFilters({
+      tatReportView,
+      filterCategory,
+      filterSubCategory,
+      filterModule,
+      filterPriority,
+      filterDept,
+      datePreset,
+      customStartDate,
+      customEndDate,
+    });
+  };
+
+  const handleRefresh = () => {
+    setTatReportView("CM Response");
+    setFilterCategory("All");
+    setFilterSubCategory("All");
+    setFilterModule("All");
+    setFilterPriority("All");
+    setFilterDept("All");
+    setDatePreset("This Month");
+    setCustomStartDate("");
+    setCustomEndDate("");
+    setAppliedFilters({
+      tatReportView: "CM Response",
+      filterCategory: "All",
+      filterSubCategory: "All",
+      filterModule: "All",
+      filterPriority: "All",
+      filterDept: "All",
+      datePreset: "This Month",
+      customStartDate: "",
+      customEndDate: "",
+    });
+  };
+
+  // Use applied filters for data computation
+  const af = appliedFilters;
+
+  // Compute date range from applied preset
   const getDateRange = (): { start: Date | null; end: Date | null } => {
     const now = new Date();
-    if (datePreset === "Last 7 Days") {
-      const start = new Date(now);
-      start.setDate(start.getDate() - 7);
+    if (af.datePreset === "This Month") {
+      const start = new Date(now.getFullYear(), now.getMonth(), 1);
       return { start, end: now };
     }
-    if (datePreset === "Last 30 Days") {
-      const start = new Date(now);
-      start.setDate(start.getDate() - 30);
+    if (af.datePreset === "Last Month") {
+      const start = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+      const end = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59);
+      return { start, end };
+    }
+    if (af.datePreset === "Last 3 Months") {
+      const start = new Date(now.getFullYear(), now.getMonth() - 3, 1);
       return { start, end: now };
     }
-    if (datePreset === "Last 3 Months") {
-      const start = new Date(now);
-      start.setMonth(start.getMonth() - 3);
-      return { start, end: now };
-    }
-    if (datePreset === "Custom" && customStartDate && customEndDate) {
-      return { start: new Date(customStartDate), end: new Date(customEndDate + "T23:59:59") };
+    if (af.datePreset === "Custom" && af.customStartDate && af.customEndDate) {
+      return { start: new Date(af.customStartDate), end: new Date(af.customEndDate + "T23:59:59") };
     }
     return { start: null, end: null };
   };
 
+  // The active TAT view comes from applied filters
+  const activeTatView = af.tatReportView as typeof tatReportView;
+
   const filtered = tickets.filter((t) => {
-    if (filterPriority !== "All" && t.priority !== filterPriority) return false;
-    if (filterDept !== "All" && t.assigned_dept !== filterDept) return false;
-    if (filterCategory !== "All" && t.category !== filterCategory) return false;
+    if (af.filterPriority !== "All" && t.priority !== af.filterPriority) return false;
+    if (af.filterDept !== "All" && t.assigned_dept !== af.filterDept) return false;
+    if (af.filterCategory !== "All" && t.category !== af.filterCategory) return false;
     if (isAdminDeptUser) {
-      // Module filter maps to ticket.sub_category for admin dept
-      if (filterModule !== "All" && t.sub_category !== filterModule) return false;
-      // Sub Category filter: reverse lookup — find modules under selected sub category
-      if (filterSubCategory !== "All") {
+      if (af.filterModule !== "All" && t.sub_category !== af.filterModule) return false;
+      if (af.filterSubCategory !== "All") {
         const modulesWithSub = adminMainCategories.flatMap((mc) =>
-          mc.modules.filter((m) => m.sub_categories.some((sc) => sc.name === filterSubCategory)).map((m) => m.name)
+          mc.modules.filter((m) => m.sub_categories.some((sc) => sc.name === af.filterSubCategory)).map((m) => m.name)
         );
         if (!modulesWithSub.includes(t.sub_category || "")) return false;
       }
     } else {
-      if (filterSubCategory !== "All" && t.sub_category !== filterSubCategory) return false;
+      if (af.filterSubCategory !== "All" && t.sub_category !== af.filterSubCategory) return false;
     }
     // Date range filter
     const { start, end } = getDateRange();
@@ -316,6 +358,18 @@ const SLAReportPage = () => {
         {/* Filters */}
         <div className="flex flex-wrap items-end gap-2">
           <Filter className="h-4 w-4 text-muted-foreground mt-2" />
+          {isCddUser && (
+            <select
+              value={tatReportView}
+              onChange={(e) => setTatReportView(e.target.value as any)}
+              className="px-3 py-2 rounded-lg border border-primary bg-primary/5 text-primary text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary/30 transition-shadow"
+            >
+              <option value="CM Response">TAT - CM Response</option>
+              <option value="AOM Response">TAT - AOM Response</option>
+              <option value="AMH Response">TAT - AMH Response</option>
+              <option value="Other Dept">TAT - Other Dept</option>
+            </select>
+          )}
           {!isCddUser && !isAdminDeptUser && (
             <select
               value={filterPriority}
@@ -327,18 +381,6 @@ const SLAReportPage = () => {
               <option value="High">High</option>
               <option value="Medium">Medium</option>
               <option value="Low">Low</option>
-            </select>
-          )}
-          {!isAdminDeptUser && (
-            <select
-              value={filterDept}
-              onChange={(e) => setFilterDept(e.target.value)}
-              className="px-3 py-2 rounded-lg border border-border bg-card text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 transition-shadow"
-            >
-              <option value="All">All Departments</option>
-              {departments.map((d) => (
-                <option key={d} value={d}>{d}</option>
-              ))}
             </select>
           )}
           {isAdminDeptUser ? (
@@ -376,16 +418,18 @@ const SLAReportPage = () => {
             </>
           ) : (
             <>
-              <select
-                value={filterCategory}
-                onChange={(e) => setFilterCategory(e.target.value)}
-                className="px-3 py-2 rounded-lg border border-border bg-card text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 transition-shadow"
-              >
-                <option value="All">{isCddUser ? "All Types" : "All Categories"}</option>
-                {categoryOptions.map((c) => (
-                  <option key={c} value={c}>{c}</option>
-                ))}
-              </select>
+              {!isCddUser && (
+                <select
+                  value={filterCategory}
+                  onChange={(e) => setFilterCategory(e.target.value)}
+                  className="px-3 py-2 rounded-lg border border-border bg-card text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 transition-shadow"
+                >
+                  <option value="All">All Categories</option>
+                  {categoryOptions.map((c) => (
+                    <option key={c} value={c}>{c}</option>
+                  ))}
+                </select>
+              )}
               <select
                 value={filterSubCategory}
                 onChange={(e) => setFilterSubCategory(e.target.value)}
@@ -405,25 +449,24 @@ const SLAReportPage = () => {
               onChange={(e) => setDatePreset(e.target.value)}
               className="px-3 py-2 rounded-lg border border-border bg-card text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 transition-shadow"
             >
-              <option value="All">All Time</option>
-              <option value="Last 7 Days">Last 7 Days</option>
-              <option value="Last 30 Days">Last 30 Days</option>
+              <option value="This Month">This Month</option>
+              <option value="Last Month">Last Month</option>
               <option value="Last 3 Months">Last 3 Months</option>
               <option value="Custom">Custom</option>
             </select>
           </div>
-          {isCddUser && (
-            <select
-              value={tatReportView}
-              onChange={(e) => setTatReportView(e.target.value as any)}
-              className="px-3 py-2 rounded-lg border border-primary bg-primary/5 text-primary text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary/30 transition-shadow"
-            >
-              <option value="">TAT Overview</option>
-              <option value="CM Response">TAT - CM Response</option>
-              <option value="AOM Response">TAT - AOM Response</option>
-              <option value="AMH Response">TAT - AMH Response</option>
-            </select>
-          )}
+          <button
+            onClick={handleSubmit}
+            className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors flex items-center gap-1.5"
+          >
+            <Filter className="h-3.5 w-3.5" /> Submit
+          </button>
+          <button
+            onClick={handleRefresh}
+            className="px-4 py-2 rounded-lg border border-border bg-card text-sm font-medium hover:bg-muted transition-colors flex items-center gap-1.5"
+          >
+            <RefreshCw className="h-3.5 w-3.5" /> Refresh
+          </button>
         </div>
         {datePreset === "Custom" && (
           <div className="flex items-center gap-3 ml-8">
@@ -450,79 +493,8 @@ const SLAReportPage = () => {
         )}
       </div>
 
-      {/* ── TAT Overview (CDD / Admin Dept default view) ── */}
-      {(isCddUser || isAdminDeptUser) && !tatReportView && (() => {
-        return (
-          <>
-            {/* Resolved / Closed Tickets */}
-            {(() => {
-              const resolvedList = filtered.filter((t) => t.status === "Resolved" || t.status === "Closed" || t.status === "Final Closed");
-              return (
-                <div className="bg-card rounded-2xl card-shadow border border-border overflow-hidden">
-                  <div className="px-6 py-4 border-b border-border bg-gradient-to-r from-success/5 to-transparent flex items-center justify-between">
-                    <h2 className="font-semibold text-sm flex items-center gap-2">
-                      <CheckCircle className="h-4 w-4 text-success" /> Resolved / Closed Tickets
-                    </h2>
-                    <span className="px-2.5 py-1 rounded-full text-[11px] font-bold bg-success/10 text-success border border-success/20">{resolvedList.length}</span>
-                  </div>
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-sm">
-                      <thead>
-                        <tr className="text-left text-[11px] uppercase tracking-wider text-muted-foreground bg-muted/30">
-                          <th className="px-6 py-3.5 font-semibold">Ticket</th>
-                          <th className="px-6 py-3.5 font-semibold">Title</th>
-                          <th className="px-6 py-3.5 font-semibold">Priority</th>
-                          <th className="px-6 py-3.5 font-semibold">Department</th>
-                          <th className="px-6 py-3.5 font-semibold">Status</th>
-                          <th className="px-6 py-3.5 font-semibold">Assigned To</th>
-                          <th className="px-6 py-3.5 font-semibold">Created</th>
-                          <th className="px-6 py-3.5 font-semibold">Closed Time</th>
-                          <th className="px-6 py-3.5 font-semibold">Total Time</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-border">
-                        {resolvedList.length > 0 ? resolvedList.map((t) => {
-                          const created = t.created_at ? new Date(t.created_at) : null;
-                          const closed = t.updated_at ? new Date(t.updated_at) : null;
-                          const diffMs = created && closed ? closed.getTime() - created.getTime() : 0;
-                          const diffHrs = Math.floor(diffMs / (1000 * 60 * 60));
-                          const diffMins = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
-                          const totalTime = diffHrs > 0 ? `${diffHrs}h ${diffMins}m` : `${diffMins}m`;
-                          const breached = t.tat_breached;
-                          const formatDate = (d: Date | null) => {
-                            if (!d) return "—";
-                            return d.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }) + "\n" + d.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: true }).toLowerCase();
-                          };
-                          return (
-                            <tr key={t.id} className="hover:bg-muted/20 transition-colors">
-                              <td className="px-6 py-4 font-mono text-xs font-medium text-primary">{t.code}</td>
-                              <td className="px-6 py-4 text-sm max-w-[200px]">{t.title}</td>
-                              <td className="px-6 py-4"><span className={cn("px-2.5 py-0.5 rounded-full text-[11px] font-semibold border", priorityColors[t.priority || "Medium"])}>{t.priority}</span></td>
-                              <td className="px-6 py-4 text-sm text-muted-foreground">{t.assigned_dept || "—"}</td>
-                              <td className="px-6 py-4"><span className={cn("px-2.5 py-0.5 rounded-full text-[11px] font-semibold", t.status === "Resolved" ? "bg-success/10 text-success" : "bg-muted text-muted-foreground")}>{t.status}</span></td>
-                              <td className="px-6 py-4 text-sm text-muted-foreground">{t.assigned_to || "Unassigned"}</td>
-                              <td className="px-6 py-4 text-xs text-muted-foreground whitespace-pre-line">{formatDate(created)}</td>
-                              <td className="px-6 py-4 text-xs text-muted-foreground whitespace-pre-line">{formatDate(closed)}</td>
-                              <td className="px-6 py-4 text-center">
-                                <span className={cn("px-2.5 py-1 rounded-lg text-xs font-bold", breached ? "bg-destructive/10 text-destructive" : "bg-success/10 text-success")}>{totalTime}</span>
-                              </td>
-                            </tr>
-                          );
-                        }) : (
-                          <tr><td colSpan={9} className="px-6 py-8 text-center text-muted-foreground text-sm">No resolved tickets found.</td></tr>
-                        )}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              );
-            })()}
-          </>
-        );
-      })()}
-
-      {/* ── TAT AOM/CM/AMH Report View (CDD only) ── */}
-      {isCddUser && tatReportView && (() => {
+      {/* ── TAT CM/AOM/AMH/Other Dept Report View (CDD only) ── */}
+      {isCddUser && (() => {
         // Build AOM → Zone → Clinic hierarchy from centers
         const aomMap = new Map<string, { zones: Map<string, { clinics: { name: string; total: number; withinTat: number; overTat: number }[] }> }>();
 
@@ -553,7 +525,13 @@ const SLAReportPage = () => {
           }
 
           // Count tickets for this clinic
-          const clinicTickets = filtered.filter((t) => t.center === clinicName || t.zenoti_location === clinicName);
+          // For "Other Dept": only tickets assigned to non-CDD departments
+          const clinicTickets = filtered.filter((t) => {
+            const matchClinic = t.center === clinicName || t.zenoti_location === clinicName;
+            if (!matchClinic) return false;
+            if (activeTatView === "Other Dept") return t.assigned_dept !== "CDD";
+            return true;
+          });
           const withinTat = clinicTickets.filter((t) => !t.tat_breached).length;
           const overTat = clinicTickets.filter((t) => t.tat_breached).length;
 
@@ -565,20 +543,41 @@ const SLAReportPage = () => {
           });
         });
 
-        const currentMonth = new Date().toLocaleString("en-US", { month: "long" });
-        const currentYear = new Date().getFullYear().toString().slice(-2);
+        const dateLabel = (() => {
+          const { start, end } = getDateRange();
+          if (af.datePreset === "This Month" || !start) {
+            const now = new Date();
+            return `${now.toLocaleString("en-US", { month: "long" })}'${now.getFullYear().toString().slice(-2)}`;
+          }
+          if (af.datePreset === "Last Month") {
+            return `${start.toLocaleString("en-US", { month: "long" })}'${start.getFullYear().toString().slice(-2)}`;
+          }
+          if (af.datePreset === "Last 3 Months") {
+            return `${start.toLocaleString("en-US", { month: "short" })}'${start.getFullYear().toString().slice(-2)} — ${new Date().toLocaleString("en-US", { month: "short" })}'${new Date().getFullYear().toString().slice(-2)}`;
+          }
+          if (af.datePreset === "Custom" && start && end) {
+            return `${start.toLocaleDateString("en-GB", { day: "2-digit", month: "short" })} — ${end.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "2-digit" })}`;
+          }
+          return `${new Date().toLocaleString("en-US", { month: "long" })}'${new Date().getFullYear().toString().slice(-2)}`;
+        })();
 
         return (
           <div className="bg-card rounded-2xl card-shadow border border-border overflow-hidden">
             <div className="px-6 py-4 border-b border-border bg-gradient-to-r from-primary/10 to-transparent">
               <h2 className="font-semibold text-sm flex items-center gap-2">
                 <BarChart3 className="h-4 w-4 text-primary" />
-                {tatReportView} — {currentMonth}'{currentYear}
+                {activeTatView === "Other Dept" ? "Other Dept Response" : activeTatView} — {dateLabel}
               </h2>
             </div>
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
+                  {activeTatView === "Other Dept" && (
+                    <tr className="bg-primary text-white text-xs uppercase tracking-wider">
+                      <th className="px-4 py-2 text-left font-semibold" colSpan={4}></th>
+                      <th className="px-4 py-2 text-center font-semibold border-l border-white/30" colSpan={2}>Other Dept Response</th>
+                    </tr>
+                  )}
                   <tr className="bg-primary text-white text-xs uppercase tracking-wider">
                     <th className="px-4 py-3 text-left font-semibold">AOM</th>
                     <th className="px-4 py-3 text-left font-semibold">Zone</th>

@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { isSuperRole, hasAnyRole } from "@/lib/roles";
 import { tickets as dummyTickets, departments as fallbackDepartments } from "@/data/dummyData";
 import type { Ticket } from "@/data/dummyData";
-import { Search, Plus, Eye, AlertTriangle, CheckCircle2, X, FileText, ListChecks, Download, ArrowLeft, RefreshCw, User as UserIcon } from "lucide-react";
+import { Search, Plus, Eye, AlertTriangle, CheckCircle2, X, FileText, ListChecks, Download, ArrowLeft, RefreshCw, User as UserIcon, Building2 } from "lucide-react";
 import { exportToExcel } from "@/lib/exportExcel";
 import { cn } from "@/lib/utils";
 import RaiseTicketModal from "@/components/RaiseTicketModal";
@@ -88,7 +88,7 @@ function apiToTicket(t: ApiTicket): Ticket & { _dbId: number; tatHours: number |
   } as Ticket & { _dbId: number; tatHours: number | null; tatBreached: boolean; originalAssignedTo: string | null; escalationLevel: number };
 }
 
-type TabKey = "all" | "assigned" | "mytickets" | "raised" | "resolved";
+type TabKey = "all" | "depttickets" | "mytickets" | "raised" | "resolved";
 
 const TicketsPage = () => {
   const navigate = useNavigate();
@@ -193,54 +193,22 @@ const TicketsPage = () => {
     return [...depts];
   };
 
-  // Super roles see all tickets; Employee/Others see only their own; other roles see their department's tickets
+  // Tickets assigned to the user's department
+  const deptTickets = (() => {
+    const allowedDepts = getUserDepts();
+    if (allowedDepts.length > 0) return data.filter((t) => allowedDepts.includes(t.assignedDept));
+    if (currentUserDept) return data.filter((t) => t.assignedDept === currentUserDept);
+    return data.filter((t) => t.assignedTo === currentUser);
+  })();
+
+  // "All Tickets": super admin sees everything, others see dept tickets + tickets they raised
   const roleFiltered = isSuperRole(currentUserRole)
     ? data
-    : hasAnyRole(currentUserRole, ["Employee", "Others"])
-      ? data.filter((t) => t.raisedBy === currentUser)
-      : hasAnyRole(currentUserRole, ["Help Desk Admin", "Helpdesk In-charge", "L1 Manager", "L2 Manager"])
-        ? data // these roles see all tickets
-        : hasAnyRole(currentUserRole, ["Helpdesk Admin"])
-        ? data.filter((t) => t.center === currentUserCenter || t.raisedBy === currentUser) // Helpdesk Admin sees center tickets
-        : hasAnyRole(currentUserRole, ["Admin Department"])
-        ? data.filter((t) => {
-            if (t.raisedBy === currentUser) return true;
-            if (t.assignedDept !== "Admin Department") return false;
-            // Users with "Can View and Edit" (e.g. Rajesh) see all admin dept tickets
-            const mapAccess = parsedUser?.map_level_access || "";
-            if (mapAccess === "Can View and Edit") return true;
-            // Others: filter by managed centers (assigned locations)
-            if (managedCenters.length > 0) {
-              return managedCenters.some((c) => c.toLowerCase() === (t.center || "").toLowerCase());
-            }
-            return true;
-          })
-        : (() => {
-            const allowedDepts = getUserDepts();
-            const isAom = hasAnyRole(currentUserRole, ["Area Operations Manager", "Area Operations Manager Head"]);
-            if (isAom) {
-              // AOM sees: tickets they raised, tickets they are approver for, tickets assigned to them, and tickets from their managed centers
-              return data.filter((t) =>
-                t.raisedBy === currentUser ||
-                (t.approver === currentUser && t.approvalRequired) ||
-                t.assignedTo === currentUser ||
-                (managedCenters.length > 0 && managedCenters.some((c) => c.toLowerCase() === (t.center || "").toLowerCase()))
-              );
-            }
-            return allowedDepts.length > 0
-              ? data.filter((t) => {
-                  if (t.raisedBy === currentUser) return true;
-                  if (!allowedDepts.includes(t.assignedDept)) return false;
-                  return true;
-                })
-              : currentUserDept
-                ? data.filter((t) => t.assignedDept === currentUserDept || t.raisedByDept === currentUserDept || t.raisedBy === currentUser)
-                : data.filter((t) => t.raisedBy === currentUser);
-          })();
+    : data.filter((t) => deptTickets.includes(t) || t.raisedBy === currentUser);
 
   // Filter by tab
   const tabFiltered = roleFiltered.filter((t) => {
-    if (activeTab === "assigned") return t.assignedTo && t.assignedTo !== "Unassigned";
+    if (activeTab === "depttickets") return deptTickets.includes(t);
     if (activeTab === "mytickets") return t.assignedTo === currentUser;
     if (activeTab === "raised") return t.raisedBy === currentUser;
     if (activeTab === "resolved") return t.status === "Resolved" || t.status === "Closed";
@@ -413,8 +381,11 @@ const TicketsPage = () => {
   const raisedCount = roleFiltered.filter((t) => t.raisedBy === currentUser).length;
   const resolvedCount = roleFiltered.filter((t) => t.status === "Resolved" || t.status === "Closed").length;
 
+  const deptTicketsCount = deptTickets.length;
+
   const tabs: { key: TabKey; label: string; icon: typeof FileText; count: number }[] = [
     { key: "all", label: "All Tickets", icon: ListChecks, count: roleFiltered.length },
+    { key: "depttickets", label: "View & Update", icon: Building2, count: deptTicketsCount },
     { key: "mytickets", label: "My Tickets", icon: UserIcon, count: myTicketsCount },
     { key: "raised", label: "Raised Tickets", icon: FileText, count: raisedCount },
     { key: "resolved", label: "Resolved Tickets", icon: CheckCircle2, count: resolvedCount },
@@ -556,7 +527,7 @@ const TicketsPage = () => {
               <th className="px-4 py-3 font-medium">{isCddUser ? "Type" : "Category"}</th>
               <th className="px-4 py-3 font-medium">{isCddUser ? "Category" : "Sub-Category"}</th>
               {isZenotiRole && <th className="px-4 py-3 font-medium">Child Category</th>}
-              <th className="px-4 py-3 font-medium">Priority</th>
+              {!isCddUser && <th className="px-4 py-3 font-medium">Priority</th>}
               <th className="px-4 py-3 font-medium">Status</th>
               <th className="px-4 py-3 font-medium">Assigned Dept</th>
               <th className="px-4 py-3 font-medium">Assigned To</th>
@@ -589,12 +560,14 @@ const TicketsPage = () => {
                 <td className="px-4 py-3 text-xs text-muted-foreground truncate max-w-[120px]">{t.category || "—"}</td>
                 <td className="px-4 py-3 text-xs text-muted-foreground truncate max-w-[120px]">{t.subCategory || "—"}</td>
                 {isZenotiRole && <td className="px-4 py-3 text-xs text-muted-foreground truncate max-w-[120px]">{(t as any).zenotiChildCategory || "—"}</td>}
-                <td className="px-4 py-3">
-                  <span className="inline-flex items-center gap-1.5 text-xs">
-                    <span className={cn("h-2 w-2 rounded-full", priorityColors[t.priority])} />
-                    {t.priority}
-                  </span>
-                </td>
+                {!isCddUser && (
+                  <td className="px-4 py-3">
+                    <span className="inline-flex items-center gap-1.5 text-xs">
+                      <span className={cn("h-2 w-2 rounded-full", priorityColors[t.priority])} />
+                      {t.priority}
+                    </span>
+                  </td>
+                )}
                 <td className="px-4 py-3">
                   <span className={cn("inline-block px-2 py-0.5 rounded-full text-[11px] font-medium", statusColors[t.status] || "bg-gray-100 text-gray-600")}>
                     {t.status}

@@ -6,7 +6,7 @@ import {
   ArrowLeft, Clock, User, Building2, MapPin, MessageSquare, CheckCircle2,
   ShieldCheck, Phone, CreditCard, FileText, IndianRupee, Send,
   Pencil, Loader2, Circle, Tag, Layers,
-  Calendar, Timer, Save, X, Upload, Paperclip,
+  Calendar, Timer, Save, X, Upload, Paperclip, ChevronDown, ChevronUp,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ticketsApi, usersApi, centersApi } from "@/lib/api";
@@ -169,6 +169,7 @@ const TicketDetailPage = () => {
   const [approvalComment, setApprovalComment] = useState("");
   const [approving, setApproving] = useState(false);
   const [commentText, setCommentText] = useState("");
+  const [activityOpen, setActivityOpen] = useState(false);
   const [sendingComment, setSendingComment] = useState(false);
   const [editingTicket, setEditingTicket] = useState<Ticket | null>(null);
   // Inline editing state
@@ -559,94 +560,6 @@ const TicketDetailPage = () => {
         </div>
       </Section>
 
-      {/* ── CDD Evaluation & Escalation Actions ── */}
-      {currentUserDept?.toUpperCase() === "CDD" && ticket && (
-        (() => {
-          const s = ticket.status as string;
-          const showReopen = s === "Resolved" || s === "Closed";
-          const showFinalClose = s === "Resolved" || s === "Closed";
-          const isClinicDept = ticket.assignedDept === "Clinic" || ticket.assignedDept === "Clinic Operations";
-          const showEscalateL1 = !isClinicDept && (s === "Open" || s === "In Progress" || s === "Acknowledged" || s === "Reopened by CDD");
-          const showEscalateL2 = !isClinicDept && s === "Escalated to L1";
-          const showAny = showReopen || showFinalClose || showEscalateL1 || showEscalateL2;
-          if (!showAny) return null;
-          return (
-            <Section title="CDD Actions">
-              <div className="space-y-4">
-                {/* Comment for CDD actions */}
-                <div>
-                  <label className="block text-xs font-medium text-muted-foreground mb-1.5">Comment / Reason</label>
-                  <textarea
-                    value={cddComment}
-                    onChange={(e) => setCddComment(e.target.value)}
-                    className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/40 min-h-[60px]"
-                    placeholder="Add a comment or reason for this action..."
-                  />
-                </div>
-
-                {/* Escalation target selection */}
-                {(showEscalateL1 || showEscalateL2) && (
-                  <div>
-                    <label className="block text-xs font-medium text-muted-foreground mb-1.5">
-                      Escalate To {showEscalateL2 ? "(L2 CXO)" : "(L1 Dept Head)"}
-                    </label>
-                    <select
-                      value={cddEscalateTo}
-                      onChange={(e) => setCddEscalateTo(e.target.value ? Number(e.target.value) : "")}
-                      className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
-                    >
-                      <option value="">-- Select --</option>
-                      {(showEscalateL2 ? l2Users : l1Users).map((u) => (
-                        <option key={u.id} value={u.id}>{u.name} ({u.role})</option>
-                      ))}
-                    </select>
-                  </div>
-                )}
-
-                {/* Action buttons */}
-                <div className="flex flex-wrap gap-3">
-                  {showEscalateL1 && (
-                    <button
-                      onClick={() => handleCddAction("Escalate L1")}
-                      disabled={cddActionLoading || !cddEscalateTo}
-                      className="px-4 py-2 rounded-lg bg-orange-500 text-white text-sm font-medium hover:bg-orange-600 disabled:opacity-50 transition-colors"
-                    >
-                      {cddActionLoading ? "Processing..." : "Escalate to L1 Dept Head"}
-                    </button>
-                  )}
-                  {showEscalateL2 && (
-                    <button
-                      onClick={() => handleCddAction("Escalate L2")}
-                      disabled={cddActionLoading || !cddEscalateTo}
-                      className="px-4 py-2 rounded-lg bg-red-500 text-white text-sm font-medium hover:bg-red-600 disabled:opacity-50 transition-colors"
-                    >
-                      {cddActionLoading ? "Processing..." : "Escalate to L2 CXO"}
-                    </button>
-                  )}
-                  {showReopen && (
-                    <button
-                      onClick={() => handleCddAction("Reopen")}
-                      disabled={cddActionLoading}
-                      className="px-4 py-2 rounded-lg bg-amber-500 text-white text-sm font-medium hover:bg-amber-600 disabled:opacity-50 transition-colors"
-                    >
-                      {cddActionLoading ? "Processing..." : "Reopen Ticket"}
-                    </button>
-                  )}
-                  {showFinalClose && (
-                    <button
-                      onClick={() => handleCddAction("Final Close")}
-                      disabled={cddActionLoading}
-                      className="px-4 py-2 rounded-lg bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700 disabled:opacity-50 transition-colors"
-                    >
-                      {cddActionLoading ? "Processing..." : "Final Close (All Resolved)"}
-                    </button>
-                  )}
-                </div>
-              </div>
-            </Section>
-          );
-        })()
-      )}
 
       {/* ── Ticket Information ── */}
       <Section title="Ticket Information">
@@ -709,16 +622,6 @@ const TicketDetailPage = () => {
         </Section>
       )}
 
-      {/* ── Escalation Information ── */}
-      {(ticket as any).escalationLevel > 0 && (
-        <Section title="Escalation Information">
-          <div className="grid grid-cols-3 gap-x-6 gap-y-4">
-            <Field label="Escalation Level" value={`L${(ticket as any).escalationLevel}`} badge />
-            <Field label="Escalated To" value={(ticket as any).escalatedTo || "—"} icon={User} />
-            <Field label="Escalated At" value={(ticket as any).escalatedAt ? new Date((ticket as any).escalatedAt).toLocaleString() : "—"} icon={Clock} />
-          </div>
-        </Section>
-      )}
 
       {/* ── Resolution ── */}
       {ticket.resolution && (
@@ -919,11 +822,17 @@ const TicketDetailPage = () => {
 
       {/* ── Activity & Comments ── */}
       <div className="rounded-lg border border-border bg-card shadow-sm overflow-hidden">
-        <div className="px-4 py-2.5 border-b border-l-4 border-l-primary bg-gradient-to-r from-primary/10 to-transparent flex items-center gap-2">
+        <button
+          onClick={() => setActivityOpen(!activityOpen)}
+          className="w-full px-4 py-2.5 border-b border-l-4 border-l-primary bg-gradient-to-r from-primary/10 to-transparent flex items-center gap-2 cursor-pointer hover:from-primary/15 transition-colors"
+        >
           <MessageSquare className="h-3.5 w-3.5 text-primary" />
           <h2 className="text-xs font-bold uppercase tracking-wider text-primary">Activity & Comments ({timeline.length})</h2>
-        </div>
-        <div className="px-4 py-3 space-y-2 max-h-[300px] overflow-y-auto">
+          <span className="ml-auto">
+            {activityOpen ? <ChevronUp className="h-4 w-4 text-primary" /> : <ChevronDown className="h-4 w-4 text-primary" />}
+          </span>
+        </button>
+        {activityOpen && <div className="px-4 py-3 space-y-2 max-h-[300px] overflow-y-auto">
           {timeline.map((ev) => {
             const badge = commentTypeBadge[ev.type] || commentTypeBadge.comment;
             const bgColor =
@@ -965,22 +874,22 @@ const TicketDetailPage = () => {
             );
           })}
 
-          {/* Add comment input */}
-          <div className="flex gap-2 pt-2 border-t border-border mt-2">
-            <input
-              type="text"
-              placeholder="Add a comment..."
-              value={commentText}
-              onChange={(e) => setCommentText(e.target.value)}
-              onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleSendComment(); } }}
-              className="flex-1 px-3 py-2 rounded-full border border-border bg-background text-xs focus:outline-none focus:ring-2 focus:ring-ring"
-            />
-            <button onClick={handleSendComment} disabled={sendingComment || !commentText.trim()}
-              className="px-6 py-2.5 rounded-full gradient-primary text-primary-foreground text-sm font-medium hover:opacity-90 transition-opacity disabled:opacity-50 flex items-center gap-1.5">
-              {sendingComment ? <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full" /> : <Send className="h-3.5 w-3.5" />}
-              Send
-            </button>
-          </div>
+        </div>}
+        {/* Add comment input — always visible */}
+        <div className="flex gap-2 px-4 py-3 border-t border-border">
+          <input
+            type="text"
+            placeholder="Add a comment..."
+            value={commentText}
+            onChange={(e) => setCommentText(e.target.value)}
+            onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleSendComment(); } }}
+            className="flex-1 px-3 py-2 rounded-full border border-border bg-background text-xs focus:outline-none focus:ring-2 focus:ring-ring"
+          />
+          <button onClick={handleSendComment} disabled={sendingComment || !commentText.trim()}
+            className="px-6 py-2.5 rounded-full gradient-primary text-primary-foreground text-sm font-medium hover:opacity-90 transition-opacity disabled:opacity-50 flex items-center gap-1.5">
+            {sendingComment ? <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full" /> : <Send className="h-3.5 w-3.5" />}
+            Send
+          </button>
         </div>
       </div>
 

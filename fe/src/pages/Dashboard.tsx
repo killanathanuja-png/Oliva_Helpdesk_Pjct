@@ -4,11 +4,9 @@ import { dashboardApi } from "@/lib/api";
 import type { ApiDashboardStats } from "@/lib/api";
 import {
   Ticket,
-  AlertTriangle,
   Clock,
   CheckCircle2,
   Loader2,
-  ArrowUpRight,
   RefreshCw,
   Filter,
   Target,
@@ -20,7 +18,6 @@ import {
   PieChart, Pie, Cell, Tooltip, ResponsiveContainer,
   BarChart, Bar, XAxis, YAxis, CartesianGrid,
 } from "recharts";
-import { useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
 
 /* ── Color palettes ── */
@@ -79,8 +76,6 @@ const Dashboard = () => {
   const userRole = user?.role || "User";
   const userDept = user?.department || "";
   const userId = user?.id;
-  const navigate = useNavigate();
-
   const [stats, setStats] = useState<ApiDashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -161,8 +156,8 @@ const Dashboard = () => {
         <p className="text-xs text-muted-foreground">Welcome back, {userName}</p>
       </div>
 
-      {/* ── KPI Cards + Escalation ── */}
-      <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
+      {/* ── KPI Cards ── */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <div className="bg-card rounded-xl p-4 card-shadow border border-border border-l-4 border-l-primary">
           <div className="flex items-center gap-3">
             <div className="inline-flex items-center justify-center h-9 w-9 rounded-lg bg-primary/10 flex-shrink-0"><Ticket className="h-4 w-4 text-primary" /></div>
@@ -185,20 +180,6 @@ const Dashboard = () => {
           <div className="flex items-center gap-3">
             <div className="inline-flex items-center justify-center h-9 w-9 rounded-lg bg-sky-50 flex-shrink-0"><Clock className="h-4 w-4 text-sky-500" /></div>
             <div><span className="text-2xl font-bold leading-none">{stats.avg_resolution_hours != null ? `${stats.avg_resolution_hours}h` : "—"}</span><p className="text-[11px] font-medium text-muted-foreground mt-0.5">Avg Resolution</p></div>
-          </div>
-        </div>
-        <div
-          onClick={() => navigate("/tickets?filter=escalation")}
-          className={cn("rounded-xl p-4 card-shadow border-l-4 cursor-pointer transition-all hover:shadow-md", stats.escalation_count > 0 ? "bg-red-50 border border-red-200 border-l-red-500" : "bg-emerald-50 border border-emerald-200 border-l-emerald-500")}
-        >
-          <div className="flex items-center gap-3">
-            <div className={cn("inline-flex items-center justify-center h-9 w-9 rounded-lg flex-shrink-0", stats.escalation_count > 0 ? "bg-red-100" : "bg-emerald-100")}>
-              <AlertTriangle className={cn("h-4 w-4", stats.escalation_count > 0 ? "text-red-600" : "text-emerald-600")} />
-            </div>
-            <div>
-              <span className={cn("text-2xl font-bold leading-none", stats.escalation_count > 0 ? "text-red-600" : "text-emerald-600")}>{stats.escalation_count}</span>
-              <p className={cn("text-[11px] font-medium mt-0.5 flex items-center gap-1", stats.escalation_count > 0 ? "text-red-500" : "text-emerald-500")}>Escalations <ArrowUpRight className="h-3 w-3" /></p>
-            </div>
           </div>
         </div>
       </div>
