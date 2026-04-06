@@ -160,7 +160,7 @@ def create_ticket(req: TicketCreate, current_user: User = Depends(get_current_us
         approval_status_value = None
         ticket_status = TicketStatusEnum.Open
         assigned_to_id_value = None
-        raised_by_dept_value = req.assigned_dept  # default: same as assigned_dept
+        raised_by_dept_value = current_user.department_rel.name if current_user.department_rel else req.assigned_dept
         assigned_dept_value = req.assigned_dept
 
         # Admin ticket routing: Helpdesk Admin users auto-route to Admin Department
@@ -912,7 +912,7 @@ def check_admin_escalations(db: Session = Depends(get_db)):
                 t.status = TicketStatusEnum.EscalatedL1
                 db.add(TicketComment(
                     ticket_id=t.id, user="System",
-                    message=f"Auto-escalated to L2 ({l2_user.name}) after {round(l1_threshold, 1)}h. Originally assigned to {orig_name}.",
+                    message=f"Auto-escalated to L2 ({l2_user.name}). Originally assigned to {orig_name}.",
                     type=CommentTypeEnum.status_change,
                 ))
                 escalated_count += 1
@@ -932,7 +932,7 @@ def check_admin_escalations(db: Session = Depends(get_db)):
                 l2_display = l2_user.name if l2_user else "L2"
                 db.add(TicketComment(
                     ticket_id=t.id, user="System",
-                    message=f"Auto-escalated to L3 ({l3_user.name}) after {round(hours_elapsed, 1)}h. L2 ({l2_display}) did not resolve.",
+                    message=f"Auto-escalated to L3 ({l3_user.name}). L2 ({l2_display}) did not resolve.",
                     type=CommentTypeEnum.status_change,
                 ))
                 escalated_count += 1

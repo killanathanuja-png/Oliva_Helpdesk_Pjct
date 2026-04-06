@@ -121,7 +121,7 @@ def on_startup():
                         l2u = db.query(User).filter(User.email == esc.l2_email).first()
                         if l2u:
                             t.escalation_level = 2; t.escalated_to_id = l2u.id; t.assigned_to_id = l2u.id; t.escalated_at = now; t.status = TicketStatusEnum.EscalatedL1
-                            db.add(TicketComment(ticket_id=t.id, user="System", message=f"Auto-escalated to L2 ({l2u.name}) after {round(l1_t,1)}h. Originally assigned to {orig_name}.", type=CommentTypeEnum.status_change))
+                            db.add(TicketComment(ticket_id=t.id, user="System", message=f"Auto-escalated to L2 ({l2u.name}). Originally assigned to {orig_name}.", type=CommentTypeEnum.status_change))
                             count += 1
                             level = 2
 
@@ -132,7 +132,7 @@ def on_startup():
                             t.escalation_level = 3; t.escalated_to_id = l3u.id; t.assigned_to_id = l3u.id; t.escalated_at = now; t.status = TicketStatusEnum.EscalatedL2
                             l2_name = db.query(User).filter(User.email == esc.l2_email).first()
                             l2_display = l2_name.name if l2_name else "L2"
-                            db.add(TicketComment(ticket_id=t.id, user="System", message=f"Auto-escalated to L3 ({l3u.name}) after {round(hrs,1)}h. L2 ({l2_display}) did not resolve.", type=CommentTypeEnum.status_change))
+                            db.add(TicketComment(ticket_id=t.id, user="System", message=f"Auto-escalated to L3 ({l3u.name}). L2 ({l2_display}) did not resolve.", type=CommentTypeEnum.status_change))
                             count += 1
                 if count > 0:
                     db.commit()
@@ -171,7 +171,7 @@ def on_startup():
                             if aom_user:
                                 t.escalation_level = 1; t.escalated_to_id = aom_user.id; t.assigned_to_id = aom_user.id
                                 t.escalated_at = now; t.status = TicketStatusEnum.EscalatedL1
-                                db.add(TicketComment(ticket_id=t.id, user="System", message=f"Auto-escalated to L1 AOM ({aom_user.name}) after {round(CDD_L1_HOURS,1)}h. Originally assigned to {orig_name}.", type=CommentTypeEnum.status_change))
+                                db.add(TicketComment(ticket_id=t.id, user="System", message=f"Auto-escalated to L1 AOM ({aom_user.name}). Originally assigned to {orig_name}.", type=CommentTypeEnum.status_change))
                                 cdd_count += 1; level = 1
                                 print(f"[CDD ESCALATION] {t.code} -> L1 AOM ({aom_user.name})")
 
@@ -182,7 +182,7 @@ def on_startup():
                             aom_name = t.escalated_to_rel.name if t.escalated_to_rel else "AOM"
                             t.escalation_level = 2; t.escalated_to_id = l2_user.id; t.assigned_to_id = l2_user.id
                             t.escalated_at = now; t.status = TicketStatusEnum.EscalatedL2
-                            db.add(TicketComment(ticket_id=t.id, user="System", message=f"Auto-escalated to L2 ({l2_user.name}) after {round(hrs,1)}h. L1 AOM ({aom_name}) did not resolve.", type=CommentTypeEnum.status_change))
+                            db.add(TicketComment(ticket_id=t.id, user="System", message=f"Auto-escalated to L2 ({l2_user.name}). L1 AOM ({aom_name}) did not resolve.", type=CommentTypeEnum.status_change))
                             cdd_count += 1
                             print(f"[CDD ESCALATION] {t.code} -> L2 ({l2_user.name})")
 

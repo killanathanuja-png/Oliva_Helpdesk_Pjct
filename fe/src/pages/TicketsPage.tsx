@@ -117,6 +117,7 @@ const TicketsPage = () => {
   const currentUser = parsedUser?.name || "User";
   const currentUserRole = parsedUser?.role || "User";
   const currentUserDept = parsedUser?.department || "";
+  const isZenotiRole = hasAnyRole(currentUserRole, ["Zenoti Team", "Zenoti Team Manager"]);
   const currentUserCenter = parsedUser?.center || "";
   const managedCenters: string[] = parsedUser?.managed_centers || [];
   const isCddUser = currentUserDept.toUpperCase() === "CDD";
@@ -467,10 +468,9 @@ const TicketsPage = () => {
                 const tatData = t as Ticket & { tatHours?: number | null; tatBreached?: boolean };
                 return {
                   "Ticket ID": t.id,
-                  "Title": t.title,
-                  "Category": t.category,
-                  "Sub-Category": t.subCategory || "",
-                  "Child Category": (t as Ticket & { zenotiChildCategory?: string }).zenotiChildCategory || "",
+                  "Description": t.description || t.title,
+                  [isCddUser ? "Type" : "Category"]: t.category,
+                  [isCddUser ? "Category" : "Sub-Category"]: t.subCategory || "",
                   "Priority": t.priority,
                   "Status": t.status,
                   "Raised By": t.raisedBy,
@@ -561,7 +561,10 @@ const TicketsPage = () => {
           <thead>
             <tr className="text-left text-xs text-muted-foreground border-b border-border">
               <th className="px-4 py-3 font-medium">Ticket ID</th>
-              <th className="px-4 py-3 font-medium">Title</th>
+              <th className="px-4 py-3 font-medium">Description</th>
+              <th className="px-4 py-3 font-medium">{isCddUser ? "Type" : "Category"}</th>
+              <th className="px-4 py-3 font-medium">{isCddUser ? "Category" : "Sub-Category"}</th>
+              {isZenotiRole && <th className="px-4 py-3 font-medium">Child Category</th>}
               <th className="px-4 py-3 font-medium">Priority</th>
               <th className="px-4 py-3 font-medium">Status</th>
               <th className="px-4 py-3 font-medium">Assigned Dept</th>
@@ -588,10 +591,13 @@ const TicketsPage = () => {
                 <td className="px-4 py-3">
                   <span className={cn("font-mono text-xs font-medium hover:underline", isBreached ? "text-destructive font-bold" : "text-primary")}>{t.id}</span>
                 </td>
-                <td className="px-4 py-3 max-w-[220px]">
-                  <p className="font-medium truncate">{t.title}</p>
-                  <p className="text-[11px] text-muted-foreground truncate">{t.raisedBy}</p>
+                <td className="px-4 py-3 max-w-[200px]">
+                  <p className="font-medium truncate text-xs">{t.description || t.title}</p>
+                  <p className="text-[10px] text-muted-foreground truncate">{t.raisedBy}</p>
                 </td>
+                <td className="px-4 py-3 text-xs text-muted-foreground truncate max-w-[120px]">{t.category || "—"}</td>
+                <td className="px-4 py-3 text-xs text-muted-foreground truncate max-w-[120px]">{t.subCategory || "—"}</td>
+                {isZenotiRole && <td className="px-4 py-3 text-xs text-muted-foreground truncate max-w-[120px]">{(t as any).zenotiChildCategory || "—"}</td>}
                 <td className="px-4 py-3">
                   <span className="inline-flex items-center gap-1.5 text-xs">
                     <span className={cn("h-2 w-2 rounded-full", priorityColors[t.priority])} />

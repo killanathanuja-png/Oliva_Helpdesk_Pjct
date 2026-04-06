@@ -170,6 +170,9 @@ const RaiseTicketModal = ({ onClose, onSuccess, editMode, editTicket, userRole, 
   const [cmCenterName, setCmCenterName] = useState<string | null>(null);
   const [cmAomName, setCmAomName] = useState<string | null>(null);
   // CDD department fields
+  const [cddClientCode, setCddClientCode] = useState("");
+  const [cddClientName, setCddClientName] = useState("");
+  const [undoSnapshot, setUndoSnapshot] = useState<Record<string, string> | null>(null);
   const [actionRequired, setActionRequired] = useState("");
   const [assignedCenter, setAssignedCenter] = useState("");
   const [cddCmEmail, setCddCmEmail] = useState("");
@@ -187,7 +190,6 @@ const RaiseTicketModal = ({ onClose, onSuccess, editMode, editTicket, userRole, 
     const parsed = stored ? JSON.parse(stored) : null;
     const role = (parsed?.role || "").toLowerCase();
     if (role.includes("helpdesk admin") && !editMode) {
-      setDepartment("Admin Department");
       if (parsed?.center) setCenter(parsed.center);
     }
   }, [editMode]);
@@ -334,33 +336,25 @@ const RaiseTicketModal = ({ onClose, onSuccess, editMode, editTicket, userRole, 
   // If a department is selected: show categories assigned to that department + unassigned categories
   // Exception: if department has dedicated categories (like Zenoti), show only those
   const deptHasDedicatedCategories = department && apiCategories.some((c) => c.status !== "Inactive" && c.department === department);
-  const categoryOptions = isCDDClinic
-    ? cddClinicTypes
-    : isQualityAudit
-    ? Object.keys(qaSubcategoryMap).sort()
-    : [...new Set(
-        apiCategories
-          .filter((c) => {
-            if (c.status === "Inactive") return false;
-            if (!department) return true;
-            if (deptHasDedicatedCategories) return c.department === department;
-            return !c.department || c.department === department;
-          })
-          .map((c) => c.name)
-      )].sort();
+  const categoryOptions = !department ? []
+    : isCDDClinic ? cddClinicTypes
+    : isQualityAudit ? Object.keys(qaSubcategoryMap).sort()
+    : isAdminDept ? adminMainCategoryOptions
+    : deptHasDedicatedCategories
+      ? [...new Set(apiCategories.filter((c) => c.status !== "Inactive" && c.department === department).map((c) => c.name))].sort()
+      : [...new Set(apiCategories.filter((c) => c.status !== "Inactive").map((c) => c.name))].sort();
  
   // Subcategories filtered by selected category
   const allCddClinicCategories = [...new Set(Object.values(cddClinicTypeMap).flat()), "others"];
-  const subCategoryOptions = isCDDClinic
-    ? allCddClinicCategories
-    : isQualityAudit
-    ? (category ? (qaSubcategoryMap[category] || []) : [])
+  const subCategoryOptions = !department ? []
+    : isCDDClinic ? allCddClinicCategories
+    : isQualityAudit ? (category ? (qaSubcategoryMap[category] || []) : [])
     : isCDD ? []
+    : !category ? []
     : [...new Set(
         apiSubcategories
           .filter((s) => {
             if (s.status === "Inactive") return false;
-            if (!category) return true;
             const hasLinked = apiSubcategories.some((x) => x.status !== "Inactive" && x.category === category);
             return hasLinked ? s.category === category : !s.category;
           })
@@ -368,12 +362,10 @@ const RaiseTicketModal = ({ onClose, onSuccess, editMode, editTicket, userRole, 
       )].sort();
  
   // Child categories filtered by selected subcategory
-  const childCategoryOptions = [...new Set(
+  const childCategoryOptions = (!department || !subCategory) ? [] : [...new Set(
     apiChildCategories
       .filter((c) => {
         if (c.status === "Inactive") return false;
-        if (!subCategory) return false;
-        // Show children linked to selected subcategory
         return c.subcategory === subCategory;
       })
       .map((c) => c.name)
@@ -426,15 +418,17 @@ const RaiseTicketModal = ({ onClose, onSuccess, editMode, editTicket, userRole, 
         const finalCategory = isAdminDept ? adminMainCategory : (isCDDClinic && category === "others" && customType) ? customType : category;
         const finalSubCategory = isAdminDept ? adminModule : (isCDDClinic && subCategory === "others" && customCategory) ? customCategory : subCategory;
         onSuccess({
-          title, description, department, category: finalCategory, subCategory: finalSubCategory,
+          title: title || description.slice(0, 100), description, department, category: finalCategory, subCategory: finalSubCategory,
           priority: isAdminDept ? "Medium" : priority,
           center: isZenoti ? zenotiFields.location : (isCDDToClinics ? assignedCenter : (isHelpdeskAdmin && currentUserCenter ? currentUserCenter : center)),
           zenotiChildCategory: isAdminDept ? adminChildCategory : childCategory,
-          ...(isCDDToClinics && {
+          ...((isCDDToClinics || isCDDClinic) && {
             actionRequired,
             assignedCenter,
             centerManagerEmail: cddCmEmail,
             aomEmail: cddAomEmail,
+            cddClientCode,
+            cddClientName,
           }),
           ...(isZenoti && {
             zenotiLocation: zenotiFields.location,
@@ -464,6 +458,13 @@ const RaiseTicketModal = ({ onClose, onSuccess, editMode, editTicket, userRole, 
     setAssignedCenter("");
     setCddCmEmail("");
     setCddAomEmail("");
+    // Auto-set Main Category to HELPDESK for center mail users selecting Admin Department
+    if (val === "Admin Department" && isHelpdeskAdmin) {
+      setAdminMainCategory("HELPDESK");
+    } else {
+      setAdminMainCategory("");
+    }
+    setAdminModule(""); setAdminSubCategory(""); setAdminChildCategory("");
     if (val !== "Zenoti") {
       setZenotiFields(emptyZenotiFields);
       setShowAlert(false);
@@ -560,12 +561,15 @@ const RaiseTicketModal = ({ onClose, onSuccess, editMode, editTicket, userRole, 
             <div>
               <label className={labelClass}>Department <span className="text-destructive">*</span></label>
               {isHelpdeskAdmin ? (
-                <input
-                  type="text"
-                  value="Admin Department"
-                  readOnly
-                  className={cn(inputClass, "bg-muted cursor-not-allowed")}
-                />
+                <select
+                  value={department}
+                  onChange={(e) => { handleDepartmentChange(e.target.value); }}
+                  className={inputClass}
+                >
+                  <option value="">-- Select Department --</option>
+                  <option value="Admin Department">Admin Department</option>
+                  <option value="IT">IT</option>
+                </select>
               ) : (
               <ComboBox
                 value={department}
@@ -575,7 +579,7 @@ const RaiseTicketModal = ({ onClose, onSuccess, editMode, editTicket, userRole, 
               />
               )}
               {/* CDD to Clinic — Action Required + Assign to Center */}
-              {isCDDToClinics && (
+              {isCDDToClinics && !isCDDClinic && (
                 <div className="mt-3 space-y-3">
                   <div>
                     <label className={labelClass}>Action Required <span className="text-destructive">*</span></label>
@@ -588,12 +592,7 @@ const RaiseTicketModal = ({ onClose, onSuccess, editMode, editTicket, userRole, 
                     </div>
                     <div>
                       <label className={labelClass}>Assigned To (Center) <span className="text-destructive">*</span></label>
-                      <ComboBox
-                        value={assignedCenter}
-                        onChange={handleAssignedCenterChange}
-                        options={apiCenters.map((c) => c.name)}
-                        placeholder="Select center"
-                      />
+                      <ComboBox value={assignedCenter} onChange={handleAssignedCenterChange} options={apiCenters.map((c) => c.name)} placeholder="Select center" />
                     </div>
                     <div className="grid grid-cols-2 gap-3">
                       <div>
@@ -610,15 +609,58 @@ const RaiseTicketModal = ({ onClose, onSuccess, editMode, editTicket, userRole, 
               )}
             </div>
 
-            <div>
-              <label className={labelClass}>Title <span className="text-destructive">*</span></label>
-              <input type="text" required value={title} onChange={(e) => setTitle(e.target.value)} className={inputClass} placeholder="Brief description of the issue" />
-            </div>
+            {/* ── CDD Clinic: Ordered form ── */}
+            {isCDDClinic && (
+              <>
+                {/* 1. Client Code & Client Name */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className={labelClass}>Client Code</label>
+                    <input type="text" value={cddClientCode} onChange={(e) => setCddClientCode(e.target.value)} className={inputClass} placeholder="Enter client code" />
+                  </div>
+                  <div>
+                    <label className={labelClass}>Client Name</label>
+                    <input type="text" value={cddClientName} onChange={(e) => setCddClientName(e.target.value)} className={inputClass} placeholder="Enter client name" />
+                  </div>
+                </div>
 
-            <div>
-              <label className={labelClass}>Complete Issue Description <span className="text-destructive">*</span></label>
-              <textarea rows={3} required value={description} onChange={(e) => setDescription(e.target.value)} className={cn(inputClass, "resize-none")} placeholder="Detailed description of the issue..." />
-            </div>
+                {/* Complaint Description */}
+                <div>
+                  <label className={labelClass}>Complaint Description <span className="text-destructive">*</span></label>
+                  <textarea rows={3} required value={description} onChange={(e) => setDescription(e.target.value)} className={cn(inputClass, "resize-none")} placeholder="Describe the complaint in detail..." />
+                </div>
+
+                {/* 2. Assigned To (Center) with auto-fill CM & AOM */}
+                <div className="rounded-xl border border-blue-200 bg-blue-50/50 p-4 space-y-3">
+                  <div className="flex items-center gap-2">
+                    <AlertCircle className="h-4 w-4 text-blue-600" />
+                    <span className="text-xs font-semibold text-blue-700">Assign to Center</span>
+                  </div>
+                  <div>
+                    <label className={labelClass}>Assigned To (Center) <span className="text-destructive">*</span></label>
+                    <ComboBox value={assignedCenter} onChange={handleAssignedCenterChange} options={apiCenters.map((c) => c.name)} placeholder="Select center" />
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className={labelClass}>Center Manager {cddCmEmail && <span className="text-xs text-emerald-600 ml-1">(Auto-filled)</span>}</label>
+                      <input type="text" value={cddCmEmail} readOnly className={cn(inputClass, "bg-muted cursor-not-allowed")} placeholder="Auto-filled on center selection" />
+                    </div>
+                    <div>
+                      <label className={labelClass}>AOM {cddAomEmail && <span className="text-xs text-emerald-600 ml-1">(Auto-filled)</span>}</label>
+                      <input type="text" value={cddAomEmail} readOnly className={cn(inputClass, "bg-muted cursor-not-allowed")} placeholder="Auto-filled on center selection" />
+                    </div>
+                  </div>
+                </div>
+              </>
+            )}
+
+            {/* Issue Description — for non-CDD-Clinic users */}
+            {!isCDDClinic && (
+              <div>
+                <label className={labelClass}>Issue Description <span className="text-destructive">*</span></label>
+                <textarea rows={3} required value={description} onChange={(e) => setDescription(e.target.value)} className={cn(inputClass, "resize-none")} placeholder="Detailed description of the issue..." />
+              </div>
+            )}
 
             {/* Admin Department category fields for Helpdesk Admin */}
             {isAdminDept && (
@@ -629,12 +671,21 @@ const RaiseTicketModal = ({ onClose, onSuccess, editMode, editTicket, userRole, 
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className={labelClass}>Main Category <span className="text-destructive">*</span></label>
-                    <ComboBox
-                      value={adminMainCategory}
-                      onChange={(val) => { setAdminMainCategory(val); setAdminModule(""); setAdminSubCategory(""); setAdminChildCategory(""); }}
-                      options={adminMainCategoryOptions}
-                      placeholder="Select main category"
-                    />
+                    {isHelpdeskAdmin ? (
+                      <input
+                        type="text"
+                        value="HELPDESK"
+                        readOnly
+                        className={cn(inputClass, "bg-muted cursor-not-allowed font-semibold")}
+                      />
+                    ) : (
+                      <ComboBox
+                        value={adminMainCategory}
+                        onChange={(val) => { setAdminMainCategory(val); setAdminModule(""); setAdminSubCategory(""); setAdminChildCategory(""); }}
+                        options={adminMainCategoryOptions}
+                        placeholder="Select main category"
+                      />
+                    )}
                   </div>
                   <div>
                     <label className={labelClass}>Module <span className="text-destructive">*</span></label>
@@ -681,7 +732,7 @@ const RaiseTicketModal = ({ onClose, onSuccess, editMode, editTicket, userRole, 
             )}
 
             {/* Category / Sub-Category - for non-Zenoti departments */}
-            {!isZenoti && !isAdminDept && (
+            {!isZenoti && !isAdminDept && !(isHelpdeskAdmin && department === "IT") && (
               <div className={cn("grid gap-3", (isCDDToClinics || isCDDClinic || isQualityAudit) ? "grid-cols-2" : "grid-cols-3")}>
                 <div>
                   <label className={labelClass}>{isCDDClinic ? "Type" : "Category"}{isCDDClinic && <span className="text-destructive"> *</span>}</label>
@@ -723,6 +774,14 @@ const RaiseTicketModal = ({ onClose, onSuccess, editMode, editTicket, userRole, 
               </div>
             )}
  
+            {/* CDD Clinic: Action Required (after Type/Category) */}
+            {isCDDClinic && (
+              <div>
+                <label className={labelClass}>Action Required <span className="text-destructive">*</span></label>
+                <textarea rows={2} required value={actionRequired} onChange={(e) => setActionRequired(e.target.value)} className={cn(inputClass, "resize-none")} placeholder="Describe the action required..." />
+              </div>
+            )}
+
             {/* Zenoti mandatory fields */}
             {isZenoti && (
               <div className="rounded-xl border border-amber-200 bg-amber-50/50 p-4 space-y-4">
@@ -925,14 +984,37 @@ const RaiseTicketModal = ({ onClose, onSuccess, editMode, editTicket, userRole, 
               <button
                 type="button"
                 onClick={() => {
+                  // Save snapshot for undo
+                  setUndoSnapshot({ title, description, department, category, subCategory, priority, center, actionRequired, assignedCenter, cddClientCode, cddClientName, childCategory, customType, customCategory, cddCmEmail, cddAomEmail });
                   setTitle(""); setDescription(""); setDepartment(""); setCategory("");
                   setSubCategory(""); setPriority(""); setCenter(cmCenterName || "");
+                  setActionRequired(""); setAssignedCenter(""); setCddClientCode(""); setCddClientName("");
+                  setChildCategory(""); setCustomType(""); setCustomCategory("");
+                  setCddCmEmail(""); setCddAomEmail("");
                   setZenotiFields(cmCenterName ? { ...emptyZenotiFields, location: cmCenterName } : emptyZenotiFields); setShowAlert(false);
                 }}
                 className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-lg border border-border text-sm font-medium hover:bg-muted transition-colors"
               >
                 <RotateCcw className="h-3.5 w-3.5" /> Clear
               </button>
+              {undoSnapshot && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    const s = undoSnapshot;
+                    setTitle(s.title || ""); setDescription(s.description || ""); setDepartment(s.department || "");
+                    setCategory(s.category || ""); setSubCategory(s.subCategory || ""); setPriority(s.priority || "");
+                    setCenter(s.center || ""); setActionRequired(s.actionRequired || ""); setAssignedCenter(s.assignedCenter || "");
+                    setCddClientCode(s.cddClientCode || ""); setCddClientName(s.cddClientName || "");
+                    setCddCmEmail(s.cddCmEmail || ""); setCddAomEmail(s.cddAomEmail || "");
+                    setChildCategory(s.childCategory || ""); setCustomType(s.customType || ""); setCustomCategory(s.customCategory || "");
+                    setUndoSnapshot(null);
+                  }}
+                  className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-lg border border-amber-300 bg-amber-50 text-amber-700 text-sm font-medium hover:bg-amber-100 transition-colors"
+                >
+                  <RotateCcw className="h-3.5 w-3.5" /> Undo
+                </button>
+              )}
               <button type="submit" disabled={submitting} className="flex-1 px-4 py-2.5 rounded-lg gradient-primary text-primary-foreground text-sm font-medium hover:opacity-90 transition-opacity disabled:opacity-50">
                 {submitting ? "Submitting..." : editMode ? "Modify" : "Submit Ticket"}
               </button>

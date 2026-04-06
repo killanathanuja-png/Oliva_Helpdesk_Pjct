@@ -206,7 +206,9 @@ const TicketDetailPage = () => {
   const noEdit = hasAnyRole(currentUserRole, noEditRoleList);
   // AOM can edit only when ticket is Pending Approval (for approve/reject/follow-up) AND they are the current approver
   const aomAlreadyApproved = isAomRole && ticket && ticket.approver === "Finance Team";
-  const aomCanEdit = isAomRole && ticket && !aomAlreadyApproved && (ticket.status === "Pending Approval" || (ticket.status as string) === "Follow Up");
+  const isAomAssigned = isAomRole && ticket && ticket.assignedTo === currentUser;
+  const isCddRaisedTicket = isAomRole && ticket && ticket.raisedByDept === "CDD";
+  const aomCanEdit = isAomRole && ticket && !aomAlreadyApproved && (ticket.status === "Pending Approval" || (ticket.status as string) === "Follow Up" || isAomAssigned || isCddRaisedTicket);
   // Zenoti Team cannot edit/assign if the ticket requires finance approval and finance hasn't approved yet
   const isZenotiTeamRole = hasAnyRole(currentUserRole, ["Zenoti Team", "Zenoti Team Manager"]);
   const zenotiBlockedByFinance = isZenotiTeamRole && ticket && ticket.approvalType === "aom_finance" && ticket.approvalStatus !== "Approved";
@@ -780,9 +782,12 @@ const TicketDetailPage = () => {
                 {isAomRole ? (
                   <>
                     <option value={ticket.status}>{ticket.status}</option>
-                    <option value="Approved">Approved</option>
-                    <option value="Rejected">Rejected</option>
-                    <option value="Follow Up">Follow Up</option>
+                    {(isAomAssigned || isCddRaisedTicket) && (ticket.status as string) !== "In Progress" && <option value="In Progress">In Progress</option>}
+                    {!isAomAssigned && !isCddRaisedTicket && <option value="Approved">Approved</option>}
+                    {!isAomAssigned && !isCddRaisedTicket && <option value="Rejected">Rejected</option>}
+                    {!isAomAssigned && !isCddRaisedTicket && <option value="Follow Up">Follow Up</option>}
+                    {(isAomAssigned || isCddRaisedTicket) && (ticket.status as string) !== "Resolved" && <option value="Resolved">Resolved</option>}
+                    {(isAomAssigned || isCddRaisedTicket) && (ticket.status as string) !== "Closed" && <option value="Closed">Closed</option>}
                   </>
                 ) : ["Employee", "Others"].includes(currentUserRole) ? (
                   <>

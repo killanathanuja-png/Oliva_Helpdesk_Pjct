@@ -120,7 +120,7 @@ const ProfilePage = () => {
   const labelClass = "flex items-center gap-1.5 text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-1.5";
 
   return (
-    <div className="animate-fade-in max-w-[900px] mx-auto space-y-4">
+    <div className="animate-fade-in max-w-full mx-auto space-y-4 px-2">
       {/* Header */}
       <div className="flex items-center gap-3">
         <button onClick={() => navigate(-1)} className="p-2 rounded-lg hover:bg-muted transition-colors" title="Back">
