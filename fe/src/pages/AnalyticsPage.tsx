@@ -161,17 +161,44 @@ const AnalyticsPage = () => {
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         {/* SLA Gauge */}
         <div className="lg:col-span-4 bg-card rounded-2xl card-shadow border border-border p-6 flex flex-col items-center justify-center">
-          <SLAGauge value={complianceRate} size={180} />
-          <div className="mt-4 flex items-center gap-4 text-xs text-muted-foreground">
-            <div className="flex items-center gap-1.5">
-              <div className="h-2 w-2 rounded-full bg-success" />
-              <span>On Track: {onTrack}</span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <div className="h-2 w-2 rounded-full bg-destructive" />
-              <span>Breached: {breached}</span>
-            </div>
-          </div>
+          {(() => {
+            const pieData = [
+              { name: "Resolved", value: resolved, color: "hsl(145, 65%, 42%)" },
+              { name: "Breached", value: breached, color: "hsl(0, 72%, 55%)" },
+            ].filter((d) => d.value > 0);
+            if (pieData.length === 0) pieData.push({ name: "No Tickets", value: 1, color: "hsl(200, 10%, 80%)" });
+            return (
+              <>
+                <ResponsiveContainer width="100%" height={160}>
+                  <PieChart>
+                    <Pie data={pieData} cx="50%" cy="50%" innerRadius={40} outerRadius={65} dataKey="value" nameKey="name" paddingAngle={3}>
+                      {pieData.map((d, i) => <Cell key={i} fill={d.color} />)}
+                    </Pie>
+                    <Tooltip content={({ active, payload }: any) => {
+                      if (!active || !payload?.length) return null;
+                      const d = payload[0].payload;
+                      return (
+                        <div className="bg-card border border-border rounded-lg px-3 py-2 shadow-lg text-xs">
+                          <p className="font-semibold">{d.name}</p>
+                          <p className="text-muted-foreground">{d.value} tickets</p>
+                        </div>
+                      );
+                    }} />
+                  </PieChart>
+                </ResponsiveContainer>
+                <div className="mt-2 flex items-center gap-4 text-xs text-muted-foreground">
+                  <div className="flex items-center gap-1.5">
+                    <div className="h-2.5 w-2.5 rounded-full bg-success" />
+                    <span className="font-medium">Resolved: {resolved}</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <div className="h-2.5 w-2.5 rounded-full bg-destructive" />
+                    <span className="font-medium">Breached: {breached}</span>
+                  </div>
+                </div>
+              </>
+            );
+          })()}
         </div>
 
         {/* KPI Cards */}

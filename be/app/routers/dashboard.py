@@ -225,7 +225,6 @@ def get_dashboard_stats(
         .filter(Ticket.center.isnot(None), Ticket.center != "")
         .group_by(Ticket.center)
         .order_by(func.count(Ticket.id).desc())
-        .limit(5)
         .all()
     )
     top_centers = [{"name": c, "tickets": n} for c, n in by_center]

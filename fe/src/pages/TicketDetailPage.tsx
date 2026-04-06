@@ -331,6 +331,15 @@ const TicketDetailPage = () => {
     setInlineEditing(true);
   };
 
+  // Auto-initialize edit fields for all users (no Edit button needed)
+  useEffect(() => {
+    if (ticket && canEdit && !editStatus) {
+      setEditStatus(ticket.status);
+      setEditPriority(ticket.priority);
+      setEditComment("");
+    }
+  }, [ticket, canEdit]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const handleCancelEdit = () => {
     setInlineEditing(false);
     setEditStatus("");
@@ -469,26 +478,6 @@ const TicketDetailPage = () => {
             <Clock className="h-3.5 w-3.5" /> Awaiting Finance Approval — editing disabled
           </div>
         )}
-        {(canEdit || aomAlreadyApproved) && (
-          <div className="flex items-center gap-2">
-            {!inlineEditing ? (
-              <button onClick={() => {
-                if (aomAlreadyApproved) {
-                  alert("You have already approved this ticket. It is now pending Finance approval. No further edits are allowed.");
-                  return;
-                }
-                handleStartEdit();
-              }} className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg gradient-primary text-primary-foreground text-sm font-medium hover:opacity-90 transition-opacity">
-                <Pencil className="h-3.5 w-3.5" /> Edit
-              </button>
-            ) : (
-              <button onClick={handleCancelEdit} disabled={editSaving}
-                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg border border-border text-sm font-medium hover:bg-muted transition-colors disabled:opacity-50">
-                <X className="h-3.5 w-3.5" /> Cancel
-              </button>
-            )}
-          </div>
-        )}
       </div>
 
       {/* ── Ticket Journey ── */}
@@ -514,15 +503,44 @@ const TicketDetailPage = () => {
 
               const isRejected = msg.includes("reject");
               const isResolved = msg.includes("resolve") || msg.includes("close") || msg.includes("final close");
-              const nodeColor = isRejected ? "bg-destructive ring-red-100" : isResolved ? "bg-emerald-500 ring-emerald-100" : "bg-primary ring-primary/20";
+              const isEscalatedL1 = msg.includes("escalated to l1") || msg.includes("escalated to l2 (");
+              const isEscalatedL2 = msg.includes("escalated to l3") || msg.includes("escalated to l2");
+              const isApproved = msg.includes("approved");
+              const isFollowUp = msg.includes("follow");
+              const isReopened = msg.includes("reopen");
+              const isAssigned = msg.includes("assigned") || msg.includes("ticket assigned");
+              const isComment = event.type === "comment";
+              const isCreated = event.type === "created";
+              const isInProgress = msg.includes("in progress");
+
+              // Emoji for each event type — check event.type first, then message content
+              const emoji = isCreated ? "📦" :
+                isComment ? "🗨️" :
+                isRejected ? "👎" :
+                isApproved ? "👍" :
+                isEscalatedL2 ? "🚨" :
+                isEscalatedL1 ? "🆘" :
+                isResolved ? "🥳" :
+                isFollowUp ? "💡" :
+                isReopened ? "🔓" :
+                isInProgress ? "⏳" :
+                isAssigned ? "👤" : "✅";
+
+              const nodeColor = isRejected ? "bg-red-100 ring-red-200" :
+                isResolved ? "bg-emerald-100 ring-emerald-200" :
+                isApproved ? "bg-green-100 ring-green-200" :
+                isEscalatedL1 || isEscalatedL2 ? "bg-orange-100 ring-orange-200" :
+                isReopened ? "bg-amber-100 ring-amber-200" :
+                isCreated ? "bg-blue-100 ring-blue-200" :
+                "bg-primary/10 ring-primary/20";
               const lineColor = isRejected ? "bg-destructive/40" : isResolved ? "bg-emerald-400" : "bg-primary";
               const labelColor = isRejected ? "text-destructive" : isResolved ? "text-emerald-700" : "text-primary";
 
               return (
                 <div key={event.id} className="flex items-start flex-1 min-w-0">
                   <div className="flex flex-col items-center flex-1 min-w-0 px-1">
-                    <div className={cn("h-9 w-9 rounded-full flex items-center justify-center shrink-0 shadow-md ring-3", nodeColor)}>
-                      <CheckCircle2 className="h-5 w-5 text-white" />
+                    <div className={cn("h-10 w-10 rounded-full flex items-center justify-center shrink-0 shadow-md ring-2 hover:scale-125 transition-transform duration-300", nodeColor)}>
+                      <span className="text-lg animate-bounce" style={{ animationDuration: "2s", animationIterationCount: idx === timeline.length - 1 ? "infinite" : "1" }}>{emoji}</span>
                     </div>
                     <p className={cn("text-xs font-bold mt-2 text-center", labelColor)}>{label}</p>
                     <p className="text-[10px] text-muted-foreground mt-0.5 text-center">{event.timestamp}</p>
@@ -537,29 +555,6 @@ const TicketDetailPage = () => {
               );
             })}
 
-            {/* Current status */}
-            <div className="flex items-start flex-1 min-w-0">
-              <div className="flex-1 h-1 bg-emerald-400 rounded-full mt-5 shrink min-w-4 max-w-16" />
-              <div className="flex flex-col items-center flex-1 min-w-0 px-1">
-                {(() => {
-                  const st = ticket.status;
-                  const isComplete = st === "Closed" || st === "Resolved";
-                  const isRej = st === "Rejected";
-                  const nc = isRej ? "bg-destructive ring-red-100" : isComplete ? "bg-emerald-500 ring-emerald-100" : "bg-white border-2 border-primary ring-primary/10";
-                  const ic = isRej || isComplete ? "text-white" : "text-primary fill-primary";
-                  const lc = isRej ? "text-destructive" : isComplete ? "text-emerald-700" : "text-primary";
-                  return (
-                    <>
-                      <div className={cn("h-9 w-9 rounded-full flex items-center justify-center shrink-0 shadow-md ring-3", nc)}>
-                        {isComplete || isRej ? <CheckCircle2 className={cn("h-5 w-5", ic)} /> : <Circle className={cn("h-4 w-4", ic)} />}
-                      </div>
-                      <p className={cn("text-xs font-bold mt-2 text-center", lc)}>Current Status</p>
-                      <span className={cn("inline-block mt-1 px-2.5 py-0.5 rounded-full text-[10px] font-semibold", statusColors[ticket.status] || "bg-gray-100 text-gray-600")}>{ticket.status}</span>
-                    </>
-                  );
-                })()}
-              </div>
-            </div>
           </div>
         </div>
       </Section>
@@ -768,8 +763,8 @@ const TicketDetailPage = () => {
         </Section>
       )}
 
-      {/* ── Inline Edit Panel ── */}
-      {inlineEditing && (
+      {/* ── Inline Edit Panel (always visible for users who can edit) ── */}
+      {canEdit && (
         <Section title="Edit Ticket" green>
           <div className="grid grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-4">
             {/* Status */}
@@ -913,10 +908,6 @@ const TicketDetailPage = () => {
 
             {/* Save / Cancel buttons at bottom-right */}
             <div className="col-span-full flex justify-end gap-2 pt-2">
-              <button onClick={handleCancelEdit} disabled={editSaving}
-                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg border border-border text-sm font-medium hover:bg-muted transition-colors disabled:opacity-50">
-                <X className="h-3.5 w-3.5" /> Cancel
-              </button>
               <button onClick={handleSaveEdit} disabled={editSaving}
                 className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg gradient-primary text-primary-foreground text-sm font-medium hover:opacity-90 transition-opacity disabled:opacity-50">
                 {editSaving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />} Save
