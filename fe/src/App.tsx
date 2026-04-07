@@ -26,6 +26,7 @@ import AdminChildCategoriesPage from "@/pages/admin/AdminChildCategoriesPage";
 import AdminServiceTitlesPage from "@/pages/admin/AdminServiceTitlesPage";
 import LoginHistoryPage from "@/pages/admin/LoginHistoryPage";
 import ProfilePage from "@/pages/ProfilePage";
+import TATDetailReportPage from "@/pages/TATDetailReportPage";
 import NotFound from "./pages/NotFound";
 import { canAccess } from "@/lib/roles";
 
@@ -114,6 +115,16 @@ const App = () => (
               <ProtectedRoute path="/sla-report">
                 <AppLayout>
                   <SLAReportPage />
+                </AppLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/tat-detail-report"
+            element={
+              <ProtectedRoute path="/tat-detail-report">
+                <AppLayout>
+                  <TATDetailReportPage />
                 </AppLayout>
               </ProtectedRoute>
             }

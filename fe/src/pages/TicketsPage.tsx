@@ -114,14 +114,16 @@ const TicketsPage = () => {
   const [searchParams] = useSearchParams();
   const tabFromUrl = searchParams.get("tab") as TabKey | null;
   const escalationFilter = searchParams.get("filter") === "escalation";
-  const [activeTab, setActiveTab] = useState<TabKey>(tabFromUrl || "all");
-  const [editingTicket, setEditingTicket] = useState<Ticket | null>(null);
 
   // Current user from localStorage
   const storedUser = localStorage.getItem("oliva_user");
   const parsedUser = storedUser ? JSON.parse(storedUser) : null;
   const currentUser = parsedUser?.name || "User";
   const currentUserRole = parsedUser?.role || "User";
+
+  const defaultTab = isSuperRole(currentUserRole) ? "all" : "depttickets";
+  const [activeTab, setActiveTab] = useState<TabKey>(tabFromUrl || defaultTab);
+  const [editingTicket, setEditingTicket] = useState<Ticket | null>(null);
   const currentUserDept = parsedUser?.department || "";
   const isZenotiRole = hasAnyRole(currentUserRole, ["Zenoti Team", "Zenoti Team Manager"]);
   const currentUserCenter = parsedUser?.center || "";
@@ -191,31 +193,35 @@ const TicketsPage = () => {
       depts.add(currentUserDept);
       // Quality & Audit team also sees Quality department tickets
       if (currentUserDept.toLowerCase().includes("quality")) depts.add("Quality");
-      // Admin Department team sees only Admin Department tickets (not Administration)
+      // Admin Department team sees Admin Department + IT Department tickets
       if (currentUserDept === "Admin Department") {
         depts.add("Admin Department");
+        depts.add("IT Department");
       }
     }
     return [...depts];
   };
 
-  // Tickets assigned to the user's department
-  const deptTickets = (() => {
+  // All department tickets (for All Tickets tab - includes resolved)
+  const resolvedStatuses = ["Resolved", "Closed", "Final Closed"];
+  const allDeptTickets = (() => {
     const allowedDepts = getUserDepts();
     if (allowedDepts.length > 0) return data.filter((t) => allowedDepts.includes(t.assignedDept));
     if (currentUserDept) return data.filter((t) => t.assignedDept === currentUserDept);
     return data.filter((t) => t.assignedTo === currentUser);
   })();
 
+  // View & Update: department tickets excluding Resolved/Closed/Final Closed
+  const deptTickets = allDeptTickets.filter((t) => !resolvedStatuses.includes(t.status));
+
   // "All Tickets": super admin sees everything, others see dept tickets + tickets they raised + managed center tickets
   const isAomUser = hasAnyRole(currentUserRole, ["Area Operations Manager", "Area Operations Manager Head"]);
   const roleFiltered = isSuperRole(currentUserRole)
     ? data
     : data.filter((t) => {
-        if (deptTickets.includes(t)) return true;
+        if (allDeptTickets.includes(t)) return true;
         if (t.raisedBy === currentUser) return true;
         if (t.assignedTo === currentUser) return true;
-        // AOM sees tickets from managed centers
         if (isAomUser && managedCenters.length > 0 && managedCenters.some((c) => c.toLowerCase() === (t.center || "").toLowerCase())) return true;
         return false;
       });
@@ -472,13 +478,15 @@ const TicketsPage = () => {
             <Download className="h-4 w-4" />
             Export Excel
           </button>
-          <button
-            onClick={() => setShowRaise(true)}
-            className="inline-flex items-center gap-2 gradient-primary text-primary-foreground px-4 py-2.5 rounded-lg text-sm font-medium hover:opacity-90 transition-opacity"
-          >
-            <Plus className="h-4 w-4" />
-            Raise Ticket
-          </button>
+          {activeTab !== "depttickets" && (
+            <button
+              onClick={() => setShowRaise(true)}
+              className="inline-flex items-center gap-2 gradient-primary text-primary-foreground px-4 py-2.5 rounded-lg text-sm font-medium hover:opacity-90 transition-opacity"
+            >
+              <Plus className="h-4 w-4" />
+              Raise Ticket
+            </button>
+          )}
         </div>
       </div>
 

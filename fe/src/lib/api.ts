@@ -714,6 +714,54 @@ export const notificationsApi = {
   markAllRead: () => request<void>("/notifications/mark-all-read", { method: "PATCH" }),
 };
 
+// --- TAT Report ---
+
+export interface TATReportRow {
+  ticket_id: string;
+  title: string;
+  department: string | null;
+  category: string | null;
+  sub_category: string | null;
+  priority: string | null;
+  status: string | null;
+  raised_by: string | null;
+  raised_by_dept: string | null;
+  center: string | null;
+  assigned_to: string | null;
+  created_at: string | null;
+  first_response_at: string | null;
+  resolved_at: string | null;
+  closed_at: string | null;
+  actual_tat_hours: number | null;
+  sla_hours: number | null;
+  sla_status: string;
+  delay_hours: number | null;
+  escalation_level: number;
+  escalated_at: string | null;
+  escalated_to: string | null;
+}
+
+export interface TATReportResponse {
+  rows: TATReportRow[];
+  total: number;
+  within_sla: number;
+  breached: number;
+  avg_tat_hours: number | null;
+}
+
+export const tatReportApi = {
+  get: (params?: Record<string, string | number>) => {
+    const qs = new URLSearchParams();
+    if (params) {
+      Object.entries(params).forEach(([k, v]) => {
+        if (v !== undefined && v !== null && v !== "" && v !== "All") qs.set(k, String(v));
+      });
+    }
+    const q = qs.toString();
+    return request<TATReportResponse>(`/tat-report${q ? `?${q}` : ""}`);
+  },
+};
+
 // --- Auth logout ---
 
 export const authLogout = () =>

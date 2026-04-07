@@ -6,7 +6,7 @@ from app.routers import (
     auth, departments, centers, users, roles, designations,
     categories, subcategories, child_categories, service_titles,
     tickets, sla, notifications, dashboard, login_history, aom_mappings, cdd_types,
-    admin_masters, admin_users,
+    admin_masters, admin_users, tat_report,
 )
 
 # Create tables
@@ -47,6 +47,7 @@ app.include_router(aom_mappings.router)
 app.include_router(cdd_types.router)
 app.include_router(admin_masters.router)
 app.include_router(admin_users.router)
+app.include_router(tat_report.router)
 
 
 @app.on_event("startup")

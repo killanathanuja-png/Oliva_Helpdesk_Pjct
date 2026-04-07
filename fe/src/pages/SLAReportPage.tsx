@@ -3,7 +3,7 @@ import { isSuperRole } from "@/lib/roles";
 import { ticketsApi, slaApi, categoriesApi, subcategoriesApi, centersApi, cddTypesApi, adminMastersApi } from "@/lib/api";
 import type { ApiTicket, ApiSLAConfig, ApiCenter, ApiCDDType, AdminMainCategoryApi } from "@/lib/api";
 import { cn } from "@/lib/utils";
-import { Loader2, AlertTriangle, CheckCircle, Clock, BarChart3, TrendingUp, Shield, ShieldAlert, ArrowUpRight, ArrowDownRight, Filter, Calendar, RefreshCw } from "lucide-react";
+import { Loader2, AlertTriangle, CheckCircle, Clock, BarChart3, TrendingUp, Shield, ShieldAlert, ArrowUpRight, ArrowDownRight, Filter, Calendar, RefreshCw, Download } from "lucide-react";
 
 interface SLASummary {
   total: number;
@@ -356,15 +356,14 @@ const SLAReportPage = () => {
           </div>
         </div>
         {/* Filters */}
-        <div className="flex flex-wrap items-end gap-2">
-          <Filter className="h-4 w-4 text-muted-foreground mt-2" />
+        <div className="flex flex-wrap items-center gap-1.5">
+          <Filter className="h-3.5 w-3.5 text-muted-foreground" />
           {isCddUser && (
             <select
               value={tatReportView}
               onChange={(e) => setTatReportView(e.target.value as any)}
-              className="px-3 py-2 rounded-lg border border-primary bg-primary/5 text-primary text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary/30 transition-shadow"
+              className="px-2 py-1.5 rounded-md border border-primary bg-primary/5 text-primary text-xs font-medium focus:outline-none focus:ring-2 focus:ring-primary/30 w-[140px]"
             >
-              <option value="">-- Select Report --</option>
               <option value="CM Response">TAT - CM Response</option>
               <option value="AOM Response">TAT - AOM Response</option>
               <option value="AMH Response">TAT - AMH Response</option>
@@ -375,7 +374,7 @@ const SLAReportPage = () => {
             <select
               value={filterPriority}
               onChange={(e) => setFilterPriority(e.target.value)}
-              className="px-3 py-2 rounded-lg border border-border bg-card text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 transition-shadow"
+              className="px-2 py-1.5 rounded-md border border-border bg-card text-xs focus:outline-none focus:ring-2 focus:ring-primary/30 w-[110px]"
             >
               <option value="All">All Priorities</option>
               <option value="Critical">Critical</option>
@@ -384,90 +383,95 @@ const SLAReportPage = () => {
               <option value="Low">Low</option>
             </select>
           )}
-          {isAdminDeptUser ? (
+          {isAdminDeptUser && (
             <>
               <select
                 value={filterCategory}
                 onChange={(e) => { setFilterCategory(e.target.value); setFilterModule("All"); setFilterSubCategory("All"); }}
-                className="px-3 py-2 rounded-lg border border-border bg-card text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 transition-shadow"
+                className="px-2 py-1.5 rounded-md border border-border bg-card text-xs focus:outline-none focus:ring-2 focus:ring-primary/30 max-w-[140px]"
               >
                 <option value="All">All Main Categories</option>
-                {categoryOptions.map((c) => (
-                  <option key={c} value={c}>{c}</option>
-                ))}
+                {categoryOptions.map((c) => <option key={c} value={c}>{c}</option>)}
               </select>
               <select
                 value={filterModule}
                 onChange={(e) => { setFilterModule(e.target.value); setFilterSubCategory("All"); }}
-                className="px-3 py-2 rounded-lg border border-border bg-card text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 transition-shadow"
+                className="px-2 py-1.5 rounded-md border border-border bg-card text-xs focus:outline-none focus:ring-2 focus:ring-primary/30 max-w-[130px]"
               >
                 <option value="All">All Modules</option>
-                {adminModuleOptions.map((m) => (
-                  <option key={m} value={m}>{m}</option>
-                ))}
+                {adminModuleOptions.map((m) => <option key={m} value={m}>{m}</option>)}
               </select>
               <select
                 value={filterSubCategory}
                 onChange={(e) => setFilterSubCategory(e.target.value)}
-                className="px-3 py-2 rounded-lg border border-border bg-card text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 transition-shadow"
+                className="px-2 py-1.5 rounded-md border border-border bg-card text-xs focus:outline-none focus:ring-2 focus:ring-primary/30 max-w-[130px]"
               >
                 <option value="All">All Sub Categories</option>
-                {adminSubCatOptions.map((s) => (
-                  <option key={s} value={s}>{s}</option>
-                ))}
-              </select>
-            </>
-          ) : (
-            <>
-              {!isCddUser && (
-                <select
-                  value={filterCategory}
-                  onChange={(e) => setFilterCategory(e.target.value)}
-                  className="px-3 py-2 rounded-lg border border-border bg-card text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 transition-shadow"
-                >
-                  <option value="All">All Categories</option>
-                  {categoryOptions.map((c) => (
-                    <option key={c} value={c}>{c}</option>
-                  ))}
-                </select>
-              )}
-              <select
-                value={filterSubCategory}
-                onChange={(e) => setFilterSubCategory(e.target.value)}
-                className="px-3 py-2 rounded-lg border border-border bg-card text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 transition-shadow"
-              >
-                <option value="All">{isCddUser ? "All Category" : "All Sub-Categories"}</option>
-                {subCategoryOptions.map((s) => (
-                  <option key={s} value={s}>{s}</option>
-                ))}
+                {adminSubCatOptions.map((s) => <option key={s} value={s}>{s}</option>)}
               </select>
             </>
           )}
-          <div className="flex items-center gap-2">
-            <Calendar className="h-4 w-4 text-muted-foreground" />
-            <select
-              value={datePreset}
-              onChange={(e) => setDatePreset(e.target.value)}
-              className="px-3 py-2 rounded-lg border border-border bg-card text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 transition-shadow"
-            >
-              <option value="All">-- Select Time --</option>
-              <option value="This Month">This Month</option>
-              <option value="Last Month">Last Month</option>
-              <option value="Last 3 Months">Last 3 Months</option>
-              <option value="Custom">Custom</option>
-            </select>
-          </div>
-          <button
-            onClick={handleSubmit}
-            className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors flex items-center gap-1.5"
+          {!isCddUser && !isAdminDeptUser && (
+            <>
+              <select
+                value={filterCategory}
+                onChange={(e) => setFilterCategory(e.target.value)}
+                className="px-2 py-1.5 rounded-md border border-border bg-card text-xs focus:outline-none focus:ring-2 focus:ring-primary/30 max-w-[130px]"
+              >
+                <option value="All">All Categories</option>
+                {categoryOptions.map((c) => <option key={c} value={c}>{c}</option>)}
+              </select>
+              <select
+                value={filterSubCategory}
+                onChange={(e) => setFilterSubCategory(e.target.value)}
+                className="px-2 py-1.5 rounded-md border border-border bg-card text-xs focus:outline-none focus:ring-2 focus:ring-primary/30 max-w-[130px]"
+              >
+                <option value="All">All Sub-Categories</option>
+                {subCategoryOptions.map((s) => <option key={s} value={s}>{s}</option>)}
+              </select>
+            </>
+          )}
+          <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
+          <select
+            value={datePreset}
+            onChange={(e) => setDatePreset(e.target.value)}
+            className="px-2 py-1.5 rounded-md border border-border bg-card text-xs focus:outline-none focus:ring-2 focus:ring-primary/30 w-[110px]"
           >
-            <Filter className="h-3.5 w-3.5" /> Submit
+            <option value="This Month">This Month</option>
+            <option value="Last Month">Last Month</option>
+            <option value="Last 3 Months">Last 3 Months</option>
+            <option value="Custom">Custom</option>
+          </select>
+          <button onClick={handleSubmit} className="px-3 py-1.5 rounded-md bg-primary text-primary-foreground text-xs font-medium hover:bg-primary/90 transition-colors flex items-center gap-1">
+            <Filter className="h-3 w-3" /> Submit
+          </button>
+          <button onClick={handleRefresh} className="px-3 py-1.5 rounded-md border border-border bg-card text-xs font-medium hover:bg-muted transition-colors flex items-center gap-1">
+            <RefreshCw className="h-3 w-3" /> Refresh
           </button>
           <button
-            onClick={handleRefresh}
-            className="px-4 py-2 rounded-lg border border-border bg-card text-sm font-medium hover:bg-muted transition-colors flex items-center gap-1.5"
+            onClick={() => {
+              const headers = ["Ticket ID", "Location", isAdminDeptUser ? "Main Category" : "Category", isAdminDeptUser ? "Module" : "Sub-Category", "Assigned To", "Created Time", "Resolved Time", "TAT", "SLA", "Status"];
+              const csvRows = [headers.join(",")];
+              for (const t of filtered) {
+                const isResolved = t.status === "Resolved" || t.status === "Closed" || t.status === "Final Closed";
+                const tatHrs = t.tat_hours ?? (t.created_at ? Math.round((((isResolved && t.updated_at ? new Date(t.updated_at).getTime() : Date.now()) - new Date(t.created_at).getTime()) / 3600000) * 10) / 10 : null);
+                const slaHrs = 24;
+                const slaLabel = tatHrs != null && tatHrs > slaHrs ? "Breached" : "Within SLA";
+                const fmtDate = (d: string | null) => d ? new Date(d).toLocaleString("en-GB", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit", hour12: true }) : "";
+                csvRows.push([
+                  t.code, t.center || t.zenoti_location || "", `"${(t.category || "").replace(/"/g, '""')}"`, `"${(t.sub_category || "").replace(/"/g, '""')}"`,
+                  t.assigned_to || "", fmtDate(t.created_at), isResolved ? fmtDate(t.updated_at) : "",
+                  tatHrs != null ? `${tatHrs}h` : "", `${slaHrs}h`, slaLabel,
+                ].join(","));
+              }
+              const blob = new Blob([csvRows.join("\n")], { type: "text/csv" });
+              const url = URL.createObjectURL(blob);
+              const a = document.createElement("a"); a.href = url; a.download = `TAT_Report_${new Date().toISOString().split("T")[0]}.csv`; a.click(); URL.revokeObjectURL(url);
+            }}
+            disabled={filtered.length === 0}
+            className="px-3 py-1.5 rounded-md border border-border bg-card text-xs font-medium hover:bg-muted transition-colors flex items-center gap-1 disabled:opacity-50"
           >
-            <RefreshCw className="h-3.5 w-3.5" /> Refresh
+            <Download className="h-3 w-3" /> Export Excel
           </button>
         </div>
         {datePreset === "Custom" && (
@@ -640,93 +644,104 @@ const SLAReportPage = () => {
         );
       })()}
 
-      {/* Resolved / Closed Tickets with Resolution Time — hidden for CDD and Admin Dept */}
-      {!isCddUser && !isAdminDeptUser && <div className="bg-card rounded-2xl card-shadow border border-border overflow-hidden">
-        <div className="px-6 py-4 border-b border-border bg-gradient-to-r from-success/5 to-transparent flex items-center justify-between">
-          <h2 className="font-semibold text-sm flex items-center gap-2">
-            <CheckCircle className="h-4 w-4 text-success" />
-            Resolved / Closed Tickets
-          </h2>
-          {resolvedTickets.length > 0 && (
-            <span className="px-2.5 py-1 rounded-full text-[11px] font-bold bg-success/10 text-success border border-success/20 tabular-nums">
-              {resolvedTickets.length}
-            </span>
-          )}
-        </div>
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="text-left text-[11px] uppercase tracking-wider text-muted-foreground bg-muted/30">
-                <th className="px-6 py-3.5 font-semibold">Ticket</th>
-                <th className="px-6 py-3.5 font-semibold">Title</th>
-                <th className="px-6 py-3.5 font-semibold">Priority</th>
-                <th className="px-6 py-3.5 font-semibold">Department</th>
-                <th className="px-6 py-3.5 font-semibold">Status</th>
-                <th className="px-6 py-3.5 font-semibold">Assigned To</th>
-                <th className="px-6 py-3.5 font-semibold">Created</th>
-                <th className="px-6 py-3.5 font-semibold">Closed Time</th>
-                <th className="px-6 py-3.5 font-semibold">Total Time</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border">
-              {resolvedTickets.length > 0 ? resolvedTickets.map((t) => {
-                const created = new Date(t.created_at!);
-                const closed = new Date(t.updated_at!);
-                const diffMs = closed.getTime() - created.getTime();
-                const diffHrs = Math.floor(diffMs / (1000 * 60 * 60));
-                const diffMins = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
-                const totalTime = diffHrs > 0 ? `${diffHrs}h ${diffMins}m` : `${diffMins}m`;
-                return (
-                  <tr key={t.id} className="hover:bg-muted/20 transition-colors">
-                    <td className="px-6 py-3.5 font-mono text-xs text-primary font-semibold">{t.code}</td>
-                    <td className="px-6 py-3.5 text-xs font-medium max-w-[200px] truncate">{t.title}</td>
-                    <td className="px-6 py-3.5">
-                      <span className={cn("px-2.5 py-0.5 rounded-full text-[11px] font-semibold border", priorityColors[t.priority || "Medium"])}>
-                        {t.priority}
-                      </span>
-                    </td>
-                    <td className="px-6 py-3.5 text-xs text-muted-foreground">{t.assigned_dept || "—"}</td>
-                    <td className="px-6 py-3.5">
-                      <span className={cn("px-2.5 py-0.5 rounded-full text-[11px] font-semibold",
-                        t.status === "Closed" ? "bg-muted text-muted-foreground" : "bg-success/10 text-success border border-success/20"
-                      )}>
-                        {t.status}
-                      </span>
-                    </td>
-                    <td className="px-6 py-3.5 text-xs text-muted-foreground">{t.assigned_to || "Unassigned"}</td>
-                    <td className="px-6 py-3.5 text-xs text-muted-foreground tabular-nums">
-                      {created.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}
-                      <br />
-                      <span className="text-[10px]">{created.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })}</span>
-                    </td>
-                    <td className="px-6 py-3.5 text-xs text-muted-foreground tabular-nums">
-                      {closed.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}
-                      <br />
-                      <span className="text-[10px]">{closed.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })}</span>
-                    </td>
-                    <td className="px-6 py-3.5">
-                      <span className={cn("px-2.5 py-1 rounded-lg text-xs font-bold tabular-nums",
-                        diffHrs >= 24 ? "bg-destructive/10 text-destructive" : diffHrs >= 8 ? "bg-warning/10 text-warning" : "bg-success/10 text-success"
-                      )}>
-                        {totalTime}
-                      </span>
-                    </td>
+      {/* TAT Table — for all departments except CDD */}
+      {!isCddUser && (() => {
+        const formatTime = (d: string | null) => {
+          if (!d) return "—";
+          const dt = new Date(d);
+          return dt.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: true }).toLowerCase();
+        };
+        const formatDateTime = (d: string | null) => {
+          if (!d) return "—";
+          const dt = new Date(d);
+          return dt.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }) + " " + formatTime(d);
+        };
+        const calcTat = (t: ApiTicket) => {
+          if (!t.created_at) return null;
+          const created = new Date(t.created_at).getTime();
+          const isResolved = t.status === "Resolved" || t.status === "Closed" || t.status === "Final Closed";
+          const end = isResolved && t.updated_at ? new Date(t.updated_at).getTime() : Date.now();
+          return Math.round((end - created) / (1000 * 60 * 60) * 10) / 10;
+        };
+        const formatHrs = (hrs: number | null) => {
+          if (hrs == null) return "—";
+          if (hrs < 1) return `${Math.round(hrs * 60)}m`;
+          const h = Math.floor(hrs);
+          const m = Math.round((hrs % 1) * 60);
+          return m > 0 ? `${h}h ${m}m` : `${h}h`;
+        };
+        // Use tat_hours from API if available, else calculate
+        const getSlaHrs = (t: ApiTicket) => {
+          // Default SLA: 24h (can be overridden per dept)
+          return 24;
+        };
+
+        return (
+          <div className="bg-card rounded-2xl card-shadow border border-border overflow-hidden">
+            <div className="px-6 py-4 border-b border-border bg-gradient-to-r from-primary/10 to-transparent flex items-center justify-between">
+              <h2 className="font-semibold text-sm flex items-center gap-2">
+                <BarChart3 className="h-4 w-4 text-primary" /> TAT Report — {filtered.length} tickets
+              </h2>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="bg-primary text-white text-[11px] uppercase tracking-wider">
+                    <th className="px-4 py-3 text-left font-semibold">Ticket ID</th>
+                    <th className="px-4 py-3 text-left font-semibold">Location</th>
+                    <th className="px-4 py-3 text-left font-semibold">{isAdminDeptUser ? "Main Category" : "Category"}</th>
+                    <th className="px-4 py-3 text-left font-semibold">{isAdminDeptUser ? "Module" : "Sub-Category"}</th>
+                    <th className="px-4 py-3 text-left font-semibold">Assigned To</th>
+                    <th className="px-4 py-3 text-center font-semibold">Created Time</th>
+                    <th className="px-4 py-3 text-center font-semibold">Resolved Time</th>
+                    <th className="px-4 py-3 text-center font-semibold">TAT</th>
+                    <th className="px-4 py-3 text-center font-semibold">SLA</th>
+                    <th className="px-4 py-3 text-center font-semibold">Status</th>
                   </tr>
-                );
-              }) : (
-                <tr>
-                  <td colSpan={9} className="px-6 py-12 text-center">
-                    <div className="flex flex-col items-center gap-2">
-                      <Clock className="h-8 w-8 text-muted-foreground/40" />
-                      <p className="text-sm font-medium text-muted-foreground">No resolved tickets yet</p>
-                    </div>
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>}
+                </thead>
+                <tbody className="divide-y divide-border">
+                  {filtered.length > 0 ? filtered.map((t) => {
+                    const tatHrs = t.tat_hours ?? calcTat(t);
+                    const slaHrs = getSlaHrs(t);
+                    const isBreached = tatHrs != null && tatHrs > slaHrs;
+                    const isResolved = t.status === "Resolved" || t.status === "Closed" || t.status === "Final Closed";
+                    const slaLabel = isBreached ? "Breached" : "Within SLA";
+                    return (
+                      <tr key={t.id} className={cn("hover:bg-muted/20 transition-colors", isBreached && "bg-red-50/50")}>
+                        <td className="px-4 py-2.5 font-mono text-xs text-primary font-semibold whitespace-nowrap">{t.code}</td>
+                        <td className="px-4 py-2.5 text-xs text-muted-foreground whitespace-nowrap">{t.center || t.zenoti_location || "—"}</td>
+                        <td className="px-4 py-2.5 text-xs text-muted-foreground whitespace-nowrap truncate max-w-[120px]">{t.category || "—"}</td>
+                        <td className="px-4 py-2.5 text-xs text-muted-foreground whitespace-nowrap truncate max-w-[120px]">{t.sub_category || "—"}</td>
+                        <td className="px-4 py-2.5 text-xs whitespace-nowrap">{t.assigned_to || "Unassigned"}</td>
+                        <td className="px-4 py-2.5 text-xs text-muted-foreground text-center whitespace-nowrap">{formatDateTime(t.created_at)}</td>
+                        <td className="px-4 py-2.5 text-xs text-muted-foreground text-center whitespace-nowrap">{isResolved ? formatDateTime(t.updated_at) : "—"}</td>
+                        <td className="px-4 py-2.5 text-center whitespace-nowrap">
+                          <span className={cn("px-2 py-0.5 rounded-lg text-xs font-bold", isBreached ? "bg-red-100 text-red-700" : "bg-emerald-100 text-emerald-700")}>
+                            {formatHrs(tatHrs)}
+                          </span>
+                        </td>
+                        <td className="px-4 py-2.5 text-xs text-center text-muted-foreground whitespace-nowrap">{slaHrs}h</td>
+                        <td className="px-4 py-2.5 text-center whitespace-nowrap">
+                          <span className={cn("px-2 py-0.5 rounded-full text-[10px] font-semibold", isBreached ? "bg-red-100 text-red-700" : "bg-emerald-100 text-emerald-700")}>
+                            {slaLabel}
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  }) : (
+                    <tr>
+                      <td colSpan={10} className="px-6 py-12 text-center">
+                        <Clock className="h-8 w-8 text-muted-foreground/40 mx-auto mb-2" />
+                        <p className="text-sm text-muted-foreground">No tickets found</p>
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 };

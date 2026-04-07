@@ -44,7 +44,7 @@ const allNavItems = [
     path: "/tickets",
     children: [
       { label: "All Tickets", icon: ListChecks, path: "/tickets?tab=all" },
-      { label: "View & Update Tickets", icon: Eye, path: "/tickets?tab=mytickets" },
+      { label: "View & Update Tickets", icon: Eye, path: "/tickets?tab=depttickets" },
     ],
   },
   { label: "Approvals", icon: ShieldCheck, path: "/approvals" },
@@ -54,8 +54,9 @@ const allNavItems = [
     label: "Reports",
     icon: BarChart3,
     children: [
-      { label: "SLA Report", icon: BarChart3, path: "/sla-report" },
-      { label: "SLA Analytics", icon: TrendingUp, path: "/analytics" },
+      { label: "TAT Report", icon: BarChart3, path: "/sla-report" },
+      { label: "TAT Analytics", icon: TrendingUp, path: "/analytics" },
+      { label: "TAT Detail Report", icon: Clock, path: "/tat-detail-report" },
     ],
   },
   {
