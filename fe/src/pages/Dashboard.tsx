@@ -4,6 +4,7 @@ import { dashboardApi } from "@/lib/api";
 import type { ApiDashboardStats } from "@/lib/api";
 import {
   Ticket,
+  AlertTriangle,
   Clock,
   CheckCircle2,
   Loader2,

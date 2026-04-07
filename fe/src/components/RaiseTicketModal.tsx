@@ -33,6 +33,13 @@ export interface TicketFormData {
   zenotiInvoiceDate?: string;
   zenotiAmount?: string;
   zenotiDescription?: string;
+  // CDD Clinic fields
+  cddClientCode?: string;
+  cddClientName?: string;
+  serviceName?: string;
+  crtName?: string;
+  primaryDoctor?: string;
+  therapistName?: string;
 }
  
 interface Props {
@@ -172,6 +179,10 @@ const RaiseTicketModal = ({ onClose, onSuccess, editMode, editTicket, userRole, 
   // CDD department fields
   const [cddClientCode, setCddClientCode] = useState("");
   const [cddClientName, setCddClientName] = useState("");
+  const [cddServiceName, setCddServiceName] = useState("");
+  const [cddCrtName, setCddCrtName] = useState("");
+  const [cddPrimaryDoctor, setCddPrimaryDoctor] = useState("");
+  const [cddTherapistName, setCddTherapistName] = useState("");
   const [undoSnapshot, setUndoSnapshot] = useState<Record<string, string> | null>(null);
   const [actionRequired, setActionRequired] = useState("");
   const [assignedCenter, setAssignedCenter] = useState("");
@@ -419,7 +430,7 @@ const RaiseTicketModal = ({ onClose, onSuccess, editMode, editTicket, userRole, 
         const finalSubCategory = isAdminDept ? adminModule : (isCDDClinic && subCategory === "others" && customCategory) ? customCategory : subCategory;
         onSuccess({
           title: title || description.slice(0, 100), description, department, category: finalCategory, subCategory: finalSubCategory,
-          priority: isAdminDept ? "Medium" : priority,
+          priority: isZenoti ? priority : "Medium",
           center: isZenoti ? zenotiFields.location : (isCDDToClinics ? assignedCenter : (isHelpdeskAdmin && currentUserCenter ? currentUserCenter : center)),
           zenotiChildCategory: isAdminDept ? adminChildCategory : childCategory,
           ...((isCDDToClinics || isCDDClinic) && {
@@ -429,6 +440,10 @@ const RaiseTicketModal = ({ onClose, onSuccess, editMode, editTicket, userRole, 
             aomEmail: cddAomEmail,
             cddClientCode,
             cddClientName,
+            serviceName: cddServiceName,
+            crtName: cddCrtName,
+            primaryDoctor: cddPrimaryDoctor,
+            therapistName: cddTherapistName,
           }),
           ...(isZenoti && {
             zenotiLocation: zenotiFields.location,
@@ -568,7 +583,7 @@ const RaiseTicketModal = ({ onClose, onSuccess, editMode, editTicket, userRole, 
                 >
                   <option value="">-- Select Department --</option>
                   <option value="Admin Department">Admin Department</option>
-                  <option value="IT">IT</option>
+                  <option value="IT Department">IT Department</option>
                 </select>
               ) : (
               <ComboBox
@@ -630,7 +645,31 @@ const RaiseTicketModal = ({ onClose, onSuccess, editMode, editTicket, userRole, 
                   <textarea rows={3} required value={description} onChange={(e) => setDescription(e.target.value)} className={cn(inputClass, "resize-none")} placeholder="Describe the complaint in detail..." />
                 </div>
 
-                {/* 2. Assigned To (Center) with auto-fill CM & AOM */}
+                {/* Service Name & CRT Name */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className={labelClass}>Service Name</label>
+                    <input type="text" value={cddServiceName} onChange={(e) => setCddServiceName(e.target.value)} className={inputClass} placeholder="Enter service name" />
+                  </div>
+                  <div>
+                    <label className={labelClass}>CRT Name</label>
+                    <input type="text" value={cddCrtName} onChange={(e) => setCddCrtName(e.target.value)} className={inputClass} placeholder="Enter CRT name" />
+                  </div>
+                </div>
+
+                {/* Primary Doctor & Therapist Name */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className={labelClass}>Primary Doctor</label>
+                    <input type="text" value={cddPrimaryDoctor} onChange={(e) => setCddPrimaryDoctor(e.target.value)} className={inputClass} placeholder="Enter primary doctor" />
+                  </div>
+                  <div>
+                    <label className={labelClass}>Therapist Name</label>
+                    <input type="text" value={cddTherapistName} onChange={(e) => setCddTherapistName(e.target.value)} className={inputClass} placeholder="Enter therapist name" />
+                  </div>
+                </div>
+
+                {/* Assigned To (Center) with auto-fill CM & AOM */}
                 <div className="rounded-xl border border-blue-200 bg-blue-50/50 p-4 space-y-3">
                   <div className="flex items-center gap-2">
                     <AlertCircle className="h-4 w-4 text-blue-600" />
@@ -732,7 +771,7 @@ const RaiseTicketModal = ({ onClose, onSuccess, editMode, editTicket, userRole, 
             )}
 
             {/* Category / Sub-Category - for non-Zenoti departments */}
-            {!isZenoti && !isAdminDept && !(isHelpdeskAdmin && department === "IT") && (
+            {!isZenoti && !isAdminDept && !(isHelpdeskAdmin && department === "IT Department") && (
               <div className={cn("grid gap-3", (isCDDToClinics || isCDDClinic || isQualityAudit) ? "grid-cols-2" : "grid-cols-3")}>
                 <div>
                   <label className={labelClass}>{isCDDClinic ? "Type" : "Category"}{isCDDClinic && <span className="text-destructive"> *</span>}</label>
@@ -928,16 +967,18 @@ const RaiseTicketModal = ({ onClose, onSuccess, editMode, editTicket, userRole, 
  
             {/* Priority & Center — hidden for CDD→Clinic and Admin Department */}
             {!isCDDToClinics && !isAdminDept && (
-              <div className={cn("grid gap-3", isZenoti ? "grid-cols-1" : "grid-cols-2")}>
-                <div>
-                  <label className={labelClass}>Priority <span className="text-destructive">*</span></label>
-                  <ComboBox
-                    value={priority}
-                    onChange={(val) => setPriority(val)}
-                    options={category.toLowerCase() === "zenoti-finance" ? ["Critical"] : ["High", "Medium", "Low"]}
-                    placeholder={matchingServiceTitle ? `Suggested: ${matchingServiceTitle.priority}` : "Select priority"}
-                  />
-                </div>
+              <div className={cn("grid gap-3", isZenoti ? "grid-cols-1" : "grid-cols-1")}>
+                {isZenoti && (
+                  <div>
+                    <label className={labelClass}>Priority <span className="text-destructive">*</span></label>
+                    <ComboBox
+                      value={priority}
+                      onChange={(val) => setPriority(val)}
+                      options={category.toLowerCase() === "zenoti-finance" ? ["Critical"] : ["High", "Medium", "Low"]}
+                      placeholder={matchingServiceTitle ? `Suggested: ${matchingServiceTitle.priority}` : "Select priority"}
+                    />
+                  </div>
+                )}
                 {!isZenoti && (
                   <div>
                     <label className={labelClass}>Center <span className="text-destructive">*</span>{cmCenterName && <span className="text-xs text-emerald-600 ml-1">(Auto-filled)</span>}</label>

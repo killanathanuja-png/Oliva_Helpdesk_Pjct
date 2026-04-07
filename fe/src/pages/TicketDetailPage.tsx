@@ -95,6 +95,12 @@ function apiToTicket(t: ApiTicket): Ticket & { _dbId: number; rawCreatedAt: stri
     escalatedAt: t.escalated_at || undefined,
     acknowledgedAt: t.acknowledged_at || undefined,
     originalAssignedTo: t.original_assigned_to || undefined,
+    clientCode: t.client_code || undefined,
+    clientName: t.client_name || undefined,
+    serviceName: t.service_name || undefined,
+    crtName: t.crt_name || undefined,
+    primaryDoctor: t.primary_doctor || undefined,
+    therapistName: t.therapist_name || undefined,
     _dbId: t.id,
     rawCreatedAt: t.created_at || "",
   } as Ticket & { _dbId: number; rawCreatedAt: string };
@@ -106,7 +112,9 @@ function buildTimeline(ticket: Ticket & { _dbId: number; rawCreatedAt: string })
     id: "created",
     type: "created",
     user: ticket.raisedBy,
-    message: `Ticket raised and assigned to ${ticket.assignedDept || "Unassigned"} department${(ticket as any).originalAssignedTo ? ` (${(ticket as any).originalAssignedTo})` : ticket.assignedTo && ticket.assignedTo !== "Unassigned" ? ` (${ticket.assignedTo})` : ""}`,
+    message: ticket.assignedDept === "IT Department"
+      ? `Ticket raised and assigned to IT Department (Ramakrishna Kanchu & Suresh Kumar)`
+      : `Ticket raised and assigned to ${ticket.assignedDept || "Unassigned"} department${(ticket as any).originalAssignedTo ? ` (${(ticket as any).originalAssignedTo})` : ticket.assignedTo && ticket.assignedTo !== "Unassigned" ? ` (${ticket.assignedTo})` : ""}`,
     timestamp: ticket.rawCreatedAt ? new Date(ticket.rawCreatedAt).toLocaleString() : ticket.createdAt,
     rawDate: ticket.rawCreatedAt ? new Date(ticket.rawCreatedAt) : undefined,
   });
@@ -595,9 +603,15 @@ const TicketDetailPage = () => {
           {!isZenoti && <Field label="Sub Category" value={ticket.subCategory} icon={Tag} />}
           {isZenoti && ticket.zenotiSubCategory && <Field label="Sub Category" value={ticket.zenotiSubCategory} icon={Tag} />}
           {isZenoti && ticket.zenotiChildCategory && <Field label="Child Category" value={ticket.zenotiChildCategory} icon={Tag} />}
-          <Field label="Priority" value={ticket.priority} />
+          {isZenoti && <Field label="Priority" value={ticket.priority} />}
           {!isZenoti && <Field label="Center / Location" value={ticket.center} icon={MapPin} />}
           {isZenoti && ticket.zenotiLocation && <Field label="Center / Location" value={ticket.zenotiLocation} icon={MapPin} />}
+          {(ticket as any).clientCode && <Field label="Client Code" value={(ticket as any).clientCode} />}
+          {(ticket as any).clientName && <Field label="Client Name" value={(ticket as any).clientName} />}
+          {(ticket as any).serviceName && <Field label="Service Name" value={(ticket as any).serviceName} />}
+          {(ticket as any).crtName && <Field label="CRT Name" value={(ticket as any).crtName} />}
+          {(ticket as any).primaryDoctor && <Field label="Primary Doctor" value={(ticket as any).primaryDoctor} />}
+          {(ticket as any).therapistName && <Field label="Therapist Name" value={(ticket as any).therapistName} />}
         </div>
       </Section>
 

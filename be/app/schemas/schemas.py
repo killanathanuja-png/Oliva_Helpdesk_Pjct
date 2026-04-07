@@ -366,6 +366,13 @@ class TicketBase(BaseModel):
     zenoti_invoice_date: Optional[str] = None
     zenoti_amount: Optional[str] = None
     zenoti_description: Optional[str] = None
+    # CDD Clinic fields
+    client_code: Optional[str] = None
+    client_name: Optional[str] = None
+    service_name: Optional[str] = None
+    crt_name: Optional[str] = None
+    primary_doctor: Optional[str] = None
+    therapist_name: Optional[str] = None
 
 
 class TicketCreate(TicketBase):

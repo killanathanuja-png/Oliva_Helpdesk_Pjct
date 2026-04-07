@@ -95,6 +95,12 @@ def _ticket_to_response(t: Ticket, aom_name: str = None, aom_email: str = None) 
         zenoti_invoice_date=t.zenoti_invoice_date,
         zenoti_amount=t.zenoti_amount,
         zenoti_description=t.zenoti_description,
+        client_code=t.client_code,
+        client_name=t.client_name,
+        service_name=t.service_name,
+        crt_name=t.crt_name,
+        primary_doctor=t.primary_doctor,
+        therapist_name=t.therapist_name,
         aom_name=aom_name,
         aom_email=aom_email,
         escalation_level=t.escalation_level or 0,
@@ -168,8 +174,14 @@ def list_tickets(
     is_clinic_manager = "clinic manager" in user_roles or "clinic incharge" in user_roles
     is_helpdesk_admin = "helpdesk admin" in user_roles
     is_admin_dept = "admin department" in user_roles
+    is_it_dept = current_user.role == "IT" or (current_user.department_rel and current_user.department_rel.name == "IT Department")
 
-    if is_helpdesk_admin and current_user.center_rel:
+    if is_it_dept:
+        # IT users see all IT Department tickets + tickets assigned to them
+        tickets = db.query(Ticket).filter(
+            (Ticket.assigned_dept == "IT Department") | (Ticket.assigned_to_id == current_user.id) | (Ticket.raised_by_id == current_user.id)
+        ).order_by(Ticket.created_at.desc()).all()
+    elif is_helpdesk_admin and current_user.center_rel:
         # Helpdesk Admin users see only their center's tickets + tickets they raised
         center_name = current_user.center_rel.name
         tickets = db.query(Ticket).filter(
@@ -237,8 +249,8 @@ def create_ticket(req: TicketCreate, current_user: User = Depends(get_current_us
         is_helpdesk_admin = "helpdesk admin" in user_roles
 
         if is_helpdesk_admin:
-            # Force department to Admin Department
-            assigned_dept_value = "Admin Department"
+            # Use the department selected by the user (Admin Department or IT Department)
+            assigned_dept_value = req.assigned_dept or "Admin Department"
             # Keep raised_by_dept as the user's actual department
             raised_by_dept_value = current_user.department_rel.name if current_user.department_rel else (req.assigned_dept or "Admin Department")
 
@@ -246,17 +258,20 @@ def create_ticket(req: TicketCreate, current_user: User = Depends(get_current_us
             if current_user.center_rel:
                 center_value = current_user.center_rel.name
 
-            # Look up location assignment based on user's city
-            from sqlalchemy import text as sa_text
-            user_city = current_user.city or ""
-            location_match = db.execute(sa_text(
-                "SELECT assigned_to_email, assigned_to_name FROM admin_location_assignment WHERE LOWER(location) = LOWER(:city)"
-            ), {"city": user_city}).first()
+            # Only do location-based assignment for Admin Department (not IT)
+            if assigned_dept_value == "Admin Department":
+                from sqlalchemy import text as sa_text
+                user_city = current_user.city or ""
+                location_match = db.execute(sa_text(
+                    "SELECT assigned_to_email, assigned_to_name FROM admin_location_assignment WHERE LOWER(location) = LOWER(:city)"
+                ), {"city": user_city}).first()
 
-            if location_match:
-                assigned_user = db.query(User).filter(User.email == location_match[0]).first()
-                if assigned_user:
-                    assigned_to_id_value = assigned_user.id
+                if location_match:
+                    assigned_user = db.query(User).filter(User.email == location_match[0]).first()
+                    if assigned_user:
+                        assigned_to_id_value = assigned_user.id
+
+            # IT Department — no auto-assignment (both IT members see it)
 
             # Override status and approval
             ticket_status = TicketStatusEnum.Open
@@ -276,6 +291,9 @@ def create_ticket(req: TicketCreate, current_user: User = Depends(get_current_us
                     if l1_user:
                         assigned_to_id_value = l1_user.id
                         print(f"[ADMIN TICKET] Auto-assigned to L1: {l1_user.name} ({center_city})")
+
+        # IT Department tickets — no auto-assignment, both IT members see them
+        # (assigned_to stays NULL / Unassigned)
 
         # If CDD user creates a ticket, auto-assign to the selected center's clinic manager
         user_dept_name = current_user.department_rel.name if current_user.department_rel else ""
@@ -380,6 +398,12 @@ def create_ticket(req: TicketCreate, current_user: User = Depends(get_current_us
             zenoti_invoice_date=req.zenoti_invoice_date,
             zenoti_amount=req.zenoti_amount,
             zenoti_description=req.zenoti_description,
+            client_code=req.client_code,
+            client_name=req.client_name,
+            service_name=req.service_name,
+            crt_name=req.crt_name,
+            primary_doctor=req.primary_doctor,
+            therapist_name=req.therapist_name,
         )
         # Calculate due_date from SLA config
         try:
@@ -418,6 +442,14 @@ def create_ticket(req: TicketCreate, current_user: User = Depends(get_current_us
         if ticket.assigned_to_id and ticket.assigned_to_id != current_user.id:
             _create_notification(db, ticket.assigned_to_id, f"New Ticket {ticket.code}",
                 f"New ticket '{ticket.title}' has been assigned to you.", ticket.id)
+
+        # Notify both IT members for IT Department tickets
+        if ticket.assigned_dept == "IT Department":
+            for it_email in ["ramakrishna.kanchu@olivaclinic.com", "suresh.v@olivaclinic.com"]:
+                it_user = db.query(User).filter(User.email == it_email).first()
+                if it_user and it_user.id != current_user.id and it_user.id != ticket.assigned_to_id:
+                    _create_notification(db, it_user.id, f"New IT Ticket {ticket.code}",
+                        f"New IT ticket '{ticket.title}' raised from {ticket.center or 'Unknown'}.", ticket.id)
 
         # Notify AOM if ticket needs approval
         if ticket.approval_required and ticket.approver:

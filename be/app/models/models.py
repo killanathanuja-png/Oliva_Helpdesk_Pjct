@@ -310,6 +310,14 @@ class Ticket(Base):
     zenoti_amount = Column(String(50))
     zenoti_description = Column(Text)
 
+    # CDD Clinic fields
+    client_code = Column(String(100), nullable=True)
+    client_name = Column(String(200), nullable=True)
+    service_name = Column(String(200), nullable=True)
+    crt_name = Column(String(200), nullable=True)
+    primary_doctor = Column(String(200), nullable=True)
+    therapist_name = Column(String(200), nullable=True)
+
     # CDD Escalation fields
     escalation_level = Column(Integer, default=0)  # 0=None, 1=L1 Dept Head, 2=L2 CXO
     escalated_to_id = Column(Integer, ForeignKey("users.id"), nullable=True)

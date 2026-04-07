@@ -85,7 +85,13 @@ function apiToTicket(t: ApiTicket): Ticket & { _dbId: number; tatHours: number |
     tatBreached: t.tat_breached,
     originalAssignedTo: t.original_assigned_to || null,
     escalationLevel: t.escalation_level || 0,
-  } as Ticket & { _dbId: number; tatHours: number | null; tatBreached: boolean; originalAssignedTo: string | null; escalationLevel: number };
+    serviceName: t.service_name || "",
+    crtName: t.crt_name || "",
+    primaryDoctor: t.primary_doctor || "",
+    therapistName: t.therapist_name || "",
+    cddClientCode: t.client_code || "",
+    cddClientName: t.client_name || "",
+  } as any;
 }
 
 type TabKey = "all" | "depttickets" | "mytickets" | "raised" | "resolved";
@@ -261,6 +267,12 @@ const TicketsPage = () => {
           zenoti_invoice_date: formData.zenotiInvoiceDate,
           zenoti_amount: formData.zenotiAmount,
           zenoti_description: formData.zenotiDescription,
+          client_code: formData.cddClientCode,
+          client_name: formData.cddClientName,
+          service_name: formData.serviceName,
+          crt_name: formData.crtName,
+          primary_doctor: formData.primaryDoctor,
+          therapist_name: formData.therapistName,
         });
         await fetchTickets(); // Refresh from DB
       } catch {
@@ -499,17 +511,19 @@ const TicketsPage = () => {
           <option>Resolved</option>
           <option>Closed</option>
         </select>
-        <select
-          value={priorityFilter}
-          onChange={(e) => setPriorityFilter(e.target.value)}
-          className="px-3 py-2 rounded-lg border border-border bg-card text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-        >
-          <option value="All">All Priority</option>
-          <option>Critical</option>
-          <option>High</option>
-          <option>Medium</option>
-          <option>Low</option>
-        </select>
+        {isZenotiRole && (
+          <select
+            value={priorityFilter}
+            onChange={(e) => setPriorityFilter(e.target.value)}
+            className="px-3 py-2 rounded-lg border border-border bg-card text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+          >
+            <option value="All">All Priority</option>
+            <option>Critical</option>
+            <option>High</option>
+            <option>Medium</option>
+            <option>Low</option>
+          </select>
+        )}
         <select
           value={deptFilter}
           onChange={(e) => setDeptFilter(e.target.value)}
@@ -532,10 +546,16 @@ const TicketsPage = () => {
             <tr className="text-left text-xs text-muted-foreground border-b border-border">
               <th className="px-4 py-3 font-medium">Ticket ID</th>
               <th className="px-4 py-3 font-medium">Description</th>
+              {isCddUser && <th className="px-4 py-3 font-medium">Client Code</th>}
+              {isCddUser && <th className="px-4 py-3 font-medium">Client Name</th>}
               <th className="px-4 py-3 font-medium">{isCddUser ? "Type" : "Category"}</th>
               <th className="px-4 py-3 font-medium">{isCddUser ? "Category" : "Sub-Category"}</th>
               {isZenotiRole && <th className="px-4 py-3 font-medium">Child Category</th>}
-              {!isCddUser && <th className="px-4 py-3 font-medium">Priority</th>}
+              {isCddUser && <th className="px-4 py-3 font-medium">Service Name</th>}
+              {isCddUser && <th className="px-4 py-3 font-medium">CRT Name</th>}
+              {isCddUser && <th className="px-4 py-3 font-medium">Primary Doctor</th>}
+              {isCddUser && <th className="px-4 py-3 font-medium">Therapist</th>}
+              {isZenotiRole && <th className="px-4 py-3 font-medium">Priority</th>}
               <th className="px-4 py-3 font-medium">Status</th>
               <th className="px-4 py-3 font-medium">Assigned Dept</th>
               <th className="px-4 py-3 font-medium">Assigned To</th>
@@ -565,10 +585,16 @@ const TicketsPage = () => {
                   <p className="font-medium truncate text-xs">{t.description || t.title}</p>
                   <p className="text-[10px] text-muted-foreground truncate">{t.raisedBy}</p>
                 </td>
+                {isCddUser && <td className="px-4 py-3 text-xs text-muted-foreground">{(t as any).cddClientCode || "—"}</td>}
+                {isCddUser && <td className="px-4 py-3 text-xs text-muted-foreground">{(t as any).cddClientName || "—"}</td>}
                 <td className="px-4 py-3 text-xs text-muted-foreground truncate max-w-[120px]">{t.category || "—"}</td>
                 <td className="px-4 py-3 text-xs text-muted-foreground truncate max-w-[120px]">{t.subCategory || "—"}</td>
                 {isZenotiRole && <td className="px-4 py-3 text-xs text-muted-foreground truncate max-w-[120px]">{(t as any).zenotiChildCategory || "—"}</td>}
-                {!isCddUser && (
+                {isCddUser && <td className="px-4 py-3 text-xs text-muted-foreground">{(t as any).serviceName || "—"}</td>}
+                {isCddUser && <td className="px-4 py-3 text-xs text-muted-foreground">{(t as any).crtName || "—"}</td>}
+                {isCddUser && <td className="px-4 py-3 text-xs text-muted-foreground">{(t as any).primaryDoctor || "—"}</td>}
+                {isCddUser && <td className="px-4 py-3 text-xs text-muted-foreground">{(t as any).therapistName || "—"}</td>}
+                {isZenotiRole && (
                   <td className="px-4 py-3">
                     <span className="inline-flex items-center gap-1.5 text-xs">
                       <span className={cn("h-2 w-2 rounded-full", priorityColors[t.priority])} />
@@ -583,14 +609,20 @@ const TicketsPage = () => {
                 </td>
                 <td className="px-4 py-3 text-xs text-muted-foreground">{t.assignedDept}</td>
                 <td className="px-4 py-3 text-xs text-muted-foreground">
-                  {t.assignedTo || "—"}
-                  {(() => {
-                    const ext = t as Ticket & { originalAssignedTo?: string | null; escalationLevel?: number };
-                    if (ext.escalationLevel && ext.escalationLevel >= 2 && ext.originalAssignedTo) {
-                      return <p className="text-[10px] text-destructive mt-0.5">L1: {ext.originalAssignedTo}</p>;
-                    }
-                    return null;
-                  })()}
+                  {t.assignedDept === "IT Department" ? (
+                    <span>Unassigned</span>
+                  ) : (
+                    <>
+                      {t.assignedTo || "—"}
+                      {(() => {
+                        const ext = t as Ticket & { originalAssignedTo?: string | null; escalationLevel?: number };
+                        if (ext.escalationLevel && ext.escalationLevel >= 2 && ext.originalAssignedTo) {
+                          return <p className="text-[10px] text-destructive mt-0.5">L1: {ext.originalAssignedTo}</p>;
+                        }
+                        return null;
+                      })()}
+                    </>
+                  )}
                 </td>
                 <td className="px-4 py-3 text-xs text-muted-foreground">{t.center}</td>
                 <td className="px-4 py-3 text-xs text-muted-foreground">{t.createdAt}</td>
