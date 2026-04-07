@@ -367,6 +367,7 @@ class TicketBase(BaseModel):
     zenoti_amount: Optional[str] = None
     zenoti_description: Optional[str] = None
     # CDD Clinic fields
+    action_required: Optional[str] = None
     client_code: Optional[str] = None
     client_name: Optional[str] = None
     service_name: Optional[str] = None

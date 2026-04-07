@@ -311,6 +311,7 @@ class Ticket(Base):
     zenoti_description = Column(Text)
 
     # CDD Clinic fields
+    action_required = Column(Text, nullable=True)
     client_code = Column(String(100), nullable=True)
     client_name = Column(String(200), nullable=True)
     service_name = Column(String(200), nullable=True)

@@ -89,6 +89,7 @@ function apiToTicket(t: ApiTicket): Ticket & { _dbId: number; tatHours: number |
     crtName: t.crt_name || "",
     primaryDoctor: t.primary_doctor || "",
     therapistName: t.therapist_name || "",
+    actionRequired: t.action_required || "",
     cddClientCode: t.client_code || "",
     cddClientName: t.client_name || "",
   } as any;
@@ -273,6 +274,7 @@ const TicketsPage = () => {
           zenoti_invoice_date: formData.zenotiInvoiceDate,
           zenoti_amount: formData.zenotiAmount,
           zenoti_description: formData.zenotiDescription,
+          action_required: formData.actionRequired,
           client_code: formData.cddClientCode,
           client_name: formData.cddClientName,
           service_name: formData.serviceName,

@@ -108,6 +108,7 @@ export interface ApiTicket {
   zenoti_amount: string | null;
   zenoti_description: string | null;
   // CDD Clinic fields
+  action_required: string | null;
   client_code: string | null;
   client_name: string | null;
   service_name: string | null;
@@ -147,6 +148,7 @@ export interface CreateTicketPayload {
   zenoti_invoice_date?: string;
   zenoti_amount?: string;
   zenoti_description?: string;
+  action_required?: string;
   client_code?: string;
   client_name?: string;
   service_name?: string;

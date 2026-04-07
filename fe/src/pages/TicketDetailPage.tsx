@@ -95,6 +95,7 @@ function apiToTicket(t: ApiTicket): Ticket & { _dbId: number; rawCreatedAt: stri
     escalatedAt: t.escalated_at || undefined,
     acknowledgedAt: t.acknowledged_at || undefined,
     originalAssignedTo: t.original_assigned_to || undefined,
+    actionRequired: t.action_required || undefined,
     clientCode: t.client_code || undefined,
     clientName: t.client_name || undefined,
     serviceName: t.service_name || undefined,
@@ -598,14 +599,17 @@ const TicketDetailPage = () => {
           <Field label="Raised By" value={`${ticket.raisedBy}${ticket.raisedByDept ? ` (${ticket.raisedByDept})` : ""}`} icon={User} />
           <Field label="Assigned To" value={`${ticket.assignedTo}${ticket.assignedDept ? ` (${ticket.assignedDept})` : ""}`} icon={Building2} />
           <Field label="Department" value={ticket.assignedDept} icon={Building2} />
-          {!isZenoti && <Field label="Category" value={ticket.category} icon={Layers} />}
+          {!isZenoti && <Field label={ticket.assignedDept === "Admin Department" ? "Main Category" : currentUserDept?.toUpperCase() === "CDD" ? "Type" : "Category"} value={ticket.category} icon={Layers} />}
           {isZenoti && ticket.zenotiMainCategory && <Field label="Category" value={ticket.zenotiMainCategory} icon={Layers} />}
-          {!isZenoti && <Field label="Sub Category" value={ticket.subCategory} icon={Tag} />}
+          {!isZenoti && <Field label={ticket.assignedDept === "Admin Department" ? "Module" : currentUserDept?.toUpperCase() === "CDD" ? "Category" : "Sub Category"} value={ticket.subCategory} icon={Tag} />}
           {isZenoti && ticket.zenotiSubCategory && <Field label="Sub Category" value={ticket.zenotiSubCategory} icon={Tag} />}
+          {!isZenoti && ticket.assignedDept === "Admin Department" && ticket.zenotiChildCategory && <Field label="Sub Category" value={ticket.zenotiChildCategory} icon={Tag} />}
+          {!isZenoti && ticket.assignedDept === "Admin Department" && ticket.zenotiDescription && <Field label="Child Category" value={ticket.zenotiDescription} icon={Tag} />}
           {isZenoti && ticket.zenotiChildCategory && <Field label="Child Category" value={ticket.zenotiChildCategory} icon={Tag} />}
           {isZenoti && <Field label="Priority" value={ticket.priority} />}
           {!isZenoti && <Field label="Center / Location" value={ticket.center} icon={MapPin} />}
           {isZenoti && ticket.zenotiLocation && <Field label="Center / Location" value={ticket.zenotiLocation} icon={MapPin} />}
+          {(ticket as any).actionRequired && <Field label="Action Required" value={(ticket as any).actionRequired} fullWidth />}
           {(ticket as any).clientCode && <Field label="Client Code" value={(ticket as any).clientCode} />}
           {(ticket as any).clientName && <Field label="Client Name" value={(ticket as any).clientName} />}
           {(ticket as any).serviceName && <Field label="Service Name" value={(ticket as any).serviceName} />}
