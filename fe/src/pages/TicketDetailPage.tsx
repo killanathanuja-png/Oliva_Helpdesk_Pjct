@@ -193,7 +193,7 @@ const TicketDetailPage = () => {
   const currentUser = parsedUser?.name || "User";
   const currentUserRole = parsedUser?.role || "User";
   const userManagedCenters: string[] = parsedUser?.managed_centers || (parsedUser?.center ? [parsedUser.center] : []);
-  const isAomRole = hasAnyRole(currentUserRole, ["Area Operations Manager", "Area Operations Manager Head"]);
+  const isAomRole = hasAnyRole(currentUserRole, ["Area Operations Manager", "Area Operations Manager Head", "CDD L2 Manager"]);
   const approverRoles = ["Area Operations Manager", "Area Operations Manager Head", "Manager", "L1 Manager", "L2 Manager", "Finance", "Finance Head"];
   const canApproveRole = hasAnyRole(currentUserRole, approverRoles);
   // AOM can only approve tickets from their managed centers (location-based)
@@ -393,7 +393,14 @@ const TicketDetailPage = () => {
         // Post comment if provided
         if (editComment.trim()) {
           const parts: string[] = [];
-          if (statusChanged) parts.push(`Status changed from "${ticket.status}" to "${editStatus}"`);
+          if (statusChanged) {
+            const resolvedStatuses = ["Resolved", "Closed", "Final Closed"];
+            if (resolvedStatuses.includes(editStatus) && ticket.assignedTo && ticket.assignedTo !== currentUser && ticket.assignedTo !== "Unassigned") {
+              parts.push(`Status changed from "${ticket.status}" to "${editStatus}" by ${currentUser} (originally assigned to ${ticket.assignedTo})`);
+            } else {
+              parts.push(`Status changed from "${ticket.status}" to "${editStatus}"`);
+            }
+          }
           if (priorityChanged) parts.push(`Priority changed from "${ticket.priority}" to "${editPriority}"`);
           if (editAssignTo) {
             const assignedUser = teamMembers.find((u) => u.id === editAssignTo);

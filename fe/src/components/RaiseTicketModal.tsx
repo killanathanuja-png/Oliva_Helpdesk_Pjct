@@ -342,7 +342,7 @@ const RaiseTicketModal = ({ onClose, onSuccess, editMode, editTicket, userRole, 
     : isAdminDept ? adminMainCategoryOptions
     : deptHasDedicatedCategories
       ? [...new Set(apiCategories.filter((c) => c.status !== "Inactive" && c.department === department).map((c) => c.name))].sort()
-      : [...new Set(apiCategories.filter((c) => c.status !== "Inactive").map((c) => c.name))].sort();
+      : [];
  
   // Subcategories filtered by selected category
   const allCddClinicCategories = [...new Set(Object.values(cddClinicTypeMap).flat()), "others"];

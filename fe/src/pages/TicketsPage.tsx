@@ -201,10 +201,18 @@ const TicketsPage = () => {
     return data.filter((t) => t.assignedTo === currentUser);
   })();
 
-  // "All Tickets": super admin sees everything, others see dept tickets + tickets they raised
+  // "All Tickets": super admin sees everything, others see dept tickets + tickets they raised + managed center tickets
+  const isAomUser = hasAnyRole(currentUserRole, ["Area Operations Manager", "Area Operations Manager Head"]);
   const roleFiltered = isSuperRole(currentUserRole)
     ? data
-    : data.filter((t) => deptTickets.includes(t) || t.raisedBy === currentUser);
+    : data.filter((t) => {
+        if (deptTickets.includes(t)) return true;
+        if (t.raisedBy === currentUser) return true;
+        if (t.assignedTo === currentUser) return true;
+        // AOM sees tickets from managed centers
+        if (isAomUser && managedCenters.length > 0 && managedCenters.some((c) => c.toLowerCase() === (t.center || "").toLowerCase())) return true;
+        return false;
+      });
 
   // Filter by tab
   const tabFiltered = roleFiltered.filter((t) => {

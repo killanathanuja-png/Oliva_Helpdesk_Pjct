@@ -36,6 +36,7 @@ const roleAccess: Record<string, string[]> = {
   "Administration": ["/", "/tickets", "/sla-report", "/analytics"],
   "Admin Department": ["/", "/tickets", "/sla-report", "/analytics"],
   "Helpdesk Admin": ["/", "/tickets", "/sla-report", "/analytics"],
+  "CDD L2 Manager": ["/", "/tickets", "/sla-report", "/analytics"],
   "Employee": ["/", "/tickets", "/sla-report", "/analytics"],
   "Others": ["/", "/tickets", "/sla-report", "/analytics"],
 };

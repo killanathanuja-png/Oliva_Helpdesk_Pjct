@@ -176,10 +176,27 @@ def list_tickets(
             (Ticket.center == center_name) | (Ticket.raised_by_id == current_user.id)
         ).order_by(Ticket.created_at.desc()).all()
     elif is_admin_dept:
-        # Admin Department users see all admin tickets
-        tickets = db.query(Ticket).filter(
-            Ticket.assigned_dept == "Admin Department"
-        ).order_by(Ticket.created_at.desc()).all()
+        # Admin Department users see admin tickets from their managed centers only
+        # Users with map_level_access = "Can View and Edit" see all admin tickets
+        if current_user.map_level_access == "Can View and Edit":
+            tickets = db.query(Ticket).filter(
+                Ticket.assigned_dept == "Admin Department"
+            ).order_by(Ticket.created_at.desc()).all()
+        else:
+            # Get user's managed center names
+            managed_center_names = [c.name for c in current_user.managed_centers] if current_user.managed_centers else []
+            if current_user.center_rel and current_user.center_rel.name not in managed_center_names:
+                managed_center_names.append(current_user.center_rel.name)
+            if managed_center_names:
+                tickets = db.query(Ticket).filter(
+                    Ticket.assigned_dept == "Admin Department",
+                    (Ticket.center.in_(managed_center_names)) | (Ticket.assigned_to_id == current_user.id) | (Ticket.raised_by_id == current_user.id)
+                ).order_by(Ticket.created_at.desc()).all()
+            else:
+                tickets = db.query(Ticket).filter(
+                    Ticket.assigned_dept == "Admin Department",
+                    (Ticket.assigned_to_id == current_user.id) | (Ticket.raised_by_id == current_user.id)
+                ).order_by(Ticket.created_at.desc()).all()
     elif is_clinic_manager and current_user.center_rel:
         center_name = current_user.center_rel.name
         tickets = db.query(Ticket).filter(

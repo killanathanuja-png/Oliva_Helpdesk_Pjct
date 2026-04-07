@@ -86,15 +86,15 @@ const SLAReportPage = () => {
   const [filterDept, setFilterDept] = useState("All");
   const [filterCategory, setFilterCategory] = useState("All");
   const [filterSubCategory, setFilterSubCategory] = useState("All");
-  const [datePreset, setDatePreset] = useState("This Month");
+  const [datePreset, setDatePreset] = useState("All");
   const [customStartDate, setCustomStartDate] = useState("");
   const [customEndDate, setCustomEndDate] = useState("");
   const [categoryOptions, setCategoryOptions] = useState<string[]>([]);
   const [subCategoryOptions, setSubCategoryOptions] = useState<string[]>([]);
   const [filterModule, setFilterModule] = useState("All");
-  const [tatReportView, setTatReportView] = useState<"CM Response" | "AOM Response" | "AMH Response" | "Other Dept">("CM Response");
+  const [tatReportView, setTatReportView] = useState<"" | "CM Response" | "AOM Response" | "AMH Response" | "Other Dept">("");
   // Applied filters — only update on Submit click
-  const [appliedFilters, setAppliedFilters] = useState({ tatReportView: "CM Response" as string, filterCategory: "All", filterSubCategory: "All", filterModule: "All", filterPriority: "All", filterDept: "All", datePreset: "This Month", customStartDate: "", customEndDate: "" });
+  const [appliedFilters, setAppliedFilters] = useState({ tatReportView: "" as string, filterCategory: "All", filterSubCategory: "All", filterModule: "All", filterPriority: "All", filterDept: "All", datePreset: "All", customStartDate: "", customEndDate: "" });
   const [centers, setCenters] = useState<ApiCenter[]>([]);
   const [cddTypesData, setCddTypesData] = useState<ApiCDDType[]>([]);
   const [adminMainCategories, setAdminMainCategories] = useState<AdminMainCategoryApi[]>([]);
@@ -364,6 +364,7 @@ const SLAReportPage = () => {
               onChange={(e) => setTatReportView(e.target.value as any)}
               className="px-3 py-2 rounded-lg border border-primary bg-primary/5 text-primary text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary/30 transition-shadow"
             >
+              <option value="">-- Select Report --</option>
               <option value="CM Response">TAT - CM Response</option>
               <option value="AOM Response">TAT - AOM Response</option>
               <option value="AMH Response">TAT - AMH Response</option>
@@ -449,6 +450,7 @@ const SLAReportPage = () => {
               onChange={(e) => setDatePreset(e.target.value)}
               className="px-3 py-2 rounded-lg border border-border bg-card text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 transition-shadow"
             >
+              <option value="All">-- Select Time --</option>
               <option value="This Month">This Month</option>
               <option value="Last Month">Last Month</option>
               <option value="Last 3 Months">Last 3 Months</option>
