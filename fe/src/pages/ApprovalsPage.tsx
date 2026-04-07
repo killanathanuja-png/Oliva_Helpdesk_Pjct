@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { hasAnyRole } from "@/lib/roles";
 import { tickets as dummyTickets } from "@/data/dummyData";
 import type { Ticket } from "@/data/dummyData";
-import { CheckCircle2, XCircle, Clock, Eye, ShieldCheck } from "lucide-react";
+import { CheckCircle2, XCircle, Clock, Eye, ShieldCheck, RotateCcw } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ticketsApi } from "@/lib/api";
 import type { ApiTicket } from "@/lib/api";
@@ -64,7 +64,7 @@ const ApprovalsPage = () => {
   const navigate = useNavigate();
   const [data, setData] = useState<Ticket[]>([]);
   const [loading, setLoading] = useState(true);
-  const [filterTab, setFilterTab] = useState<"pending" | "approved" | "rejected" | "all">("pending");
+  const [filterTab, setFilterTab] = useState<"pending" | "approved" | "rejected" | "followup" | "all">("pending");
  
   const storedUser = localStorage.getItem("oliva_user");
   const parsedUser = storedUser ? JSON.parse(storedUser) : null;
@@ -81,12 +81,17 @@ const ApprovalsPage = () => {
       const allTickets = apiTickets.map(apiToTicket);
       setData(allTickets.filter((t) => {
         if (!t.approvalRequired) return false;
+        // Already processed tickets (Approved/Rejected/Follow Up) visible to all relevant roles
+        const isProcessed = t.approvalStatus === "Approved" || t.approvalStatus === "Rejected" || t.status === "Follow Up";
         if (isFinanceRole) {
-          // Finance sees aom_finance tickets that are pending finance approval (approver = "Finance Team")
-          return t.approvalType === "aom_finance" && t.approver === "Finance Team";
+          return t.approvalType === "aom_finance" && (t.approver === "Finance Team" || isProcessed);
         }
         if (isAomRole) {
-          // AOM sees tickets where they are the current approver (not already passed to Finance)
+          if (isProcessed) {
+            // Show processed tickets from managed centers or where user was approver
+            const isManagedCenter = managedCenters.length > 0 && managedCenters.includes(t.center);
+            return t.approver === currentUserName || isManagedCenter;
+          }
           if (t.approver === "Finance Team") return false;
           const isApprover = t.approver === currentUserName;
           const isManagedCenter = managedCenters.length > 0 && managedCenters.includes(t.center);
@@ -109,12 +114,14 @@ const ApprovalsPage = () => {
     if (filterTab === "pending") return t.approvalStatus === "Pending" || !t.approvalStatus;
     if (filterTab === "approved") return t.approvalStatus === "Approved";
     if (filterTab === "rejected") return t.approvalStatus === "Rejected";
+    if (filterTab === "followup") return t.status === "Follow Up";
     return true;
   });
- 
+
   const pendingCount = data.filter((t) => t.approvalStatus === "Pending" || !t.approvalStatus).length;
   const approvedCount = data.filter((t) => t.approvalStatus === "Approved").length;
   const rejectedCount = data.filter((t) => t.approvalStatus === "Rejected").length;
+  const followUpCount = data.filter((t) => t.status === "Follow Up").length;
  
   if (loading) {
     return (
@@ -134,6 +141,7 @@ const ApprovalsPage = () => {
           { key: "pending" as const, label: "Pending", count: pendingCount, icon: Clock },
           { key: "approved" as const, label: "Approved", count: approvedCount, icon: CheckCircle2 },
           { key: "rejected" as const, label: "Rejected", count: rejectedCount, icon: XCircle },
+          { key: "followup" as const, label: "Follow Up", count: followUpCount, icon: RotateCcw },
           { key: "all" as const, label: "All", count: data.length, icon: ShieldCheck },
         ]).map((tab) => (
           <button

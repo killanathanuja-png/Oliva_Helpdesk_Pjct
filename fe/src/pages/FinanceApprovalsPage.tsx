@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import type { Ticket } from "@/data/dummyData";
-import { CheckCircle2, XCircle, Clock, Eye, ShieldCheck, DollarSign } from "lucide-react";
+import { CheckCircle2, XCircle, Clock, Eye, ShieldCheck, DollarSign, RotateCcw } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ticketsApi } from "@/lib/api";
 import type { ApiTicket } from "@/lib/api";
@@ -62,15 +62,16 @@ const FinanceApprovalsPage = () => {
   const navigate = useNavigate();
   const [data, setData] = useState<Ticket[]>([]);
   const [loading, setLoading] = useState(true);
-  const [filterTab, setFilterTab] = useState<"pending" | "approved" | "rejected" | "all">("pending");
+  const [filterTab, setFilterTab] = useState<"pending" | "approved" | "rejected" | "followup" | "all">("pending");
 
   const fetchTickets = useCallback(async () => {
     try {
       const apiTickets = await ticketsApi.list();
       const allTickets = apiTickets.map(apiToTicket);
-      // Show only Zenoti-Finance tickets where AOM has approved and it's pending Finance approval
+      // Show Zenoti-Finance tickets (pending, approved, rejected, follow up)
       setData(allTickets.filter((t) =>
-        t.approvalRequired && t.approvalType === "aom_finance" && t.approver === "Finance Team"
+        t.approvalRequired && t.approvalType === "aom_finance" &&
+        (t.approver === "Finance Team" || t.approvalStatus === "Approved" || t.approvalStatus === "Rejected" || t.status === "Follow Up")
       ));
     } catch {
       setData([]);
@@ -87,12 +88,14 @@ const FinanceApprovalsPage = () => {
     if (filterTab === "pending") return t.approvalStatus === "Pending" || !t.approvalStatus;
     if (filterTab === "approved") return t.approvalStatus === "Approved";
     if (filterTab === "rejected") return t.approvalStatus === "Rejected";
+    if (filterTab === "followup") return t.status === "Follow Up";
     return true;
   });
 
   const pendingCount = data.filter((t) => t.approvalStatus === "Pending" || !t.approvalStatus).length;
   const approvedCount = data.filter((t) => t.approvalStatus === "Approved").length;
   const rejectedCount = data.filter((t) => t.approvalStatus === "Rejected").length;
+  const followUpCount = data.filter((t) => t.status === "Follow Up").length;
 
   if (loading) {
     return (
@@ -120,6 +123,7 @@ const FinanceApprovalsPage = () => {
           { key: "pending" as const, label: "Pending", count: pendingCount, icon: Clock },
           { key: "approved" as const, label: "Approved", count: approvedCount, icon: CheckCircle2 },
           { key: "rejected" as const, label: "Rejected", count: rejectedCount, icon: XCircle },
+          { key: "followup" as const, label: "Follow Up", count: followUpCount, icon: RotateCcw },
           { key: "all" as const, label: "All", count: data.length, icon: ShieldCheck },
         ]).map((tab) => (
           <button
