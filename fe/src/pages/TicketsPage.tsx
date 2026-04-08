@@ -122,7 +122,7 @@ const TicketsPage = () => {
   const currentUser = parsedUser?.name || "User";
   const currentUserRole = parsedUser?.role || "User";
 
-  const defaultTab = isSuperRole(currentUserRole) ? "all" : "depttickets";
+  const defaultTab = "all";
   const [activeTab, setActiveTab] = useState<TabKey>(tabFromUrl || defaultTab);
   const [editingTicket, setEditingTicket] = useState<Ticket | null>(null);
   const currentUserDept = parsedUser?.department || "";
@@ -459,8 +459,8 @@ const TicketsPage = () => {
                 return {
                   "Ticket ID": t.id,
                   "Description": t.description || t.title,
-                  [isCddUser ? "Type" : "Category"]: t.category,
-                  [isCddUser ? "Category" : "Sub-Category"]: t.subCategory || "",
+                  [isCddUser ? "Type" : "Category"]: t.assignedDept === "Admin Department" ? ((t as any).zenotiChildCategory || t.category) : t.category,
+                  [isCddUser ? "Category" : "Sub-Category"]: t.assignedDept === "Admin Department" ? ((t as any).zenotiDescription || t.subCategory || "") : (t.subCategory || ""),
                   "Priority": t.priority,
                   "Status": t.status,
                   "Raised By": t.raisedBy,
@@ -597,8 +597,8 @@ const TicketsPage = () => {
                 </td>
                 {isCddUser && <td className="px-4 py-3 text-xs text-muted-foreground">{(t as any).cddClientCode || "—"}</td>}
                 {isCddUser && <td className="px-4 py-3 text-xs text-muted-foreground">{(t as any).cddClientName || "—"}</td>}
-                <td className="px-4 py-3 text-xs text-muted-foreground truncate max-w-[120px]">{t.category || "—"}</td>
-                <td className="px-4 py-3 text-xs text-muted-foreground truncate max-w-[120px]">{t.subCategory || "—"}</td>
+                <td className="px-4 py-3 text-xs text-muted-foreground truncate max-w-[120px]">{t.assignedDept === "Admin Department" ? ((t as any).zenotiChildCategory || t.category || "—") : (t.category || "—")}</td>
+                <td className="px-4 py-3 text-xs text-muted-foreground truncate max-w-[120px]">{t.assignedDept === "Admin Department" ? ((t as any).zenotiDescription || t.subCategory || "—") : (t.subCategory || "—")}</td>
                 {isZenotiRole && <td className="px-4 py-3 text-xs text-muted-foreground truncate max-w-[120px]">{(t as any).zenotiChildCategory || "—"}</td>}
                 {isCddUser && <td className="px-4 py-3 text-xs text-muted-foreground">{(t as any).serviceName || "—"}</td>}
                 {isCddUser && <td className="px-4 py-3 text-xs text-muted-foreground">{(t as any).crtName || "—"}</td>}

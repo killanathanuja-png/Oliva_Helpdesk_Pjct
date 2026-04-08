@@ -8,7 +8,7 @@ const ADMIN_PATHS = [
   "/", "/tickets", "/sla-report", "/analytics",
   "/admin/users", "/admin/departments", "/admin/roles",
   "/admin/centers", "/admin/sla", "/admin/categories",
-  "/admin/subcategories", "/admin/child-categories", "/admin/service-titles", "/admin/login-history", "/admin/designations",
+  "/admin/subcategories", "/admin/child-categories", "/admin/admin-sub-categories", "/admin/service-titles", "/admin/login-history", "/admin/designations",
 ];
 
 // Which paths each role can access
@@ -79,7 +79,7 @@ export function getUserRole(): AppRole {
 const MASTER_PATHS = [
   "/admin/users", "/admin/departments", "/admin/centers",
   "/admin/categories", "/admin/subcategories", "/admin/child-categories",
-  "/admin/roles", "/admin/cdd-types",
+  "/admin/admin-sub-categories", "/admin/roles", "/admin/cdd-types",
 ];
 
 function getUserMapLevelAccess(): string {

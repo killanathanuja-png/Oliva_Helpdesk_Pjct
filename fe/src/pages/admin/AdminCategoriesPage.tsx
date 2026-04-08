@@ -208,7 +208,7 @@ const AdminCategoriesPage = () => {
 
   const handleSave = async () => {
     const missing: string[] = [];
-    if (!form.category) missing.push(_isAdminDept ? "Main Category Name" : _isCddAdmin ? "Type Name" : "Main Category Name");
+    if (!form.category) missing.push(_isAdminDept ? "Category Name" : _isCddAdmin ? "Type Name" : "Main Category Name");
     if (missing.length > 0) { setFormError(`Please fill: ${missing.join(", ")}`); return; }
     setFormError("");
 
@@ -220,16 +220,16 @@ const AdminCategoriesPage = () => {
           if (numericId) {
             const updated = await adminMastersApi.updateMainCategory(numericId, { name: form.category });
             setData((prev) => prev.map((c) => c.id === editingId ? { ...c, name: updated.name } : c));
-            showToast("Main Category updated successfully");
+            showToast("Category updated successfully");
           }
         } else {
           const created = await adminMastersApi.createMainCategory({ name: form.category });
           setIdMap((prev) => ({ ...prev, [`AMC${created.id}`]: created.id }));
           setData((prev) => [...prev, { id: `AMC${created.id}`, name: created.name, module: "", department: "Administration", description: "", subcategoryCount: 0, status: "Active" }]);
-          showToast("Main Category created successfully");
+          showToast("Category created successfully");
         }
       } catch {
-        showToast(editingId ? "Failed to update Main Category" : "Failed to create Main Category", "error");
+        showToast(editingId ? "Failed to update Category" : "Failed to create Category", "error");
       }
       setForm({ categoryCode: "", category: "", module: "" });
       setEditingId(null);
@@ -317,7 +317,7 @@ const AdminCategoriesPage = () => {
       } catch { /* fall through */ }
     }
     setData((prev) => prev.map((c) => c.id === deleteConfirm ? { ...c, status: "Inactive" as const } : c));
-    showToast(_isAdminDept ? "Main Category deleted successfully" : "Category deleted successfully");
+    showToast(_isAdminDept ? "Category deleted successfully" : "Category deleted successfully");
     setDeleteConfirm(null);
   };
 
@@ -343,8 +343,8 @@ const AdminCategoriesPage = () => {
         <div className="shrink-0 flex items-center gap-3">
           <button onClick={() => window.history.back()} className="p-2 rounded-lg border border-border hover:bg-muted transition-colors" title="Back"><ArrowLeft className="h-4 w-4" /></button>
           <div>
-            <h1 className="text-xl font-bold font-display">{_isAdminDept ? "Main Category Management" : _isCddAdmin ? "Type Management" : "Category Management"}</h1>
-            <p className="text-xs text-muted-foreground mt-0.5">Total {_isAdminDept ? "Main Categories" : _isCddAdmin ? "Types" : "Categories"}: <span className="font-semibold text-foreground">{activeData.length}</span></p>
+            <h1 className="text-xl font-bold font-display">{_isAdminDept ? "Category Management" : _isCddAdmin ? "Type Management" : "Category Management"}</h1>
+            <p className="text-xs text-muted-foreground mt-0.5">Total {_isAdminDept ? "Categories" : _isCddAdmin ? "Types" : "Categories"}: <span className="font-semibold text-foreground">{activeData.length}</span></p>
           </div>
         </div>
         <div className="relative flex-1 max-w-sm">
@@ -378,7 +378,7 @@ const AdminCategoriesPage = () => {
             onClick={() => { setEditingId(null); setForm({ categoryCode: "", category: "", module: "" }); setFormError(""); setShowModal(true); }}
             className="px-4 py-2.5 rounded-lg gradient-primary text-primary-foreground text-sm font-medium hover:opacity-90 transition-opacity"
           >
-            + {_isAdminDept ? "Add Main Category" : _isCddAdmin ? "Add Type" : "Add Category"}
+            + {_isAdminDept ? "Add Category" : _isCddAdmin ? "Add Type" : "Add Category"}
           </button>
         </div>
       </div>
@@ -387,8 +387,7 @@ const AdminCategoriesPage = () => {
           <thead>
             <tr className="text-left text-[11px] uppercase tracking-wider text-muted-foreground border-b border-border bg-muted/30 whitespace-nowrap">
               {!_isCddAdmin && !_isAdminDept && <th className="px-4 py-3 font-semibold">Main Category Code</th>}
-              <th className="px-4 py-3 font-semibold">{_isAdminDept ? "Main Category Name" : _isCddAdmin ? "Type" : "Main Category Name"}</th>
-              {!_isCddAdmin && !_isAdminDept && <th className="px-4 py-3 font-semibold">Module</th>}
+              <th className="px-4 py-3 font-semibold">{_isAdminDept ? "Category Name" : _isCddAdmin ? "Type" : "Main Category Name"}</th>
               {!_isCddAdmin && !_isAdminDept && <th className="px-4 py-3 font-semibold">Status</th>}
               <th className="px-4 py-3 font-semibold">Actions</th>
             </tr>
@@ -398,7 +397,6 @@ const AdminCategoriesPage = () => {
               <tr key={c.id} className="border-b border-border last:border-0 hover:bg-muted/20 transition-colors">
                 {!_isCddAdmin && !_isAdminDept && <td className="px-4 py-3 font-mono text-xs text-primary font-semibold">{c.id}</td>}
                 <td className="px-4 py-3 text-xs font-medium">{c.name}</td>
-                {!_isCddAdmin && !_isAdminDept && <td className="px-4 py-3 text-xs text-muted-foreground">{c.module || ""}</td>}
                 {!_isCddAdmin && !_isAdminDept && <td className="px-4 py-3">
                   <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${c.status === "Active" ? "bg-success/10 text-success" : "bg-muted text-muted-foreground"}`}>{c.status}</span>
                 </td>}
@@ -423,7 +421,7 @@ const AdminCategoriesPage = () => {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={handleCancel}>
           <div className="bg-card rounded-xl shadow-xl border border-border w-full max-w-md mx-4 animate-fade-in" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between px-6 py-4 border-b border-border">
-              <h2 className="text-lg font-bold font-display">{editingId ? (_isAdminDept ? "Edit Main Category" : _isCddAdmin ? "Edit Type" : "Edit Category") : (_isAdminDept ? "Add Main Category" : _isCddAdmin ? "Add Type" : "Add Category")}</h2>
+              <h2 className="text-lg font-bold font-display">{editingId ? (_isAdminDept ? "Edit Category" : _isCddAdmin ? "Edit Type" : "Edit Category") : (_isAdminDept ? "Add Category" : _isCddAdmin ? "Add Type" : "Add Category")}</h2>
               <button onClick={handleCancel} className="text-muted-foreground hover:text-foreground transition-colors">
                 <X className="h-5 w-5" />
               </button>
@@ -437,7 +435,7 @@ const AdminCategoriesPage = () => {
                 </div>
               )}
               <div>
-                <label className="block text-xs font-medium text-muted-foreground mb-1.5">{_isAdminDept ? "Main Category Name" : _isCddAdmin ? "Type Name" : "Main Category Name"} <span className="text-destructive">*</span></label>
+                <label className="block text-xs font-medium text-muted-foreground mb-1.5">{_isAdminDept ? "Category Name" : _isCddAdmin ? "Type Name" : "Main Category Name"} <span className="text-destructive">*</span></label>
                 <ComboBox
                   value={form.category}
                   onChange={(val) => setForm({ ...form, category: val })}
@@ -467,7 +465,7 @@ const AdminCategoriesPage = () => {
                 Cancel
               </button>
               <button onClick={handleSave} className="px-5 py-2 rounded-lg gradient-primary text-primary-foreground text-sm font-medium hover:opacity-90 transition-opacity">
-                {editingId ? (_isAdminDept ? "Update Main Category" : _isCddAdmin ? "Update Type" : "Update Category") : (_isAdminDept ? "Create Main Category" : _isCddAdmin ? "Create Type" : "Create Category")}
+                {editingId ? (_isAdminDept ? "Update Category" : _isCddAdmin ? "Update Type" : "Update Category") : (_isAdminDept ? "Create Category" : _isCddAdmin ? "Create Type" : "Create Category")}
               </button>
             </div>
           </div>

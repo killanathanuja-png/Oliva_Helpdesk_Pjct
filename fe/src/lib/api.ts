@@ -544,6 +544,7 @@ export const adminMastersApi = {
   createSubCategory: (data: { name: string; module_id: number }) => request<any>("/admin-masters/sub-categories", { method: "POST", body: JSON.stringify(data) }),
   updateSubCategory: (id: number, data: { name: string; module_id: number }) => request<any>(`/admin-masters/sub-categories/${id}`, { method: "PUT", body: JSON.stringify(data) }),
   deleteSubCategory: (id: number) => request<void>(`/admin-masters/sub-categories/${id}`, { method: "DELETE" }),
+  listChildCategories: () => request<AdminChildCategoryApi[]>("/admin-masters/child-categories"),
   createChildCategory: (data: { name: string; sub_category_id: number }) => request<any>("/admin-masters/child-categories", { method: "POST", body: JSON.stringify(data) }),
   updateChildCategory: (id: number, data: { name: string; sub_category_id: number }) => request<any>(`/admin-masters/child-categories/${id}`, { method: "PUT", body: JSON.stringify(data) }),
   deleteChildCategory: (id: number) => request<void>(`/admin-masters/child-categories/${id}`, { method: "DELETE" }),

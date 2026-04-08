@@ -71,6 +71,7 @@ const allNavItems = [
       { label: "Categories", icon: Layers, path: "/admin/categories" },
       { label: "Subcategory", icon: GitBranch, path: "/admin/subcategories" },
       { label: "Child Category", icon: GitBranch, path: "/admin/child-categories" },
+      { label: "Sub Category Master", icon: GitBranch, path: "/admin/admin-sub-categories" },
       { label: "Login History", icon: Clock, path: "/admin/login-history" },
     ],
   },
@@ -183,7 +184,13 @@ const AppLayout = ({ children }: AppLayoutProps) => {
     return isPathAllowed(item.path!);
   }).map((item) => {
     if (item.children) {
-      return { ...item, children: item.children.filter((c) => isPathAllowed(c.path)) };
+      const isQAUser = userRole.toLowerCase().includes("quality") || userDepartment.toLowerCase().includes("quality");
+      return { ...item, children: item.children.filter((c) => {
+        if (!isPathAllowed(c.path)) return false;
+        if ((isQAUser || isCddUser) && c.label === "Child Category") return false;
+        if (!isAdminDeptUser && c.label === "Sub Category Master") return false;
+        return true;
+      }) };
     }
     return item;
   });
@@ -249,9 +256,10 @@ const AppLayout = ({ children }: AppLayoutProps) => {
                       // For CDD users, rename labels
                       let displayLabel = child.label;
                       if (isAdminDeptUser) {
-                        if (child.label === "Categories") displayLabel = "Main Category";
+                        if (child.label === "Categories") displayLabel = "Category";
                         else if (child.label === "Subcategory") displayLabel = "Module";
-                        else if (child.label === "Child Category") displayLabel = "Sub Category";
+                        else if (child.label === "Child Category") displayLabel = "Main Category";
+                        else if (child.label === "Sub Category Master") displayLabel = "Sub Category";
                         else if (child.label === "SLA Report") displayLabel = "TAT Report";
                         else if (child.label === "SLA Analytics") displayLabel = "TAT Analytics";
                       } else if (isCddUser) {
@@ -333,9 +341,10 @@ const AppLayout = ({ children }: AppLayoutProps) => {
               {location.pathname === "/admin/departments" && "Masters / Departments"}
               {location.pathname === "/admin/roles" && "Masters / Roles"}
               {location.pathname === "/admin/centers" && "Masters / Centers"}
-              {location.pathname === "/admin/categories" && (isAdminDeptUser ? "Masters / Main Category" : isCddUser ? "Masters / Type" : "Masters / Categories")}
+              {location.pathname === "/admin/categories" && (isAdminDeptUser ? "Masters / Category" : isCddUser ? "Masters / Type" : "Masters / Categories")}
               {location.pathname === "/admin/subcategories" && (isAdminDeptUser ? "Masters / Module" : isCddUser ? "Masters / Category" : "Masters / Subcategory")}
-              {location.pathname === "/admin/child-categories" && (isAdminDeptUser ? "Masters / Sub Category" : "Masters / Child Category")}
+              {location.pathname === "/admin/child-categories" && (isAdminDeptUser ? "Masters / Main Category" : "Masters / Child Category")}
+              {location.pathname === "/admin/admin-sub-categories" && "Masters / Sub Category"}
               {location.pathname === "/admin/service-titles" && "Masters / Service Titles"}
               {location.pathname === "/admin/sla" && "Masters / SLA Config"}
               {location.pathname === "/admin/login-history" && "Masters / Login History"}

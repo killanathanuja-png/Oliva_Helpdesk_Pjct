@@ -599,12 +599,12 @@ const TicketDetailPage = () => {
           <Field label="Raised By" value={`${ticket.raisedBy}${ticket.raisedByDept ? ` (${ticket.raisedByDept})` : ""}`} icon={User} />
           <Field label="Assigned To" value={`${ticket.assignedTo}${ticket.assignedDept ? ` (${ticket.assignedDept})` : ""}`} icon={Building2} />
           <Field label="Department" value={ticket.assignedDept} icon={Building2} />
-          {!isZenoti && <Field label={ticket.assignedDept === "Admin Department" ? "Main Category" : currentUserDept?.toUpperCase() === "CDD" ? "Type" : "Category"} value={ticket.category} icon={Layers} />}
+          {!isZenoti && <Field label={ticket.assignedDept === "Admin Department" ? "Category" : currentUserDept?.toUpperCase() === "CDD" ? "Type" : "Category"} value={ticket.category} icon={Layers} />}
           {isZenoti && ticket.zenotiMainCategory && <Field label="Category" value={ticket.zenotiMainCategory} icon={Layers} />}
           {!isZenoti && <Field label={ticket.assignedDept === "Admin Department" ? "Module" : currentUserDept?.toUpperCase() === "CDD" ? "Category" : "Sub Category"} value={ticket.subCategory} icon={Tag} />}
           {isZenoti && ticket.zenotiSubCategory && <Field label="Sub Category" value={ticket.zenotiSubCategory} icon={Tag} />}
-          {!isZenoti && ticket.assignedDept === "Admin Department" && ticket.zenotiChildCategory && <Field label="Sub Category" value={ticket.zenotiChildCategory} icon={Tag} />}
-          {!isZenoti && ticket.assignedDept === "Admin Department" && ticket.zenotiDescription && <Field label="Child Category" value={ticket.zenotiDescription} icon={Tag} />}
+          {!isZenoti && ticket.assignedDept === "Admin Department" && ticket.zenotiChildCategory && <Field label="Main Category" value={ticket.zenotiChildCategory} icon={Tag} />}
+          {!isZenoti && ticket.assignedDept === "Admin Department" && ticket.zenotiDescription && <Field label="Sub Category" value={ticket.zenotiDescription} icon={Tag} />}
           {isZenoti && ticket.zenotiChildCategory && <Field label="Child Category" value={ticket.zenotiChildCategory} icon={Tag} />}
           {isZenoti && <Field label="Priority" value={ticket.priority} />}
           {!isZenoti && <Field label="Center / Location" value={ticket.center} icon={MapPin} />}

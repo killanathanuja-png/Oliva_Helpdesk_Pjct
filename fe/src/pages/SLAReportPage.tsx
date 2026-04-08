@@ -450,7 +450,7 @@ const SLAReportPage = () => {
           </button>
           <button
             onClick={() => {
-              const headers = ["Ticket ID", "Location", isAdminDeptUser ? "Main Category" : "Category", isAdminDeptUser ? "Module" : "Sub-Category", "Assigned To", "Created Time", "Resolved Time", "TAT", "SLA", "Status"];
+              const headers = ["Ticket ID", "Location", isAdminDeptUser ? "Category" : "Category", isAdminDeptUser ? "Module" : "Sub-Category", "Assigned To", "Created Time", "Resolved Time", "TAT", "SLA", "Status"];
               const csvRows = [headers.join(",")];
               for (const t of filtered) {
                 const isResolved = t.status === "Resolved" || t.status === "Closed" || t.status === "Final Closed";
@@ -689,7 +689,7 @@ const SLAReportPage = () => {
                   <tr className="bg-primary text-white text-[11px] uppercase tracking-wider">
                     <th className="px-4 py-3 text-left font-semibold">Ticket ID</th>
                     <th className="px-4 py-3 text-left font-semibold">Location</th>
-                    <th className="px-4 py-3 text-left font-semibold">{isAdminDeptUser ? "Main Category" : "Category"}</th>
+                    <th className="px-4 py-3 text-left font-semibold">{isAdminDeptUser ? "Category" : "Category"}</th>
                     <th className="px-4 py-3 text-left font-semibold">{isAdminDeptUser ? "Module" : "Sub-Category"}</th>
                     <th className="px-4 py-3 text-left font-semibold">Assigned To</th>
                     <th className="px-4 py-3 text-center font-semibold">Created Time</th>

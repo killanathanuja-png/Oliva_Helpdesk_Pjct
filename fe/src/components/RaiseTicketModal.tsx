@@ -339,6 +339,7 @@ const RaiseTicketModal = ({ onClose, onSuccess, editMode, editTicket, userRole, 
   const cmHiddenDepts = ["CDD", "Clinic", "Clinic Operations"];
   const departmentOptions = [...apiDepartments.map((d) => d.name).filter((name) => {
     if (!canSeeAdminDept && name === "Admin Department") return false;
+    if (!canSeeAdminDept && name === "Administration") return false;
     if (isClinicManagerRole && cmHiddenDepts.includes(name)) return false;
     return true;
   }).sort(), "Others"];
@@ -474,13 +475,15 @@ const RaiseTicketModal = ({ onClose, onSuccess, editMode, editTicket, userRole, 
     setAssignedCenter("");
     setCddCmEmail("");
     setCddAomEmail("");
-    // Auto-set Main Category to HELPDESK for center mail users selecting Admin Department
+    // Auto-set Category=FM Call, Module=HELPDESK for center mail users selecting Admin Department
     if (val === "Admin Department" && isHelpdeskAdmin) {
-      setAdminMainCategory("HELPDESK");
+      setAdminMainCategory("FM Call");
+      setAdminModule("HELPDESK");
     } else {
       setAdminMainCategory("");
+      setAdminModule("");
     }
-    setAdminModule(""); setAdminSubCategory(""); setAdminChildCategory("");
+    setAdminSubCategory(""); setAdminChildCategory("");
     if (val !== "Zenoti") {
       setZenotiFields(emptyZenotiFields);
       setShowAlert(false);
@@ -710,7 +713,7 @@ const RaiseTicketModal = ({ onClose, onSuccess, editMode, editTicket, userRole, 
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className={labelClass}>Main Category <span className="text-destructive">*</span></label>
+                    <label className={labelClass}>Module <span className="text-destructive">*</span></label>
                     {isHelpdeskAdmin ? (
                       <input
                         type="text"
@@ -723,25 +726,25 @@ const RaiseTicketModal = ({ onClose, onSuccess, editMode, editTicket, userRole, 
                         value={adminMainCategory}
                         onChange={(val) => { setAdminMainCategory(val); setAdminModule(""); setAdminSubCategory(""); setAdminChildCategory(""); }}
                         options={adminMainCategoryOptions}
-                        placeholder="Select main category"
+                        placeholder="Select module"
                       />
                     )}
                   </div>
                   <div>
-                    <label className={labelClass}>Module <span className="text-destructive">*</span></label>
+                    <label className={labelClass}>Main Category <span className="text-destructive">*</span></label>
                     <ComboBox
-                      value={adminModule}
-                      onChange={(val) => { setAdminModule(val); setAdminSubCategory(""); setAdminChildCategory(""); }}
-                      options={adminModuleOptions}
-                      placeholder="Select module"
+                      value={adminSubCategory}
+                      onChange={(val) => { setAdminSubCategory(val); setAdminChildCategory(""); }}
+                      options={adminSubCategoryOptions}
+                      placeholder="Select main category"
                     />
                   </div>
                   <div>
                     <label className={labelClass}>Sub Category</label>
                     <ComboBox
-                      value={adminSubCategory}
-                      onChange={(val) => { setAdminSubCategory(val); setAdminChildCategory(""); }}
-                      options={adminSubCategoryOptions}
+                      value={adminChildCategory}
+                      onChange={(val) => setAdminChildCategory(val)}
+                      options={adminChildCategoryOptions}
                       placeholder="Select sub category"
                     />
                   </div>

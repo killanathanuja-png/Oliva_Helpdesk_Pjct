@@ -208,7 +208,7 @@ const AdminSubcategoriesPage = () => {
   const handleSave = async () => {
     const missing: string[] = [];
     if (!form.subcategory) missing.push(_isAdminDept ? "Module Name" : _isCddAdmin ? "Category Name" : "Sub Category Name");
-    if (!form.category) missing.push(_isAdminDept ? "Main Category" : _isCddAdmin ? "Type" : "Main Category");
+    if (!form.category) missing.push(_isAdminDept ? "Category" : _isCddAdmin ? "Type" : "Main Category");
     if (missing.length > 0) { setFormError(`Please fill: ${missing.join(", ")}`); return; }
     setFormError("");
 
@@ -216,7 +216,7 @@ const AdminSubcategoriesPage = () => {
       // Admin Department: create/update module via admin_masters API
       try {
         const selectedMC = apiCategories.find((c) => c.name === form.category);
-        if (!selectedMC) { setFormError("Please select a valid Main Category"); return; }
+        if (!selectedMC) { setFormError("Please select a valid Category"); return; }
         if (editingId) {
           const numericId = idMap[editingId];
           if (numericId) {
@@ -389,8 +389,7 @@ const AdminSubcategoriesPage = () => {
             <tr className="text-left text-[11px] uppercase tracking-wider text-muted-foreground border-b border-border bg-muted/30 whitespace-nowrap">
               {!_isCddAdmin && !_isAdminDept && <th className="px-4 py-3 font-semibold">Sub Category Code</th>}
               <th className="px-4 py-3 font-semibold">{_isAdminDept ? "Module Name" : _isCddAdmin ? "Category" : "Sub Category Name"}</th>
-              <th className="px-4 py-3 font-semibold">{_isAdminDept ? "Main Category" : "Main Category"}</th>
-              {!_isCddAdmin && !_isAdminDept && <th className="px-4 py-3 font-semibold">Module</th>}
+              <th className="px-4 py-3 font-semibold">{_isAdminDept ? "Category" : _isCddAdmin ? "Type" : "Main Category"}</th>
               {!_isCddAdmin && !_isAdminDept && <th className="px-4 py-3 font-semibold">Status</th>}
               <th className="px-4 py-3 font-semibold">Actions</th>
             </tr>
@@ -401,7 +400,6 @@ const AdminSubcategoriesPage = () => {
                 {!_isCddAdmin && !_isAdminDept && <td className="px-4 py-3 font-mono text-xs text-primary font-semibold">{s.id}</td>}
                 <td className="px-4 py-3 text-xs font-medium">{s.name}</td>
                 <td className="px-4 py-3 text-xs text-muted-foreground">{s.category}</td>
-                {!_isCddAdmin && !_isAdminDept && <td className="px-4 py-3 text-xs text-muted-foreground">{s.module || ""}</td>}
                 {!_isCddAdmin && !_isAdminDept && <td className="px-4 py-3">
                   <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${s.status === "Active" ? "bg-success/10 text-success" : "bg-muted text-muted-foreground"}`}>{s.status}</span>
                 </td>}
@@ -444,8 +442,8 @@ const AdminSubcategoriesPage = () => {
                 <ComboBox value={form.subcategory} onChange={(val) => setForm({ ...form, subcategory: val })} options={[]} placeholder={_isAdminDept ? "Enter module name" : _isCddAdmin ? "Enter category name" : "Type subcategory name"} allowCreate />
               </div>
               <div>
-                <label className="block text-xs font-medium text-muted-foreground mb-1.5">{_isAdminDept ? "Main Category" : _isCddAdmin ? "Type" : "Main Category"} <span className="text-destructive">*</span></label>
-                <ComboBox value={form.category} onChange={handleCategoryChange} options={categoryOptions} placeholder={_isAdminDept ? "Select main category" : _isCddAdmin ? "Select type" : "Select main category"} allowCreate />
+                <label className="block text-xs font-medium text-muted-foreground mb-1.5">{_isAdminDept ? "Category" : _isCddAdmin ? "Type" : "Main Category"} <span className="text-destructive">*</span></label>
+                <ComboBox value={form.category} onChange={handleCategoryChange} options={categoryOptions} placeholder={_isAdminDept ? "Select category" : _isCddAdmin ? "Select type" : "Select main category"} allowCreate />
               </div>
               {!_isCddAdmin && !_isAdminDept && (
                 <div>

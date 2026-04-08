@@ -193,7 +193,7 @@ const AdminChildCategoriesPage = () => {
   };
 
   const handleSave = async () => {
-    if (!form.childName.trim()) { setFormError(_isAdminDept ? "Please fill: Sub Category Name" : "Please fill: Child Category Name"); return; }
+    if (!form.childName.trim()) { setFormError(_isAdminDept ? "Please fill: Main Category Name" : "Please fill: Child Category Name"); return; }
     setFormError("");
 
     if (_isAdminDept) {
@@ -213,16 +213,16 @@ const AdminChildCategoriesPage = () => {
           if (numericId) {
             const updated = await adminMastersApi.updateSubCategory(numericId, { name: form.childName, module_id: moduleId });
             setData((prev) => prev.map((c) => c.id === editingId ? { ...c, name: updated.name, subcategory: form.subcategory } : c));
-            showToast("Sub Category updated successfully");
+            showToast("Main Category updated successfully");
           }
         } else {
           const created = await adminMastersApi.createSubCategory({ name: form.childName, module_id: moduleId });
           setIdMap((prev) => ({ ...prev, [`AMS${created.id}`]: created.id }));
           setData((prev) => [...prev, { id: `AMS${created.id}`, name: created.name, subcategory: form.subcategory, category: form.category, module: "", status: "Active" }]);
-          showToast("Sub Category created successfully");
+          showToast("Main Category created successfully");
         }
       } catch {
-        showToast(editingId ? "Failed to update Sub Category" : "Failed to create Sub Category", "error");
+        showToast(editingId ? "Failed to update Main Category" : "Failed to create Main Category", "error");
       }
       setShowModal(false);
       setEditingId(null);
@@ -283,7 +283,7 @@ const AdminChildCategoriesPage = () => {
       } catch { /* fall through */ }
     }
     setData((prev) => prev.map((c) => c.id === deleteConfirm ? { ...c, status: "Inactive" as const } : c));
-    showToast(_isAdminDept ? "Sub Category deleted successfully" : "Child Category deleted successfully");
+    showToast(_isAdminDept ? "Main Category deleted successfully" : "Child Category deleted successfully");
     setDeleteConfirm(null);
   };
 
@@ -305,7 +305,7 @@ const AdminChildCategoriesPage = () => {
         <div className="shrink-0 flex items-center gap-3">
           <button onClick={() => window.history.back()} className="p-2 rounded-lg border border-border hover:bg-muted transition-colors" title="Back"><ArrowLeft className="h-4 w-4" /></button>
           <div>
-            <h1 className="text-xl font-bold font-display">{_isAdminDept ? "Sub Category Management" : "Child Category Management"}</h1>
+            <h1 className="text-xl font-bold font-display">{_isAdminDept ? "Main Category Management" : "Child Category Management"}</h1>
             <p className="text-xs text-muted-foreground mt-0.5">Total: <span className="font-semibold text-foreground">{activeData.length}</span></p>
           </div>
         </div>
@@ -335,7 +335,7 @@ const AdminChildCategoriesPage = () => {
           </button>}
           <button onClick={() => { setEditingId(null); setForm({ ...emptyForm }); setFormError(""); setShowModal(true); }}
             className="px-4 py-2.5 rounded-lg gradient-primary text-primary-foreground text-sm font-medium hover:opacity-90 transition-opacity">
-            + {_isAdminDept ? "Add Sub Category" : "Add Child Category"}
+            + {_isAdminDept ? "Add Main Category" : "Add Child Category"}
           </button>
         </div>
       </div>
@@ -345,10 +345,9 @@ const AdminChildCategoriesPage = () => {
           <thead>
             <tr className="text-left text-[11px] uppercase tracking-wider text-muted-foreground border-b border-border bg-muted/30 whitespace-nowrap">
               {!_isAdminDept && <th className="px-4 py-3 font-semibold">Child Category Code</th>}
-              <th className="px-4 py-3 font-semibold">{_isAdminDept ? "Sub Category Name" : "Child Category Name"}</th>
+              <th className="px-4 py-3 font-semibold">{_isAdminDept ? "Main Category Name" : "Child Category Name"}</th>
               <th className="px-4 py-3 font-semibold">{_isAdminDept ? "Module" : "Sub Category Name"}</th>
-              <th className="px-4 py-3 font-semibold">{_isAdminDept ? "Main Category" : "Main Category"}</th>
-              {!_isAdminDept && <th className="px-4 py-3 font-semibold">Module</th>}
+              <th className="px-4 py-3 font-semibold">{_isAdminDept ? "Category" : "Main Category"}</th>
               {!_isAdminDept && <th className="px-4 py-3 font-semibold">Status</th>}
               <th className="px-4 py-3 font-semibold">Actions</th>
             </tr>
@@ -360,7 +359,6 @@ const AdminChildCategoriesPage = () => {
                 <td className="px-4 py-3 text-xs font-medium">{c.name}</td>
                 <td className="px-4 py-3 text-xs text-muted-foreground">{c.subcategory || ""}</td>
                 <td className="px-4 py-3 text-xs text-muted-foreground">{c.category || ""}</td>
-                {!_isAdminDept && <td className="px-4 py-3 text-xs text-muted-foreground">{c.module || ""}</td>}
                 {!_isAdminDept && <td className="px-4 py-3">
                   <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${c.status === "Active" ? "bg-success/10 text-success" : "bg-muted text-muted-foreground"}`}>{c.status}</span>
                 </td>}
@@ -385,7 +383,7 @@ const AdminChildCategoriesPage = () => {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={handleCancel}>
           <div className="bg-card rounded-xl shadow-xl border border-border w-full max-w-md mx-4 animate-fade-in" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between px-6 py-4 border-b border-border">
-              <h2 className="text-lg font-bold font-display">{editingId ? (_isAdminDept ? "Edit Sub Category" : "Edit Child Category") : (_isAdminDept ? "Add Sub Category" : "Add Child Category")}</h2>
+              <h2 className="text-lg font-bold font-display">{editingId ? (_isAdminDept ? "Edit Main Category" : "Edit Child Category") : (_isAdminDept ? "Add Main Category" : "Add Child Category")}</h2>
               <button onClick={handleCancel} className="text-muted-foreground hover:text-foreground transition-colors"><X className="h-5 w-5" /></button>
             </div>
             <div className="px-6 py-5 space-y-4">
@@ -395,8 +393,8 @@ const AdminChildCategoriesPage = () => {
                   className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" />
               </div>}
               <div>
-                <label className="block text-xs font-medium text-muted-foreground mb-1.5">{_isAdminDept ? "Sub Category Name" : "Child Category Name"} <span className="text-destructive">*</span></label>
-                <ComboBox value={form.childName} onChange={(val) => setForm({ ...form, childName: val })} options={[]} placeholder={_isAdminDept ? "Type sub category name" : "Type child category name"} allowCreate />
+                <label className="block text-xs font-medium text-muted-foreground mb-1.5">{_isAdminDept ? "Main Category Name" : "Child Category Name"} <span className="text-destructive">*</span></label>
+                <ComboBox value={form.childName} onChange={(val) => setForm({ ...form, childName: val })} options={[]} placeholder={_isAdminDept ? "Type main category name" : "Type child category name"} allowCreate />
               </div>
               <div>
                 <label className="block text-xs font-medium text-muted-foreground mb-1.5">{_isAdminDept ? "Module" : "Sub Category Name"} <span className="text-destructive">*</span></label>

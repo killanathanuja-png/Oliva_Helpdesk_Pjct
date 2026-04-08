@@ -23,6 +23,7 @@ import AnalyticsPage from "@/pages/AnalyticsPage";
 import AdminCategoriesPage from "@/pages/admin/AdminCategoriesPage";
 import AdminSubcategoriesPage from "@/pages/admin/AdminSubcategoriesPage";
 import AdminChildCategoriesPage from "@/pages/admin/AdminChildCategoriesPage";
+import AdminSubCategoryMasterPage from "@/pages/admin/AdminSubCategoryMasterPage";
 import AdminServiceTitlesPage from "@/pages/admin/AdminServiceTitlesPage";
 import LoginHistoryPage from "@/pages/admin/LoginHistoryPage";
 import ProfilePage from "@/pages/ProfilePage";
@@ -215,6 +216,16 @@ const App = () => (
               <ProtectedRoute path="/admin/child-categories">
                 <AppLayout>
                   <AdminChildCategoriesPage />
+                </AppLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/admin-sub-categories"
+            element={
+              <ProtectedRoute path="/admin/admin-sub-categories">
+                <AppLayout>
+                  <AdminSubCategoryMasterPage />
                 </AppLayout>
               </ProtectedRoute>
             }
