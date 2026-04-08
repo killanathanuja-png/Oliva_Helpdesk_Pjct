@@ -26,6 +26,7 @@ const toLocal = (r: ApiRole): LocalRole => ({
 const CDD_ROLES = ["CDD", "CDD Admin"];
 const ADMIN_DEPT_ROLES = ["Admin", "Helpdesk", "Admin Department"];
 const QA_ROLES = ["Quality", "Audit"];
+const IT_ROLES = ["IT"];
 
 const AdminRolesPage = () => {
   const { showToast } = useToast();
@@ -36,6 +37,9 @@ const AdminRolesPage = () => {
   const _isCddAdmin = _userRole.toLowerCase().includes("cdd admin");
   const _isAdminDept = _userRole.toLowerCase().includes("admin department");
   const _isQAUser = _userRole.toLowerCase().includes("quality") || _userDept.toLowerCase().includes("quality");
+  const _isITUser = _userRole.toLowerCase() === "it" || _userDept.toLowerCase() === "it department";
+  const _isZenotiUser = _userRole.toLowerCase().includes("zenoti") || _userDept.toLowerCase() === "zenoti";
+  const _isSuperAdmin = _userRole.toLowerCase().includes("super admin") || _userRole.toLowerCase().includes("global admin") || _userRole.toLowerCase().includes("super user");
 
   const [data, setData] = useState<LocalRole[]>([]);
   const [idMap, setIdMap] = useState<Record<string, number>>({});
@@ -53,12 +57,22 @@ const AdminRolesPage = () => {
       .then((roles) => {
         if (!cancelled) {
           let filtered = roles;
-          if (_isAdminDept) {
+          if (_isSuperAdmin) {
+            // Super Admin sees all roles
+          } else if (_isAdminDept) {
             filtered = roles.filter((r) => ADMIN_DEPT_ROLES.some((ar) => r.name.toLowerCase().includes(ar.toLowerCase())));
           } else if (_isCddAdmin) {
             filtered = roles.filter((r) => CDD_ROLES.some((cr) => r.name.toLowerCase().includes(cr.toLowerCase())));
           } else if (_isQAUser) {
             filtered = roles.filter((r) => QA_ROLES.some((qr) => r.name.toLowerCase().includes(qr.toLowerCase())));
+          } else if (_isITUser) {
+            filtered = roles.filter((r) => r.name === "IT" || r.name.toLowerCase().startsWith("it ") || r.name.toLowerCase().includes("it department"));
+          } else if (_isZenotiUser) {
+            filtered = roles.filter((r) => r.name.toLowerCase().includes("zenoti"));
+          } else {
+            // All other users: show only exact matching roles
+            const userRoles = _userRole.split(",").map((r: string) => r.trim().toLowerCase());
+            filtered = roles.filter((r) => userRoles.some((ur: string) => r.name.toLowerCase() === ur));
           }
           if (filtered.length > 0) {
             setData(filtered.map(toLocal));

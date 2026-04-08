@@ -383,34 +383,6 @@ const SLAReportPage = () => {
               <option value="Low">Low</option>
             </select>
           )}
-          {isAdminDeptUser && (
-            <>
-              <select
-                value={filterCategory}
-                onChange={(e) => { setFilterCategory(e.target.value); setFilterModule("All"); setFilterSubCategory("All"); }}
-                className="px-2 py-1.5 rounded-md border border-border bg-card text-xs focus:outline-none focus:ring-2 focus:ring-primary/30 max-w-[140px]"
-              >
-                <option value="All">All Main Categories</option>
-                {categoryOptions.map((c) => <option key={c} value={c}>{c}</option>)}
-              </select>
-              <select
-                value={filterModule}
-                onChange={(e) => { setFilterModule(e.target.value); setFilterSubCategory("All"); }}
-                className="px-2 py-1.5 rounded-md border border-border bg-card text-xs focus:outline-none focus:ring-2 focus:ring-primary/30 max-w-[130px]"
-              >
-                <option value="All">All Modules</option>
-                {adminModuleOptions.map((m) => <option key={m} value={m}>{m}</option>)}
-              </select>
-              <select
-                value={filterSubCategory}
-                onChange={(e) => setFilterSubCategory(e.target.value)}
-                className="px-2 py-1.5 rounded-md border border-border bg-card text-xs focus:outline-none focus:ring-2 focus:ring-primary/30 max-w-[130px]"
-              >
-                <option value="All">All Sub Categories</option>
-                {adminSubCatOptions.map((s) => <option key={s} value={s}>{s}</option>)}
-              </select>
-            </>
-          )}
           {!isCddUser && !isAdminDeptUser && (
             <>
               <select
@@ -450,7 +422,7 @@ const SLAReportPage = () => {
           </button>
           <button
             onClick={() => {
-              const headers = ["Ticket ID", "Location", isAdminDeptUser ? "Category" : "Category", isAdminDeptUser ? "Module" : "Sub-Category", "Assigned To", "Created Time", "Resolved Time", "TAT", "SLA", "Status"];
+              const headers = ["Ticket ID", "Location", "Category", "Sub-Category", "Assigned To", "Created Time", "Resolved Time", "TAT", "SLA", "Status"];
               const csvRows = [headers.join(",")];
               for (const t of filtered) {
                 const isResolved = t.status === "Resolved" || t.status === "Closed" || t.status === "Final Closed";
@@ -459,7 +431,7 @@ const SLAReportPage = () => {
                 const slaLabel = tatHrs != null && tatHrs > slaHrs ? "Breached" : "Within SLA";
                 const fmtDate = (d: string | null) => d ? new Date(d).toLocaleString("en-GB", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit", hour12: true }) : "";
                 csvRows.push([
-                  t.code, t.center || t.zenoti_location || "", `"${(t.category || "").replace(/"/g, '""')}"`, `"${(t.sub_category || "").replace(/"/g, '""')}"`,
+                  t.code, t.center || t.zenoti_location || "", `"${(t.assigned_dept === "Admin Department" ? (t.zenoti_child_category || t.category || "") : (t.category || "")).replace(/"/g, '""')}"`, `"${(t.assigned_dept === "Admin Department" ? (t.zenoti_description || t.sub_category || "") : (t.sub_category || "")).replace(/"/g, '""')}"`,
                   t.assigned_to || "", fmtDate(t.created_at), isResolved ? fmtDate(t.updated_at) : "",
                   tatHrs != null ? `${tatHrs}h` : "", `${slaHrs}h`, slaLabel,
                 ].join(","));
@@ -689,8 +661,8 @@ const SLAReportPage = () => {
                   <tr className="bg-primary text-white text-[11px] uppercase tracking-wider">
                     <th className="px-4 py-3 text-left font-semibold">Ticket ID</th>
                     <th className="px-4 py-3 text-left font-semibold">Location</th>
-                    <th className="px-4 py-3 text-left font-semibold">{isAdminDeptUser ? "Category" : "Category"}</th>
-                    <th className="px-4 py-3 text-left font-semibold">{isAdminDeptUser ? "Module" : "Sub-Category"}</th>
+                    <th className="px-4 py-3 text-left font-semibold">Category</th>
+                    <th className="px-4 py-3 text-left font-semibold">Sub-Category</th>
                     <th className="px-4 py-3 text-left font-semibold">Assigned To</th>
                     <th className="px-4 py-3 text-center font-semibold">Created Time</th>
                     <th className="px-4 py-3 text-center font-semibold">Resolved Time</th>
@@ -710,8 +682,8 @@ const SLAReportPage = () => {
                       <tr key={t.id} className={cn("hover:bg-muted/20 transition-colors", isBreached && "bg-red-50/50")}>
                         <td className="px-4 py-2.5 font-mono text-xs text-primary font-semibold whitespace-nowrap">{t.code}</td>
                         <td className="px-4 py-2.5 text-xs text-muted-foreground whitespace-nowrap">{t.center || t.zenoti_location || "—"}</td>
-                        <td className="px-4 py-2.5 text-xs text-muted-foreground whitespace-nowrap truncate max-w-[120px]">{t.category || "—"}</td>
-                        <td className="px-4 py-2.5 text-xs text-muted-foreground whitespace-nowrap truncate max-w-[120px]">{t.sub_category || "—"}</td>
+                        <td className="px-4 py-2.5 text-xs text-muted-foreground whitespace-nowrap truncate max-w-[120px]">{t.assigned_dept === "Admin Department" ? (t.zenoti_child_category || t.category || "—") : (t.category || "—")}</td>
+                        <td className="px-4 py-2.5 text-xs text-muted-foreground whitespace-nowrap truncate max-w-[120px]">{t.assigned_dept === "Admin Department" ? (t.zenoti_description || t.sub_category || "—") : (t.sub_category || "—")}</td>
                         <td className="px-4 py-2.5 text-xs whitespace-nowrap">{t.assigned_to || "Unassigned"}</td>
                         <td className="px-4 py-2.5 text-xs text-muted-foreground text-center whitespace-nowrap">{formatDateTime(t.created_at)}</td>
                         <td className="px-4 py-2.5 text-xs text-muted-foreground text-center whitespace-nowrap">{isResolved ? formatDateTime(t.updated_at) : "—"}</td>

@@ -363,6 +363,12 @@ const TicketDetailPage = () => {
     if (!ticket) return;
     const statusChanged = editStatus !== ticket.status;
     const priorityChanged = editPriority !== ticket.priority;
+    // Prevent changes on already Resolved/Closed tickets
+    const closedStatuses = ["Resolved", "Closed", "Final Closed"];
+    if (closedStatuses.includes(ticket.status)) {
+      alert(`This ticket is already "${ticket.status}". No further changes are allowed.`);
+      return;
+    }
     const hasAnyChange = statusChanged || priorityChanged || !!editAssignTo || editComment.trim().length > 0;
     if (!hasAnyChange) {
       alert("No changes made. Please modify at least one field or add a comment.");
@@ -512,8 +518,18 @@ const TicketDetailPage = () => {
                   msg.includes("(finance)") ? "Finance Approval" : "AOM Approval"
                 ) :
                 event.type === "status_change" ? (
+                  (msg.includes('to "resolved"') || msg.includes("to \"resolved\"")) ? "Resolved" :
+                  (msg.includes('to "closed"') || msg.includes("to \"closed\"") || msg.includes('to "final closed"')) ? "Closed" :
+                  (msg.includes('to "reopened"') || msg.includes("reopen")) ? "Reopened" :
+                  (msg.includes('to "in progress"') || msg.includes("in progress")) ? "In Progress" :
+                  msg.includes("auto-escalated to l1") ? "Escalated to L1" :
+                  msg.includes("auto-escalated to l2") ? "Escalated to L2" :
+                  msg.includes("auto-escalated to l3") ? "Escalated to L3" :
+                  msg.includes("escalated to l1") ? "Escalated to L1" :
+                  msg.includes("escalated to l2") ? "Escalated to L2" :
+                  msg.includes("escalated to l3") ? "Escalated to L3" :
                   msg.includes("assigned") ? "Assigned" :
-                  msg.includes("resolve") ? "Resolved" :
+                  (msg.includes("resolve") && !msg.includes("did not resolve")) ? "Resolved" :
                   msg.includes("close") ? "Closed" : "Status Update"
                 ) :
                 "Comment";

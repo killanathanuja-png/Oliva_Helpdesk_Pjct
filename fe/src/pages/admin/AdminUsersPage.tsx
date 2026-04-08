@@ -247,10 +247,11 @@ const AdminUsersPage = () => {
   const _userDept = _parsedUser?.department || "";
   const _userRole = _parsedUser?.role || "";
   const _isQualityHead = _userDept.toLowerCase().includes("quality");
-  const _isZenotiManager = _userRole.toLowerCase().includes("zenoti team manager");
+  const _isZenotiUser = _userRole.toLowerCase().includes("zenoti") || _userDept.toLowerCase() === "zenoti";
   const _isCddAdmin = _userRole.toLowerCase().includes("cdd admin");
   const _isAdminDept = _userRole.toLowerCase().includes("admin department");
-  const _isDeptFiltered = _isQualityHead || _isZenotiManager || _isCddAdmin || _isAdminDept;
+  const _isITUser = _userRole.toLowerCase() === "it" || _userDept.toLowerCase() === "it department";
+  const _isDeptFiltered = _isQualityHead || _isZenotiUser || _isCddAdmin || _isAdminDept || _isITUser;
   const [data, setData] = useState<LocalUser[]>([]);
   const [idMap, setIdMap] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
@@ -318,7 +319,11 @@ const AdminUsersPage = () => {
           }
         } else {
           let apiUsers = await usersApi.list();
-          if (_isDeptFiltered) {
+          if (_isITUser) {
+            apiUsers = apiUsers.filter((u) => (u.department || "") === "IT Department");
+          } else if (_isZenotiUser) {
+            apiUsers = apiUsers.filter((u) => (u.department || "") === "Zenoti");
+          } else if (_isDeptFiltered) {
             apiUsers = apiUsers.filter((u) => (u.department || "").toLowerCase().includes(_userDept.toLowerCase().split(" ")[0]));
           }
           if (!cancelled) {
@@ -431,7 +436,7 @@ const AdminUsersPage = () => {
           await adminUsersApi.update(numericId, {
             name: form.name, email: form.email, role: form.role || "Helpdesk Admin",
             department: form.department || "Help desk", center_name: form.center,
-            city: form.city, map_level_access: form.mapLevelAccess || "Can View and Edit",
+            city: form.city, map_level_access: form.mapLevelAccess || null,
             mobile: form.mobile, employee_type: form.employeeType, status: form.status,
           });
           showToast("User updated successfully");
@@ -440,7 +445,7 @@ const AdminUsersPage = () => {
             name: form.name, email: form.email, password: form.password || "oliva@123",
             role: form.role || "Helpdesk Admin", department: form.department || "Help desk",
             center_name: form.center, city: form.city,
-            map_level_access: form.mapLevelAccess || "Can View and Edit",
+            map_level_access: form.mapLevelAccess || null,
             mobile: form.mobile, employee_type: form.employeeType,
           });
           showToast("User created successfully");

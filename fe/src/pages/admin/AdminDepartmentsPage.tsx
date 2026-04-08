@@ -27,7 +27,9 @@ const AdminDepartmentsPage = () => {
   const _userRole = _parsedUser?.role || "";
   const _isCddAdmin = _userRole.toLowerCase().includes("cdd admin");
   const _isAdminDept = _userRole.toLowerCase().includes("admin department");
-  const _isDeptFiltered = _userDept.toLowerCase().includes("quality") || _userRole.toLowerCase().includes("zenoti team manager") || _isCddAdmin;
+  const _isITUser = _userRole.toLowerCase() === "it" || _userDept.toLowerCase() === "it department";
+  const _isZenotiUser = _userRole.toLowerCase().includes("zenoti") || _userDept.toLowerCase() === "zenoti";
+  const _isDeptFiltered = _userDept.toLowerCase().includes("quality") || _isZenotiUser || _isCddAdmin || _isITUser;
   const [data, setData] = useState<DeptWithStatus[]>([]);
   const [idMap, setIdMap] = useState<Record<string, number>>({});
   const [showModal, setShowModal] = useState(false);
@@ -46,6 +48,10 @@ const AdminDepartmentsPage = () => {
             const n = d.name.toLowerCase();
             return n.includes("admin") || n.includes("help desk") || n.includes("helpdesk");
           });
+        } else if (_isITUser) {
+          filtered = res.filter((d) => d.name === "IT Department");
+        } else if (_isZenotiUser) {
+          filtered = res.filter((d) => d.name === "Zenoti");
         } else if (_isDeptFiltered) {
           filtered = res.filter((d) => d.name.toLowerCase().includes(_userDept.toLowerCase().split(" ")[0]));
         }
