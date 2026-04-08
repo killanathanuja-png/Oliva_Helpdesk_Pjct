@@ -40,9 +40,13 @@ from typing import Optional, Dict, List
 
 from app.config import (
     MSG91_AUTH_KEY,
+    MSG91_EMAIL_API_URL,
     MSG91_EMAIL_TEMPLATE_TICKET_CREATED,
     MSG91_EMAIL_TEMPLATE_STATUS_UPDATE,
     MSG91_EMAIL_TEMPLATE_ASSIGNMENT,
+    MSG91_FROM_EMAIL,
+    MSG91_FROM_NAME,
+    MSG91_DOMAIN,
     MSG91_SMS_TEMPLATE_TICKET_CREATED,
     MSG91_SMS_TEMPLATE_STATUS_UPDATE,
     MSG91_SENDER_EMAIL,
@@ -83,7 +87,6 @@ def generate_ticket_link_by_code(ticket_code: str, ticket_db_id: int) -> str:
 #  MSG91 API URLs
 # ──────────────────────────────────────────────
 
-MSG91_EMAIL_URL = "https://control.msg91.com/api/v5/email/send"
 MSG91_SMS_URL = "https://control.msg91.com/api/v5/flow/"
 
 
@@ -95,18 +98,20 @@ def _send_msg91_email(
     cc: Optional[List[Dict[str, str]]] = None,
 ):
     """
-    Send email via MSG91 Email API.
+    Send email via MSG91 Email API using the correct recipients format.
+
+    API: POST https://control.msg91.com/api/v5/email/send
 
     Args:
         to_email: Recipient email address
         to_name: Recipient display name
-        template_id: MSG91 email template ID (create in MSG91 dashboard)
-        variables: Dynamic variables to inject into the template
+        template_id: MSG91 email template ID (unique template name from MSG91 dashboard)
+        variables: Dynamic variables matching ##var## in MSG91 template
         cc: Optional CC recipients [{"email": "...", "name": "..."}]
 
     MSG91 Template Variables:
-        In your MSG91 email template, use ##variable_name## syntax.
-        Example: "Dear ##user_name##, your ticket ##ticket_id## is ##status##"
+        Use {{variable_name}} or ##variable_name## in your MSG91 template.
+        Example: "Dear ##name##, your ticket ##code## has been created."
     """
     if not MSG91_AUTH_KEY:
         logger.warning(f"MSG91 auth key not configured. Skipping email to {to_email}")
@@ -115,27 +120,36 @@ def _send_msg91_email(
         logger.warning(f"MSG91 email template_id not provided. Skipping email to {to_email}")
         return
 
-    payload = {
-        "to": [{"email": to_email, "name": to_name}],
-        "from": {"email": MSG91_SENDER_EMAIL, "name": MSG91_SENDER_NAME},
-        "template_id": template_id,
+    # Build recipient object per MSG91 spec
+    recipient = {
+        "to": [{"name": to_name, "email": to_email}],
         "variables": variables,
     }
     if cc:
-        payload["cc"] = cc
+        recipient["cc"] = cc
+
+    payload = {
+        "recipients": [recipient],
+        "from": {"name": MSG91_FROM_NAME, "email": MSG91_FROM_EMAIL},
+        "domain": MSG91_DOMAIN,
+        "template_id": template_id,
+        "validate_before_send": True,
+    }
 
     headers = {
         "authkey": MSG91_AUTH_KEY,
-        "Content-Type": "application/json",
-        "Accept": "application/json",
+        "accept": "application/json",
+        "content-type": "application/json",
     }
 
     try:
-        resp = requests.post(MSG91_EMAIL_URL, json=payload, headers=headers, timeout=10)
+        logger.info(f"MSG91 sending email to {to_email} | template: {template_id} | vars: {list(variables.keys())}")
+        resp = requests.post(MSG91_EMAIL_API_URL, json=payload, headers=headers, timeout=10)
+        resp_data = resp.text
         if resp.status_code == 200:
-            logger.info(f"MSG91 email sent to {to_email} (template: {template_id})")
+            logger.info(f"MSG91 email sent to {to_email}: {resp_data}")
         else:
-            logger.error(f"MSG91 email failed [{resp.status_code}]: {resp.text}")
+            logger.error(f"MSG91 email failed [{resp.status_code}]: {resp_data}")
     except Exception as e:
         logger.error(f"MSG91 email error to {to_email}: {e}")
 
