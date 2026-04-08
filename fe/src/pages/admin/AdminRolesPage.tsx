@@ -25,14 +25,17 @@ const toLocal = (r: ApiRole): LocalRole => ({
 
 const CDD_ROLES = ["CDD", "CDD Admin"];
 const ADMIN_DEPT_ROLES = ["Admin", "Helpdesk", "Admin Department"];
+const QA_ROLES = ["Quality", "Audit"];
 
 const AdminRolesPage = () => {
   const { showToast } = useToast();
   const _storedUser = localStorage.getItem("oliva_user");
   const _parsedUser = _storedUser ? JSON.parse(_storedUser) : null;
   const _userRole = _parsedUser?.role || "";
+  const _userDept = _parsedUser?.department || "";
   const _isCddAdmin = _userRole.toLowerCase().includes("cdd admin");
   const _isAdminDept = _userRole.toLowerCase().includes("admin department");
+  const _isQAUser = _userRole.toLowerCase().includes("quality") || _userDept.toLowerCase().includes("quality");
 
   const [data, setData] = useState<LocalRole[]>([]);
   const [idMap, setIdMap] = useState<Record<string, number>>({});
@@ -54,6 +57,8 @@ const AdminRolesPage = () => {
             filtered = roles.filter((r) => ADMIN_DEPT_ROLES.some((ar) => r.name.toLowerCase().includes(ar.toLowerCase())));
           } else if (_isCddAdmin) {
             filtered = roles.filter((r) => CDD_ROLES.some((cr) => r.name.toLowerCase().includes(cr.toLowerCase())));
+          } else if (_isQAUser) {
+            filtered = roles.filter((r) => QA_ROLES.some((qr) => r.name.toLowerCase().includes(qr.toLowerCase())));
           }
           if (filtered.length > 0) {
             setData(filtered.map(toLocal));

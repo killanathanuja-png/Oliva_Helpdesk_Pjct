@@ -105,7 +105,11 @@ const AdminSubcategoriesPage = () => {
   const _userRole = _parsedUser?.role || "";
   const _isCddAdmin = _userRole.toLowerCase().includes("cdd admin");
   const _isAdminDept = _userRole.toLowerCase().includes("admin department");
-  const _isDeptFiltered = _userDept.toLowerCase().includes("quality") || _userRole.toLowerCase().includes("zenoti team manager") || _isCddAdmin;
+  const _isSuperAdmin = _userRole.toLowerCase().includes("super admin") || _userRole.toLowerCase().includes("global admin") || _userRole.toLowerCase().includes("super user");
+  const [deptView, setDeptView] = useState("All");
+  const [deptOptions, setDeptOptions] = useState<string[]>([]);
+  const _isITUser = _userRole.toLowerCase() === "it" || _userDept.toLowerCase() === "it department";
+  const _isDeptFiltered = _userDept.toLowerCase().includes("quality") || _userRole.toLowerCase().includes("zenoti team manager") || _isCddAdmin || _isITUser;
   const [data, setData] = useState<LocalSubcategory[]>([]);
   const [apiCategories, setApiCategories] = useState<ApiCategory[]>([]);
   const [idMap, setIdMap] = useState<Record<string, number>>({});
@@ -172,11 +176,21 @@ const AdminSubcategoriesPage = () => {
             subcategoriesApi.list(),
             categoriesApi.list(),
           ]);
-          if (_isDeptFiltered) {
-            const deptKey = _userDept.toLowerCase().split(" ")[0];
-            const deptCatNames = apiCats.filter((c) => (c.department || "").toLowerCase().includes(deptKey)).map((c) => c.name);
+          if (_isSuperAdmin && deptView !== "All") {
+            const deptCatNames = apiCats.filter((c) => (c.department || "") === deptView).map((c) => c.name);
             apiSubs = apiSubs.filter((s) => s.category && deptCatNames.includes(s.category));
-            apiCats = apiCats.filter((c) => (c.department || "").toLowerCase().includes(deptKey));
+            apiCats = apiCats.filter((c) => (c.department || "") === deptView);
+          } else if (_isDeptFiltered) {
+            if (_isITUser) {
+              const deptCatNames = apiCats.filter((c) => (c.department || "") === "IT Department").map((c) => c.name);
+              apiSubs = apiSubs.filter((s) => s.category && deptCatNames.includes(s.category));
+              apiCats = apiCats.filter((c) => (c.department || "") === "IT Department");
+            } else {
+              const deptKey = _userDept.toLowerCase().split(" ")[0];
+              const deptCatNames = apiCats.filter((c) => (c.department || "").toLowerCase().includes(deptKey)).map((c) => c.name);
+              apiSubs = apiSubs.filter((s) => s.category && deptCatNames.includes(s.category));
+              apiCats = apiCats.filter((c) => (c.department || "").toLowerCase().includes(deptKey));
+            }
           }
           if (apiSubs.length > 0) {
             setData(apiSubs.map(toLocalSubcategory));

@@ -56,7 +56,6 @@ const allNavItems = [
     children: [
       { label: "TAT Report", icon: BarChart3, path: "/sla-report" },
       { label: "TAT Analytics", icon: TrendingUp, path: "/analytics" },
-      { label: "TAT Detail Report", icon: Clock, path: "/tat-detail-report" },
     ],
   },
   {
@@ -110,6 +109,8 @@ const AppLayout = ({ children }: AppLayoutProps) => {
   const userDepartment: string = user?.department || "";
   const isCddUser: boolean = userDepartment.toUpperCase() === "CDD";
   const isAdminDeptUser: boolean = userRole.toLowerCase().includes("admin department");
+  const isSuperAdmin: boolean = userRole.toLowerCase().includes("super admin") || userRole.toLowerCase().includes("global admin") || userRole.toLowerCase().includes("super user");
+  const isITUser: boolean = userRole.toLowerCase() === "it" || userDepartment.toLowerCase() === "it department";
   const isClinicManagerUser: boolean = userRole.toLowerCase().includes("clinic manager") || userRole.toLowerCase().includes("clinic incharge");
   const userInitials: string = userName.split(" ").map((w: string) => w[0]).join("").toUpperCase().slice(0, 2);
 
@@ -195,8 +196,9 @@ const AppLayout = ({ children }: AppLayoutProps) => {
       const isQAUser = userRole.toLowerCase().includes("quality") || userDepartment.toLowerCase().includes("quality");
       return { ...item, children: item.children.filter((c) => {
         if (!isPathAllowed(c.path)) return false;
-        if ((isQAUser || isCddUser) && c.label === "Child Category") return false;
-        if (!isAdminDeptUser && c.label === "Sub Category Master") return false;
+        if ((isQAUser || isCddUser || isITUser) && c.label === "Child Category") return false;
+        if (!isAdminDeptUser && !isSuperAdmin && c.label === "Sub Category Master") return false;
+        if (isITUser && c.label === "Sub Category Master") return false;
         return true;
       }) };
     }
@@ -270,6 +272,8 @@ const AppLayout = ({ children }: AppLayoutProps) => {
                         else if (child.label === "Sub Category Master") displayLabel = "Sub Category";
                         else if (child.label === "SLA Report") displayLabel = "TAT Report";
                         else if (child.label === "SLA Analytics") displayLabel = "TAT Analytics";
+                      } else if (isSuperAdmin) {
+                        if (child.label === "Sub Category Master") displayLabel = "Sub Category (Admin)";
                       } else if (isCddUser) {
                         if (child.label === "SLA Report") displayLabel = "TAT Report";
                         else if (child.label === "SLA Analytics") displayLabel = "TAT Analytics";

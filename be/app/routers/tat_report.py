@@ -15,7 +15,7 @@ router = APIRouter(prefix="/api/tat-report", tags=["TAT Report"])
 
 
 def _calc_working_hours(start_utc, end_utc):
-    """Calculate working hours (10AM-6PM IST, Mon-Sat) between two UTC timestamps."""
+    """Calculate working hours (10AM-6PM IST, Mon-Sun) between two UTC timestamps."""
     from zoneinfo import ZoneInfo
     IST = ZoneInfo("Asia/Kolkata")
     start = start_utc.astimezone(IST) if start_utc.tzinfo else start_utc.replace(tzinfo=timezone.utc).astimezone(IST)
@@ -23,9 +23,6 @@ def _calc_working_hours(start_utc, end_utc):
     total = 0.0
     current = start
     while current < end:
-        if current.weekday() == 6:
-            current = current.replace(hour=0, minute=0, second=0) + timedelta(days=1)
-            continue
         day_start = current.replace(hour=10, minute=0, second=0, microsecond=0)
         day_end = current.replace(hour=18, minute=0, second=0, microsecond=0)
         effective_start = max(current, day_start)
@@ -154,7 +151,7 @@ def get_tat_report(
         # Actual TAT (working hours)
         actual_tat = None
         if created and end_time:
-            actual_tat = round(_calc_working_hours(created, end_time), 1)
+            actual_tat = round(_calc_working_hours(created, end_time), 2)
 
         # First response: acknowledged_at or first comment time
         first_response = None

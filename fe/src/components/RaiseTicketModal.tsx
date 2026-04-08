@@ -317,6 +317,23 @@ const RaiseTicketModal = ({ onClose, onSuccess, editMode, editTicket, userRole, 
     "Audit Requisitions": ["Room Checklist", "Register video", "Emergency drug list", "Grooming guidelines"],
     "Dr Referrals": [],
   };
+  // IT Department category → subcategory mapping
+  const itCategoryMap: Record<string, string[]> = {
+    "Hardware": ["Laptop - repair", "Laptop - replacement", "Desktop - repair", "Desktop - replacement", "iPad - repair", "iPad - replacement", "iPad - storage", "Monitor - repair", "Monitor - replacement", "Power supply issue", "Cable issue"],
+    "Printer & Consumables": ["Printer not working", "Cartridge replacement", "Toner replacement", "Paper jam", "Network printer setup"],
+    "Internet & Network": ["No internet connectivity", "Slow internet speed", "Wi-Fi connection issue"],
+    "Email & Communication": ["Cannot send email", "Cannot receive email", "New email account setup", "Password reset", "Email storage / quota"],
+    "CCTV & Security": ["Camera offline", "Camera not recording", "DVR issue", "NVR issue", "Footage retrieval request", "New camera installation", "CCTV storage full", "HDD full"],
+    "Software & Applications": ["Software installation", "Software update", "Application crash", "Application error", "Antivirus issue", "Malware issue", "Operating system issue", "License / activation issue", "Remote desktop access", "VPN access"],
+    "User Access & Accounts": ["New user account creation", "Account locked", "Account disabled", "Password reset"],
+    "Consumables & Supplies": ["Printer cartridge / toner", "Keyboard replacement", "Mouse replacement", "USB / cable / adapter", "Headset replacement"],
+  };
+  const isITDept = department === "IT Department";
+  const [itCategory, setItCategory] = useState("");
+  const [itSubCategory, setItSubCategory] = useState("");
+  const itCategoryOptions = Object.keys(itCategoryMap);
+  const itSubCategoryOptions = itCategory ? (itCategoryMap[itCategory] || []) : [];
+
   const isCDDToClinics = isCDD && (department === "Clinic" || department === "Clinic Operations");
 
   // When CDD selects a center, auto-fill CM and AOM
@@ -340,6 +357,7 @@ const RaiseTicketModal = ({ onClose, onSuccess, editMode, editTicket, userRole, 
   const departmentOptions = [...apiDepartments.map((d) => d.name).filter((name) => {
     if (!canSeeAdminDept && name === "Admin Department") return false;
     if (!canSeeAdminDept && name === "Administration") return false;
+    if (name === "Clinic Operations") return false;
     if (isClinicManagerRole && cmHiddenDepts.includes(name)) return false;
     return true;
   }).sort(), "Others"];
@@ -426,9 +444,15 @@ const RaiseTicketModal = ({ onClose, onSuccess, editMode, editTicket, userRole, 
           return;
         }
       }
+      // IT Department: Category and Sub Category are mandatory
+      if (isITDept && (!itCategory.trim() || !itSubCategory.trim())) {
+        alert("Please select both Category and Sub Category for IT Department.");
+        setSubmitting(false);
+        return;
+      }
       if (onSuccess) {
-        const finalCategory = isAdminDept ? adminMainCategory : (isCDDClinic && category === "others" && customType) ? customType : category;
-        const finalSubCategory = isAdminDept ? adminModule : (isCDDClinic && subCategory === "others" && customCategory) ? customCategory : subCategory;
+        const finalCategory = isAdminDept ? adminMainCategory : isITDept ? itCategory : (isCDDClinic && category === "others" && customType) ? customType : category;
+        const finalSubCategory = isAdminDept ? adminModule : isITDept ? itSubCategory : (isCDDClinic && subCategory === "others" && customCategory) ? customCategory : subCategory;
         onSuccess({
           title: title || description.slice(0, 100), description, department, category: finalCategory, subCategory: finalSubCategory,
           priority: isZenoti ? priority : "Medium",
@@ -475,6 +499,7 @@ const RaiseTicketModal = ({ onClose, onSuccess, editMode, editTicket, userRole, 
     setAssignedCenter("");
     setCddCmEmail("");
     setCddAomEmail("");
+    setItCategory(""); setItSubCategory("");
     // Auto-set Category=FM Call, Module=HELPDESK for center mail users selecting Admin Department
     if (val === "Admin Department" && isHelpdeskAdmin) {
       setAdminMainCategory("FM Call");
@@ -774,8 +799,43 @@ const RaiseTicketModal = ({ onClose, onSuccess, editMode, editTicket, userRole, 
               </div>
             )}
 
+            {/* IT Department category fields */}
+            {isITDept && (
+              <div className="rounded-xl border border-blue-200 bg-blue-50/50 p-4 space-y-3">
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="text-xs font-semibold text-blue-700">IT Category Selection</span>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className={labelClass}>Category <span className="text-destructive">*</span></label>
+                    <ComboBox
+                      value={itCategory}
+                      onChange={(val) => { setItCategory(val); setItSubCategory(""); }}
+                      options={itCategoryOptions}
+                      placeholder="Select category"
+                    />
+                  </div>
+                  <div>
+                    <label className={labelClass}>Sub Category <span className="text-destructive">*</span></label>
+                    <ComboBox
+                      value={itSubCategory}
+                      onChange={(val) => setItSubCategory(val)}
+                      options={itSubCategoryOptions}
+                      placeholder="Select sub category"
+                    />
+                  </div>
+                </div>
+                {isHelpdeskAdmin && currentUserCenter && (
+                  <div>
+                    <label className={labelClass}>Center <span className="text-xs text-emerald-600 ml-1">(Auto-filled)</span></label>
+                    <input type="text" value={currentUserCenter} readOnly className={cn(inputClass, "bg-muted cursor-not-allowed")} />
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* Category / Sub-Category - for non-Zenoti departments */}
-            {!isZenoti && !isAdminDept && !(isHelpdeskAdmin && department === "IT Department") && (
+            {!isZenoti && !isAdminDept && !isITDept && !(isHelpdeskAdmin && department === "IT Department") && (
               <div className={cn("grid gap-3", (isCDDToClinics || isCDDClinic || isQualityAudit) ? "grid-cols-2" : "grid-cols-3")}>
                 <div>
                   <label className={labelClass}>{isCDDClinic ? "Type" : "Category"}{isCDDClinic && <span className="text-destructive"> *</span>}</label>
@@ -970,7 +1030,7 @@ const RaiseTicketModal = ({ onClose, onSuccess, editMode, editTicket, userRole, 
  
  
             {/* Priority & Center — hidden for CDD→Clinic and Admin Department */}
-            {!isCDDToClinics && !isAdminDept && (
+            {!isCDDToClinics && !isAdminDept && !isITDept && (
               <div className={cn("grid gap-3", isZenoti ? "grid-cols-1" : "grid-cols-1")}>
                 {isZenoti && (
                   <div>

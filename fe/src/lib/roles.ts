@@ -30,7 +30,7 @@ const roleAccess: Record<string, string[]> = {
   "QA": ["/", "/tickets", "/sla-report", "/analytics"],
   "Sr. Manager Quality & Audit": ["/", "/tickets", "/sla-report", "/analytics", "/admin/users", "/admin/departments", "/admin/roles", "/admin/centers", "/admin/categories", "/admin/subcategories"],
   "Zenoti Team": ["/", "/tickets", "/zenoti-requests", "/finance-approvals", "/sla-report", "/analytics"],
-  "Zenoti Team Manager": ["/", "/tickets", "/zenoti-requests", "/finance-approvals", "/sla-report", "/admin/users", "/admin/departments", "/admin/roles", "/admin/centers", "/admin/categories", "/admin/subcategories", "/admin/child-categories"],
+  "Zenoti Team Manager": ["/", "/tickets", "/zenoti-requests", "/finance-approvals", "/sla-report", "/analytics", "/admin/users", "/admin/departments", "/admin/roles", "/admin/centers", "/admin/categories", "/admin/subcategories", "/admin/child-categories"],
   "CDD": ["/", "/tickets", "/sla-report", "/analytics"],
   "CDD Admin": ["/", "/tickets", "/sla-report", "/analytics", "/admin/users", "/admin/departments", "/admin/centers", "/admin/roles", "/admin/categories", "/admin/subcategories"],
   "Administration": ["/", "/tickets", "/sla-report", "/analytics"],

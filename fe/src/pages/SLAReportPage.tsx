@@ -661,7 +661,7 @@ const SLAReportPage = () => {
           const created = new Date(t.created_at).getTime();
           const isResolved = t.status === "Resolved" || t.status === "Closed" || t.status === "Final Closed";
           const end = isResolved && t.updated_at ? new Date(t.updated_at).getTime() : Date.now();
-          return Math.round((end - created) / (1000 * 60 * 60) * 10) / 10;
+          return Math.round((end - created) / (1000 * 60 * 60) * 100) / 100;
         };
         const formatHrs = (hrs: number | null) => {
           if (hrs == null) return "—";

@@ -39,7 +39,7 @@ def _next_code(db: Session) -> str:
  
  
 def _calc_working_hours(start_utc, end_utc):
-    """Calculate working hours (10AM-6PM IST, Mon-Sat) between two UTC timestamps."""
+    """Calculate working hours (10AM-6PM IST, Mon-Sun) between two UTC timestamps."""
     from zoneinfo import ZoneInfo
     IST = ZoneInfo("Asia/Kolkata")
     start = start_utc.astimezone(IST) if start_utc.tzinfo else start_utc.replace(tzinfo=timezone.utc).astimezone(IST)
@@ -47,9 +47,6 @@ def _calc_working_hours(start_utc, end_utc):
     total = 0.0
     current = start
     while current < end:
-        if current.weekday() == 6:
-            current = current.replace(hour=0, minute=0, second=0) + timedelta(days=1)
-            continue
         day_start = current.replace(hour=10, minute=0, second=0, microsecond=0)
         day_end = current.replace(hour=18, minute=0, second=0, microsecond=0)
         effective_start = max(current, day_start)
@@ -67,7 +64,7 @@ def _ticket_to_response(t: Ticket, aom_name: str = None, aom_email: str = None) 
         end_time = t.updated_at if t.status in (TicketStatusEnum.Resolved, TicketStatusEnum.Closed, TicketStatusEnum.FinalClosed) else datetime.now(timezone.utc)
         created = t.created_at.replace(tzinfo=timezone.utc) if t.created_at.tzinfo is None else t.created_at
         end = end_time.replace(tzinfo=timezone.utc) if end_time and end_time.tzinfo is None else (end_time or datetime.now(timezone.utc))
-        tat_hours = round(_calc_working_hours(created, end), 1)
+        tat_hours = round(_calc_working_hours(created, end), 2)
         tat_breached = tat_hours > 8
 
     return TicketResponse(

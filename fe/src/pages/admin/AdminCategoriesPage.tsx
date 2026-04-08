@@ -135,7 +135,8 @@ const AdminCategoriesPage = () => {
   const _userRole = _parsedUser?.role || "";
   const _isCddAdmin = _userRole.toLowerCase().includes("cdd admin");
   const _isAdminDept = _userRole.toLowerCase().includes("admin department");
-  const _isDeptFiltered = _userDept.toLowerCase().includes("quality") || _userRole.toLowerCase().includes("zenoti team manager") || _isCddAdmin;
+  const _isITUser = _userRole.toLowerCase() === "it" || _userDept.toLowerCase() === "it department";
+  const _isDeptFiltered = _userDept.toLowerCase().includes("quality") || _userRole.toLowerCase().includes("zenoti team manager") || _isCddAdmin || _isITUser;
   const [data, setData] = useState<LocalCategory[]>([]);
   const [idMap, setIdMap] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
@@ -185,8 +186,12 @@ const AdminCategoriesPage = () => {
         } else {
           let apiCategories = await categoriesApi.list().catch(() => null);
           if (_isDeptFiltered && apiCategories) {
-            const deptKey = _userDept.toLowerCase().split(" ")[0];
-            apiCategories = apiCategories.filter((c: any) => (c.department || "").toLowerCase().includes(deptKey));
+            if (_isITUser) {
+              apiCategories = apiCategories.filter((c: any) => (c.department || "") === "IT Department");
+            } else {
+              const deptKey = _userDept.toLowerCase().split(" ")[0];
+              apiCategories = apiCategories.filter((c: any) => (c.department || "").toLowerCase().includes(deptKey));
+            }
           }
           if (apiCategories && apiCategories.length > 0) {
             setData(apiCategories.map(apiCategoryToLocal));
