@@ -129,7 +129,15 @@ const AppLayout = ({ children }: AppLayoutProps) => {
   // Fetch notifications on mount and poll every 30 seconds
   const fetchNotifications = () => {
     if (!localStorage.getItem("oliva_token")) return;
-    notificationsApi.list().then(setNotifications).catch(() => {});
+    notificationsApi.list().then(setNotifications).catch((e) => {
+      // Stop polling if unauthorized (expired token)
+      if (e?.message?.includes("401")) {
+        localStorage.removeItem("oliva_token");
+        localStorage.removeItem("oliva_user");
+        localStorage.removeItem("oliva_logged_in");
+        window.location.href = "/login";
+      }
+    });
     notificationsApi.unreadCount().then((r) => setUnreadCount(r.count)).catch(() => {});
   };
   useEffect(() => {

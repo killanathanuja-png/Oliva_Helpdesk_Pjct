@@ -1,10 +1,16 @@
-"""Email utility for sending ticket notifications."""
+"""Email utility for sending ticket notifications via SMTP or MSG91."""
 import smtplib
 import logging
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from threading import Thread
 from app.config import SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASSWORD, SMTP_FROM
+from app.services.notification_service import (
+    send_ticket_created_email as _msg91_ticket_created,
+    send_status_update_email as _msg91_status_update,
+    send_assignment_email as _msg91_assignment,
+    is_msg91_enabled,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -35,8 +41,17 @@ def send_email_async(to: str, subject: str, html_body: str):
     Thread(target=_send, args=(to, subject, html_body), daemon=True).start()
 
 
-def _email_wrapper(subtitle: str, content_html: str) -> str:
-    """Wrap content in the standard Oliva email template."""
+def _email_wrapper(subtitle: str, content_html: str, ticket_link: str = "") -> str:
+    """Wrap content in the standard Oliva email template with optional ticket link button."""
+    link_button = ""
+    if ticket_link:
+        link_button = f'''
+            <div style="text-align: center; margin: 20px 0;">
+                <a href="{ticket_link}" style="display: inline-block; background: linear-gradient(135deg, #00B7AE, #1A6B6A); color: white; padding: 10px 24px; border-radius: 6px; text-decoration: none; font-size: 14px; font-weight: 600;">
+                    View Ticket
+                </a>
+            </div>
+        '''
     return f"""
     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
         <div style="background: linear-gradient(135deg, #00B7AE, #1A6B6A); padding: 20px; border-radius: 8px 8px 0 0;">
@@ -45,6 +60,7 @@ def _email_wrapper(subtitle: str, content_html: str) -> str:
         </div>
         <div style="border: 1px solid #e5e7eb; border-top: none; padding: 24px; border-radius: 0 0 8px 8px; background: #ffffff;">
             {content_html}
+            {link_button}
             <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 20px 0;">
             <p style="font-size: 13px; color: #6b7280;">
                 Please log in to <strong>Oliva Help Desk</strong> to view or take action on this ticket.
@@ -100,8 +116,13 @@ def _status_badge(status: str) -> str:
 def send_ticket_created(to_email: str, ticket_code: str, title: str,
                         description: str, raised_by: str, department: str,
                         center: str, priority: str, category: str = "",
-                        assigned_to: str = ""):
-    """Notify when a new ticket is created."""
+                        assigned_to: str = "", ticket_db_id: int = 0):
+    """Notify when a new ticket is created. Uses MSG91 if enabled, else SMTP."""
+    if is_msg91_enabled():
+        _msg91_ticket_created(to_email, raised_by, ticket_code, title, department, center, priority, category, assigned_to, ticket_db_id)
+        return
+    from app.services.notification_service import generate_ticket_link
+    ticket_link = generate_ticket_link(ticket_db_id) if ticket_db_id else ""
     subject = f"[Oliva Helpdesk] New Ticket {ticket_code} - {title}"
     rows = (
         _ticket_row("Ticket ID", ticket_code, bold=True, color="#00B7AE")
@@ -115,7 +136,7 @@ def send_ticket_created(to_email: str, ticket_code: str, title: str,
         + (_ticket_row("Assigned To", assigned_to) if assigned_to else "")
     )
     content = f'<table style="width: 100%; border-collapse: collapse; font-size: 14px;">{rows}</table>'
-    html = _email_wrapper("New Ticket Created", content)
+    html = _email_wrapper("New Ticket Created", content, ticket_link)
     send_email_async(to_email, subject, html)
 
 
@@ -123,8 +144,12 @@ def send_ticket_created(to_email: str, ticket_code: str, title: str,
 
 def send_ticket_assigned(to_email: str, ticket_code: str, title: str,
                          assigned_to: str, assigned_by: str,
-                         department: str = "", center: str = "", priority: str = ""):
-    """Notify the assignee when a ticket is assigned to them."""
+                         department: str = "", center: str = "", priority: str = "",
+                         ticket_db_id: int = 0):
+    """Notify the assignee when a ticket is assigned to them. Uses MSG91 if enabled."""
+    if is_msg91_enabled():
+        _msg91_assignment(to_email, assigned_to, ticket_code, title, department, center, priority, assigned_by, ticket_db_id)
+        return
     subject = f"[Oliva Helpdesk] Ticket {ticket_code} Assigned to You"
     rows = (
         _ticket_row("Ticket ID", ticket_code, bold=True, color="#00B7AE")
@@ -141,7 +166,9 @@ def send_ticket_assigned(to_email: str, ticket_code: str, title: str,
         </p>
         <table style="width: 100%; border-collapse: collapse; font-size: 14px;">{rows}</table>
     """
-    html = _email_wrapper("Ticket Assigned to You", content)
+    from app.services.notification_service import generate_ticket_link
+    ticket_link = generate_ticket_link(ticket_db_id) if ticket_db_id else ""
+    html = _email_wrapper("Ticket Assigned to You", content, ticket_link)
     send_email_async(to_email, subject, html)
 
 
@@ -149,8 +176,11 @@ def send_ticket_assigned(to_email: str, ticket_code: str, title: str,
 
 def send_status_changed(to_email: str, ticket_code: str, title: str,
                         old_status: str, new_status: str, changed_by: str,
-                        comment: str = ""):
-    """Notify when a ticket's status changes."""
+                        comment: str = "", ticket_db_id: int = 0):
+    """Notify when a ticket's status changes. Uses MSG91 if enabled."""
+    if is_msg91_enabled():
+        _msg91_status_update(to_email, "", ticket_code, title, old_status, new_status, changed_by, comment, ticket_db_id)
+        return
     subject = f"[Oliva Helpdesk] Ticket {ticket_code} Status → {new_status}"
     rows = (
         _ticket_row("Ticket ID", ticket_code, bold=True, color="#00B7AE")
@@ -161,7 +191,9 @@ def send_status_changed(to_email: str, ticket_code: str, title: str,
         + (_ticket_row("Comment", comment) if comment else "")
     )
     content = f'<table style="width: 100%; border-collapse: collapse; font-size: 14px;">{rows}</table>'
-    html = _email_wrapper(f"Ticket Status Changed to {new_status}", content)
+    from app.services.notification_service import generate_ticket_link
+    ticket_link = generate_ticket_link(ticket_db_id) if ticket_db_id else ""
+    html = _email_wrapper(f"Ticket Status Changed to {new_status}", content, ticket_link)
     send_email_async(to_email, subject, html)
 
 
