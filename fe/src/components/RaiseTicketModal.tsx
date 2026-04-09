@@ -379,7 +379,6 @@ const RaiseTicketModal = ({ onClose, onSuccess, editMode, editTicket, userRole, 
   const subCategoryOptions = !department ? []
     : isCDDClinic ? allCddClinicCategories
     : isQualityAudit ? (category ? (qaSubcategoryMap[category] || []) : [])
-    : isCDD ? []
     : !category ? []
     : [...new Set(
         apiSubcategories
@@ -541,15 +540,16 @@ const RaiseTicketModal = ({ onClose, onSuccess, editMode, editTicket, userRole, 
  
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
-      <div className="fixed inset-0 bg-foreground/30" onClick={onClose} />
+      <div className="fixed inset-0 bg-foreground/30" />
       <div className="relative z-10 w-full max-w-2xl bg-card rounded-2xl border border-border shadow-2xl animate-slide-in max-h-[90vh] overflow-y-auto">
-        <div className="flex items-center justify-between px-6 py-4 border-b border-border sticky top-0 bg-card z-10 rounded-t-2xl">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-border bg-card z-20 sticky top-0 rounded-t-2xl">
           <h2 className="text-lg font-bold font-display">{editMode ? "Edit Ticket" : "Raise New Ticket"}</h2>
           <button onClick={onClose} className="p-2 rounded-lg hover:bg-muted transition-colors">
             <X className="h-5 w-5" />
           </button>
         </div>
- 
+
+        <div>
         {editMode ? (
           <form className="p-6 space-y-4" onSubmit={handleSubmit}>
             <div className="grid grid-cols-2 gap-3">
@@ -1126,6 +1126,7 @@ const RaiseTicketModal = ({ onClose, onSuccess, editMode, editTicket, userRole, 
             </div>
           </form>
         )}
+        </div>
       </div>
     </div>
   );

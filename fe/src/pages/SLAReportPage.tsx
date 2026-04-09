@@ -77,7 +77,8 @@ const SLAReportPage = () => {
 
   const isCddUser = userDept.toUpperCase() === "CDD";
   const isAdminDeptUser = userRole.toLowerCase().includes("admin department");
-  const reportLabel = (isCddUser || isAdminDeptUser) ? "TAT" : "SLA";
+  const isZenotiUser = userRole.toLowerCase().includes("zenoti") || userDept.toLowerCase() === "zenoti";
+  const reportLabel = "TAT";
 
   const [tickets, setTickets] = useState<ApiTicket[]>([]);
   const [slaConfigs, setSlaConfigs] = useState<ApiSLAConfig[]>([]);
@@ -201,7 +202,7 @@ const SLAReportPage = () => {
   };
 
   const handleRefresh = () => {
-    setTatReportView("CM Response");
+    setTatReportView("");
     setFilterCategory("All");
     setFilterSubCategory("All");
     setFilterModule("All");
@@ -211,7 +212,7 @@ const SLAReportPage = () => {
     setCustomStartDate("");
     setCustomEndDate("");
     setAppliedFilters({
-      tatReportView: "CM Response",
+      tatReportView: "",
       filterCategory: "All",
       filterSubCategory: "All",
       filterModule: "All",
@@ -351,7 +352,7 @@ const SLAReportPage = () => {
           <div>
             <h1 className="text-2xl font-bold font-display tracking-tight">{reportLabel} Report</h1>
             <p className="text-sm text-muted-foreground mt-0.5">
-              {(isCddUser || isAdminDeptUser) ? "Turn Around Time performance overview" : "Service Level Agreement performance overview"}
+              Turn Around Time performance overview
             </p>
           </div>
         </div>
@@ -364,13 +365,14 @@ const SLAReportPage = () => {
               onChange={(e) => setTatReportView(e.target.value as any)}
               className="px-2 py-1.5 rounded-md border border-primary bg-primary/5 text-primary text-xs font-medium focus:outline-none focus:ring-2 focus:ring-primary/30 w-[140px]"
             >
+              <option value="">Select TAT View</option>
               <option value="CM Response">TAT - CM Response</option>
               <option value="AOM Response">TAT - AOM Response</option>
               <option value="AMH Response">TAT - AMH Response</option>
               <option value="Other Dept">TAT - Other Dept</option>
             </select>
           )}
-          {!isCddUser && !isAdminDeptUser && (
+          {isZenotiUser && (
             <select
               value={filterPriority}
               onChange={(e) => setFilterPriority(e.target.value)}
@@ -566,12 +568,21 @@ const SLAReportPage = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
-                  {Array.from(aomMap.entries()).sort(([a], [b]) => a.localeCompare(b)).map(([aomName, aomData]) => {
+                  {Array.from(aomMap.entries()).sort(([a], [b]) => {
+                    if (!a || a === "—") return 1;
+                    if (!b || b === "—") return -1;
+                    return a.localeCompare(b);
+                  }).map(([aomName, aomData]) => {
                     const allClinics: { zone: string; name: string; total: number; withinTat: number; overTat: number }[] = [];
                     aomData.zones.forEach((zoneData, zoneName) => {
                       zoneData.clinics.forEach((cl) => {
                         allClinics.push({ zone: zoneName, ...cl });
                       });
+                    });
+                    allClinics.sort((a, b) => {
+                      if (a.zone === "Other" && b.zone !== "Other") return 1;
+                      if (a.zone !== "Other" && b.zone === "Other") return -1;
+                      return a.zone.localeCompare(b.zone) || a.name.localeCompare(b.name);
                     });
                     const aomTotal = allClinics.reduce((s, c) => s + c.total, 0);
                     const aomWithin = allClinics.reduce((s, c) => s + c.withinTat, 0);

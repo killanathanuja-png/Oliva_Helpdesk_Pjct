@@ -188,7 +188,7 @@ const AnalyticsPage = () => {
       {/* Header */}
       <div>
         <h1 className="text-2xl font-bold font-display tracking-tight">Analytics</h1>
-        <p className="text-sm text-muted-foreground mt-0.5">SLA performance & ticket analytics</p>
+        <p className="text-sm text-muted-foreground mt-0.5">TAT performance & ticket analytics</p>
       </div>
 
       {/* KPI Row */}

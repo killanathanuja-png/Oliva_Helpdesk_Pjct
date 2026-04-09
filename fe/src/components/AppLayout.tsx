@@ -111,6 +111,7 @@ const AppLayout = ({ children }: AppLayoutProps) => {
   const isAdminDeptUser: boolean = userRole.toLowerCase().includes("admin department");
   const isSuperAdmin: boolean = userRole.toLowerCase().includes("super admin") || userRole.toLowerCase().includes("global admin") || userRole.toLowerCase().includes("super user");
   const isITUser: boolean = userRole.toLowerCase() === "it" || userDepartment.toLowerCase() === "it department";
+  const isZenotiUser: boolean = userRole.toLowerCase().includes("zenoti") || userDepartment.toLowerCase() === "zenoti";
   const isClinicManagerUser: boolean = userRole.toLowerCase().includes("clinic manager") || userRole.toLowerCase().includes("clinic incharge");
   const userInitials: string = userName.split(" ").map((w: string) => w[0]).join("").toUpperCase().slice(0, 2);
 
@@ -347,8 +348,8 @@ const AppLayout = ({ children }: AppLayoutProps) => {
               {location.pathname === "/approvals" && "Pending Approvals"}
               {location.pathname === "/finance-approvals" && "Finance Approvals"}
               {location.pathname === "/zenoti-requests" && "Zenoti Requests"}
-              {location.pathname === "/sla-report" && ((isCddUser || isAdminDeptUser) ? "Reports / TAT Report" : "Reports / SLA Report")}
-              {location.pathname === "/analytics" && ((isCddUser || isAdminDeptUser) ? "Reports / TAT Analytics" : "Reports / SLA Analytics")}
+              {location.pathname === "/sla-report" && "Reports / TAT Report"}
+              {location.pathname === "/analytics" && "Reports / TAT Analytics"}
               {location.pathname === "/admin/users" && "Masters / Users"}
               {location.pathname === "/admin/departments" && "Masters / Departments"}
               {location.pathname === "/admin/roles" && "Masters / Roles"}
@@ -366,55 +367,6 @@ const AppLayout = ({ children }: AppLayoutProps) => {
           </div>
 
           <div className="flex items-center gap-2">
-            {/* Notifications */}
-            <div className="relative" ref={notifRef}>
-              <button
-                onClick={() => setNotifOpen(!notifOpen)}
-                className="relative p-2 rounded-lg hover:bg-white/15 transition-colors text-white/80 hover:text-white"
-              >
-                <Bell className="h-5 w-5" />
-                {unreadCount > 0 && (
-                  <span className="absolute -top-0.5 -right-0.5 h-4 w-4 rounded-full bg-destructive text-destructive-foreground text-[10px] font-bold flex items-center justify-center">
-                    {unreadCount}
-                  </span>
-                )}
-              </button>
-              {notifOpen && (
-                  <div className="absolute right-0 top-full mt-2 w-80 z-50 rounded-xl bg-card border border-border shadow-lg animate-slide-in">
-                    <div className="p-3 border-b border-border flex items-center justify-between">
-                      <h3 className="font-semibold text-sm">Notifications</h3>
-                      {unreadCount > 0 && (
-                        <button onClick={handleMarkAllRead} className="text-[11px] text-primary hover:underline">
-                          Mark all read
-                        </button>
-                      )}
-                    </div>
-                    <div className="max-h-80 overflow-y-auto">
-                      {notifications.length === 0 ? (
-                        <div className="p-4 text-center text-xs text-muted-foreground">No notifications</div>
-                      ) : (
-                        notifications.map((n) => (
-                          <div
-                            key={n.id}
-                            onClick={() => handleNotifClick(n)}
-                            className={cn(
-                              "p-3 border-b border-border last:border-0 hover:bg-muted/50 transition-colors cursor-pointer",
-                              !n.read && "bg-accent/30"
-                            )}
-                          >
-                            <p className="text-xs font-semibold">{n.title}</p>
-                            <p className="text-xs text-muted-foreground mt-0.5">{n.message}</p>
-                            <p className="text-[10px] text-muted-foreground mt-1">
-                              {n.created_at ? new Date(n.created_at).toLocaleString() : ""}
-                            </p>
-                          </div>
-                        ))
-                      )}
-                    </div>
-                  </div>
-              )}
-            </div>
-
             {/* User avatar — clickable to profile */}
             <div className="flex items-center gap-2 pl-2 border-l border-white/25 ml-1">
               <button

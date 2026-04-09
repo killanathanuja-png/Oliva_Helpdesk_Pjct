@@ -619,9 +619,7 @@ const TicketsPage = () => {
                 </td>
                 <td className="px-4 py-3 text-xs text-muted-foreground">{t.assignedDept}</td>
                 <td className="px-4 py-3 text-xs text-muted-foreground">
-                  {t.assignedDept === "IT Department" ? (
-                    <span>Unassigned</span>
-                  ) : (
+                  {(() => { return (
                     <>
                       {t.assignedTo || "—"}
                       {(() => {
@@ -632,7 +630,7 @@ const TicketsPage = () => {
                         return null;
                       })()}
                     </>
-                  )}
+                  ); })()}
                 </td>
                 <td className="px-4 py-3 text-xs text-muted-foreground">{t.center}</td>
                 <td className="px-4 py-3 text-xs text-muted-foreground">{t.createdAt}</td>
