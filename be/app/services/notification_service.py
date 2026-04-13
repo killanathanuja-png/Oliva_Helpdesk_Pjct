@@ -148,7 +148,6 @@ def _send_msg91_email(
         "from": {"name": MSG91_FROM_NAME, "email": MSG91_FROM_EMAIL},
         "domain": MSG91_DOMAIN,
         "template_id": template_id,
-        "validate_before_send": True,
     }
 
     headers = {
@@ -290,6 +289,7 @@ def send_ticket_created_email(
         "ticket_link": generate_ticket_link(ticket_db_id),
         "raised_by": to_email,
     }
+    print(f"[MSG91] Created email vars: to={to_email}, name={user_name}, code={ticket_id}, template={MSG91_EMAIL_TEMPLATE_TICKET_CREATED}")
 
     _send_msg91_email_async(to_email, user_name, MSG91_EMAIL_TEMPLATE_TICKET_CREATED, variables, ticket_db_id=ticket_db_id)
 
