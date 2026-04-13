@@ -273,29 +273,6 @@ def create_ticket(req: TicketCreate, current_user: User = Depends(get_current_us
             ticket_status = TicketStatusEnum.Open
             approval_required = False
 
-        # Auto-assign to department members (round-robin by fewest open tickets)
-        if assigned_to_id_value is None and assigned_dept_value and assigned_dept_value.lower() not in ("admin department", "admin"):
-            dept_obj = db.query(Department).filter(Department.name == assigned_dept_value).first()
-            if dept_obj:
-                dept_members = db.query(User).filter(
-                    User.department_id == dept_obj.id,
-                    User.status == StatusEnum.Active,
-                ).all()
-                if dept_members:
-                    min_count = None
-                    best_user = None
-                    for member in dept_members:
-                        open_count = db.query(Ticket).filter(
-                            Ticket.assigned_to_id == member.id,
-                            Ticket.status.in_([TicketStatusEnum.Open, TicketStatusEnum.InProgress, TicketStatusEnum.Acknowledged]),
-                        ).count()
-                        if min_count is None or open_count < min_count:
-                            min_count = open_count
-                            best_user = member
-                    if best_user:
-                        assigned_to_id_value = best_user.id
-                        print(f"[AUTO-ASSIGN] {assigned_dept_value} ticket assigned to {best_user.name} ({min_count} open tickets)")
-
         # Auto-assign Admin Department tickets to L1 based on center location
         if (req.assigned_dept or "").lower() in ("admin department", "admin") and center_value:
             center_obj = db.query(Center).filter(Center.name == center_value).first()
