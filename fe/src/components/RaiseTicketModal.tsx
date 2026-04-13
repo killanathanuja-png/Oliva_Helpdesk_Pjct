@@ -331,8 +331,10 @@ const RaiseTicketModal = ({ onClose, onSuccess, editMode, editTicket, userRole, 
   const isITDept = department === "IT Department";
   const [itCategory, setItCategory] = useState("");
   const [itSubCategory, setItSubCategory] = useState("");
+  const [itModelName, setItModelName] = useState("");
   const itCategoryOptions = Object.keys(itCategoryMap);
   const itSubCategoryOptions = itCategory ? (itCategoryMap[itCategory] || []) : [];
+  const itNeedsModelName = itCategory === "Hardware" && itSubCategory && ["Laptop", "Desktop", "Monitor", "iPad"].some((d) => itSubCategory.toLowerCase().startsWith(d.toLowerCase()));
 
   const isCDDToClinics = isCDD && (department === "Clinic" || department === "Clinic Operations");
 
@@ -449,11 +451,18 @@ const RaiseTicketModal = ({ onClose, onSuccess, editMode, editTicket, userRole, 
         setSubmitting(false);
         return;
       }
+      // IT Hardware: Model Name is mandatory for Laptop/Desktop/Monitor/iPad
+      if (isITDept && itNeedsModelName && !itModelName.trim()) {
+        alert(`Please enter the ${itSubCategory.split(" - ")[0]} model name.`);
+        setSubmitting(false);
+        return;
+      }
       if (onSuccess) {
         const finalCategory = isAdminDept ? adminMainCategory : isITDept ? itCategory : (isCDDClinic && category === "others" && customType) ? customType : category;
         const finalSubCategory = isAdminDept ? adminModule : isITDept ? itSubCategory : (isCDDClinic && subCategory === "others" && customCategory) ? customCategory : subCategory;
+        const finalDescription = itNeedsModelName && itModelName.trim() ? `${description}\n\nModel Name: ${itModelName.trim()}` : description;
         onSuccess({
-          title: title || description.slice(0, 100), description, department, category: finalCategory, subCategory: finalSubCategory,
+          title: title || description.slice(0, 100), description: finalDescription, department, category: finalCategory, subCategory: finalSubCategory,
           priority: isZenoti ? priority : "Medium",
           center: isZenoti ? zenotiFields.location : (isCDDToClinics ? assignedCenter : (isHelpdeskAdmin && currentUserCenter ? currentUserCenter : center)),
           zenotiChildCategory: isAdminDept ? adminSubCategory : childCategory,
@@ -498,7 +507,7 @@ const RaiseTicketModal = ({ onClose, onSuccess, editMode, editTicket, userRole, 
     setAssignedCenter("");
     setCddCmEmail("");
     setCddAomEmail("");
-    setItCategory(""); setItSubCategory("");
+    setItCategory(""); setItSubCategory(""); setItModelName("");
     // Auto-set Category=FM Call, Module=HELPDESK for center mail users selecting Admin Department
     if (val === "Admin Department" && isHelpdeskAdmin) {
       setAdminMainCategory("FM Call");
@@ -825,7 +834,19 @@ const RaiseTicketModal = ({ onClose, onSuccess, editMode, editTicket, userRole, 
                     />
                   </div>
                 </div>
-                {isHelpdeskAdmin && currentUserCenter && (
+                {itNeedsModelName && (
+                  <div>
+                    <label className={labelClass}>Model Name <span className="text-destructive">*</span></label>
+                    <input
+                      type="text"
+                      value={itModelName}
+                      onChange={(e) => setItModelName(e.target.value)}
+                      placeholder={`Enter ${itSubCategory.split(" - ")[0]} model name`}
+                      className={cn(inputClass)}
+                    />
+                  </div>
+                )}
+                {currentUserCenter && (
                   <div>
                     <label className={labelClass}>Center <span className="text-xs text-emerald-600 ml-1">(Auto-filled)</span></label>
                     <input type="text" value={currentUserCenter} readOnly className={cn(inputClass, "bg-muted cursor-not-allowed")} />

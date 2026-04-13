@@ -468,37 +468,33 @@ def create_ticket(req: TicketCreate, current_user: User = Depends(get_current_us
         priority_val = ticket.priority.value if ticket.priority else "Medium"
         assigned_name = ticket.assigned_to_rel.name if ticket.assigned_to_rel else ""
 
-        # Email the raiser (confirmation)
+        # 1. Email the raiser — "Ticket raised successfully"
         if current_user.email:
             send_ticket_created(current_user.email, ticket.code, ticket.title,
                 ticket.description or "", current_user.name, ticket.assigned_dept or "",
-                ticket.center or "", priority_val, ticket.category or "", assigned_name)
+                ticket.center or "", priority_val, ticket.category or "", assigned_name,
+                ticket_db_id=ticket.id)
 
-        # Email the assignee
+        # 2. Email the assignee — "Ticket assigned to you"
         if ticket.assigned_to_rel and ticket.assigned_to_rel.email and ticket.assigned_to_rel.id != current_user.id:
             send_ticket_assigned(ticket.assigned_to_rel.email, ticket.code, ticket.title,
                 ticket.assigned_to_rel.name, current_user.name,
-                ticket.assigned_dept or "", ticket.center or "", priority_val)
+                ticket.assigned_dept or "", ticket.center or "", priority_val,
+                ticket_db_id=ticket.id)
 
-        # Email department users
+        # 3. Email department members — "Ticket assigned to your department"
         dept = db.query(Department).filter(Department.name == ticket.assigned_dept).first()
         if dept:
-            dept_users = db.query(User).filter(User.department_id == dept.id, User.id != current_user.id).all()
+            notified_ids = {current_user.id}
+            if ticket.assigned_to_rel:
+                notified_ids.add(ticket.assigned_to_rel.id)
+            dept_users = db.query(User).filter(User.department_id == dept.id).all()
             for u in dept_users:
-                if u.email and (not ticket.assigned_to_rel or u.id != ticket.assigned_to_rel.id):
-                    send_ticket_created(u.email, ticket.code, ticket.title,
-                        ticket.description or "", current_user.name, ticket.assigned_dept or "",
-                        ticket.center or "", priority_val, ticket.category or "", assigned_name)
-
-        # Email center manager if center specified
-        if ticket.center:
-            center_obj = db.query(Center).filter(Center.name == ticket.center).first()
-            if center_obj and center_obj.center_manager_email:
-                cm = db.query(User).filter(User.email == center_obj.center_manager_email).first()
-                if cm and cm.id != current_user.id and (not ticket.assigned_to_rel or cm.id != ticket.assigned_to_rel.id):
-                    send_ticket_created(cm.email, ticket.code, ticket.title,
-                        ticket.description or "", current_user.name, ticket.assigned_dept or "",
-                        ticket.center or "", priority_val, ticket.category or "")
+                if u.id not in notified_ids and u.email:
+                    send_ticket_assigned(u.email, ticket.code, ticket.title,
+                        u.name, current_user.name,
+                        ticket.assigned_dept or "", ticket.center or "", priority_val,
+                        ticket_db_id=ticket.id)
     except Exception as email_err:
         print(f"[EMAIL] Failed to send creation emails: {email_err}")
 
@@ -513,6 +509,15 @@ def get_ticket(ticket_id: int, db: Session = Depends(get_db)):
     return _ticket_to_response(t)
  
  
+@router.get("/{ticket_id}/email-logs")
+def get_email_logs(ticket_id: int, db: Session = Depends(get_db)):
+    from app.models.models import EmailLog
+    logs = db.query(EmailLog).filter(EmailLog.ticket_id == ticket_id).order_by(EmailLog.created_at.desc()).all()
+    return [{"id": l.id, "to_email": l.to_email, "to_name": l.to_name, "template": l.template,
+             "status": l.status, "msg91_id": l.msg91_id, "error": l.error,
+             "created_at": l.created_at.isoformat() if l.created_at else None} for l in logs]
+
+
 @router.patch("/{ticket_id}", response_model=TicketResponse)
 def update_ticket(ticket_id: int, req: TicketUpdate, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     t = db.query(Ticket).filter(Ticket.id == ticket_id).first()

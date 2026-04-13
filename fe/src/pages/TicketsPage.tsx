@@ -130,6 +130,7 @@ const TicketsPage = () => {
   const currentUserCenter = parsedUser?.center || "";
   const managedCenters: string[] = parsedUser?.managed_centers || [];
   const isCddUser = currentUserDept.toUpperCase() === "CDD";
+  const isCddAdmin = currentUserRole.toLowerCase().includes("cdd admin");
 
   const fetchTickets = useCallback(async () => {
     if (!localStorage.getItem("oliva_token")) {
@@ -207,7 +208,14 @@ const TicketsPage = () => {
   const resolvedStatuses = ["Resolved", "Closed", "Final Closed"];
   const allDeptTickets = (() => {
     const allowedDepts = getUserDepts();
-    if (allowedDepts.length > 0) return data.filter((t) => allowedDepts.includes(t.assignedDept));
+    if (allowedDepts.length > 0) {
+      return data.filter((t) => {
+        if (allowedDepts.includes(t.assignedDept)) return true;
+        // CDD Admin can see all tickets raised by CDD team (even if assigned to Clinic/other dept)
+        if (isCddAdmin && t.raisedByDept === "CDD") return true;
+        return false;
+      });
+    }
     if (currentUserDept) return data.filter((t) => t.assignedDept === currentUserDept);
     return data.filter((t) => t.assignedTo === currentUser);
   })();
