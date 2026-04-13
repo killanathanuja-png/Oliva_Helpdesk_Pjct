@@ -230,6 +230,8 @@ const TicketDetailPage = () => {
       ))
     : false;
 
+  const [emailLogs, setEmailLogs] = useState<{ id: number; to_email: string; to_name: string; template: string; status: string; created_at: string | null }[]>([]);
+
   const fetchTicket = useCallback(async () => {
     if (!id) return;
     setLoading(true);
@@ -238,6 +240,8 @@ const TicketDetailPage = () => {
       if (isNaN(dbId)) throw new Error("Invalid ticket ID");
       const data = await ticketsApi.get(dbId);
       setTicket(apiToTicket(data));
+      // Fetch email logs
+      ticketsApi.getEmailLogs(dbId).then(setEmailLogs).catch(() => {});
     } catch {
       setError("Unable to load ticket details.");
     } finally {
@@ -367,6 +371,12 @@ const TicketDetailPage = () => {
     const closedStatuses = ["Resolved", "Closed", "Final Closed"];
     if (closedStatuses.includes(ticket.status)) {
       alert(`This ticket is already "${ticket.status}". No further changes are allowed.`);
+      return;
+    }
+    // Only assigned department team can resolve/change status (except Super Admin)
+    const _isSuperAdmin = hasAnyRole(currentUserRole, ["Super Admin", "Global Admin", "Super User"]);
+    if (statusChanged && !_isSuperAdmin && currentUserDept && ticket.assignedDept && currentUserDept !== ticket.assignedDept) {
+      alert(`You cannot change the status of this ticket. Only the ${ticket.assignedDept} team can resolve or update this ticket.`);
       return;
     }
     const hasAnyChange = statusChanged || priorityChanged || !!editAssignTo || editComment.trim().length > 0;
@@ -705,6 +715,44 @@ const TicketDetailPage = () => {
             {approving ? <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full" /> : <CheckCircle2 className="h-4 w-4" />}
             {approvalAction === "Follow-up" ? "Submit Follow-up" : approvalAction === "Reject" ? "Reject Request" : "Approve Request"}
           </button>
+        </Section>
+      )}
+
+      {/* ── Email Status ── */}
+      {emailLogs.length > 0 && (
+        <Section title="Email Notifications">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-left text-[11px] uppercase tracking-wider text-muted-foreground border-b border-border bg-muted/30">
+                  <th className="px-4 py-2 font-semibold">To</th>
+                  <th className="px-4 py-2 font-semibold">Email</th>
+                  <th className="px-4 py-2 font-semibold">Type</th>
+                  <th className="px-4 py-2 font-semibold">Status</th>
+                  <th className="px-4 py-2 font-semibold">Sent At</th>
+                </tr>
+              </thead>
+              <tbody>
+                {emailLogs.map((log) => (
+                  <tr key={log.id} className="border-b border-border last:border-0">
+                    <td className="px-4 py-2 text-xs font-medium">{log.to_name || "—"}</td>
+                    <td className="px-4 py-2 text-xs text-muted-foreground">{log.to_email}</td>
+                    <td className="px-4 py-2 text-xs">
+                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${log.template === "created" ? "bg-blue-100 text-blue-700" : "bg-purple-100 text-purple-700"}`}>
+                        {log.template === "created" ? "Ticket Created" : "Ticket Assigned"}
+                      </span>
+                    </td>
+                    <td className="px-4 py-2 text-xs">
+                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${log.status === "sent" ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"}`}>
+                        {log.status === "sent" ? "Sent" : "Failed"}
+                      </span>
+                    </td>
+                    <td className="px-4 py-2 text-xs text-muted-foreground">{log.created_at ? new Date(log.created_at).toLocaleString() : "—"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </Section>
       )}
 

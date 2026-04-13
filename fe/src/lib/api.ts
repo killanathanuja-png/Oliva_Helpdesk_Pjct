@@ -463,6 +463,8 @@ export const ticketsApi = {
     request<ApiTicket>(`/tickets/${id}/approve`, { method: "PATCH", body: JSON.stringify(data) }),
   addComment: (id: number, data: { user: string; message: string; type?: string }) =>
     request<ApiTicketComment>(`/tickets/${id}/comments`, { method: "POST", body: JSON.stringify(data) }),
+  getEmailLogs: (id: number) =>
+    request<{ id: number; to_email: string; to_name: string; template: string; status: string; msg91_id: string; error: string | null; created_at: string | null }[]>(`/tickets/${id}/email-logs`),
   resolve: (id: number, data: { action: string; resolution?: string; user_name?: string }) =>
     request<ApiTicket>(`/tickets/${id}/resolve`, { method: "PATCH", body: JSON.stringify(data) }),
   cddAction: (id: number, data: { action: string; comment?: string; escalate_to_id?: number; user_name?: string }) =>

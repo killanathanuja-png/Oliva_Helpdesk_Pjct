@@ -79,6 +79,19 @@ class NotificationTypeEnum(str, enum.Enum):
 
 # --- Models ---
 
+class EmailLog(Base):
+    __tablename__ = "email_logs"
+    id = Column(Integer, primary_key=True, index=True)
+    ticket_id = Column(Integer, ForeignKey("tickets.id"), nullable=True)
+    to_email = Column(String, nullable=False)
+    to_name = Column(String, nullable=True)
+    template = Column(String, nullable=True)  # "created" or "assigned"
+    status = Column(String, default="sent")  # "sent", "failed"
+    msg91_id = Column(String, nullable=True)
+    error = Column(Text, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+
 class Department(Base):
     __tablename__ = "departments"
 
