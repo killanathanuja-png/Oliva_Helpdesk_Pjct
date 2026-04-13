@@ -493,7 +493,9 @@ def create_ticket(req: TicketCreate, current_user: User = Depends(get_current_us
                 ticket.assigned_dept or "", ticket.center or "", priority_val,
                 ticket_db_id=ticket.id)
     except Exception as email_err:
+        import traceback
         print(f"[EMAIL] Failed to send creation emails: {email_err}")
+        traceback.print_exc()
 
     return _ticket_to_response(ticket)
  
@@ -583,7 +585,9 @@ def update_ticket(ticket_id: int, req: TicketUpdate, current_user: User = Depend
                     t.priority.value if t.priority else "",
                     ticket_db_id=t.id)
     except Exception as email_err:
+        import traceback
         print(f"[EMAIL] Failed to send update emails: {email_err}")
+        traceback.print_exc()
 
     return _ticket_to_response(t)
  
