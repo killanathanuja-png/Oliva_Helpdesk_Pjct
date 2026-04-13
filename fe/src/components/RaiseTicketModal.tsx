@@ -825,12 +825,19 @@ const RaiseTicketModal = ({ onClose, onSuccess, editMode, editTicket, userRole, 
                     />
                   </div>
                 </div>
-                {isHelpdeskAdmin && currentUserCenter && (
-                  <div>
-                    <label className={labelClass}>Center <span className="text-xs text-emerald-600 ml-1">(Auto-filled)</span></label>
+                <div>
+                  <label className={labelClass}>Center <span className="text-destructive">*</span></label>
+                  {isHelpdeskAdmin && currentUserCenter ? (
                     <input type="text" value={currentUserCenter} readOnly className={cn(inputClass, "bg-muted cursor-not-allowed")} />
-                  </div>
-                )}
+                  ) : (
+                    <ComboBox
+                      value={center}
+                      onChange={(val) => setCenter(val)}
+                      options={centerOptions}
+                      placeholder="Select center"
+                    />
+                  )}
+                </div>
               </div>
             )}
 

@@ -135,7 +135,7 @@ def seed():
         print("Seed: all departments already exist")
 
     # --- Super Admin user ---
-    sa_email = "killana@olivaclinic.com"
+    sa_email = "Oliva_Superadmin@olivaclinic.com"
     existing_sa = db.query(User).filter(User.email == sa_email).first()
     if not existing_sa:
         # Find the next user code
@@ -144,11 +144,11 @@ def seed():
         user_code = f"U{next_num:03d}"
         sa_user = User(
             code=user_code,
-            name="Killana",
+            name="Oliva Superadmin",
             email=sa_email,
             hashed_password=hash_password("admin123"),
             role="Super Admin",
-            avatar="KI",
+            avatar="OS",
             status=StatusEnum.Active,
         )
         db.add(sa_user)

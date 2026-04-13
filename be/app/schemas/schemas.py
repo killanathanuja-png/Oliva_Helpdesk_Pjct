@@ -390,6 +390,7 @@ class TicketUpdate(BaseModel):
     assigned_dept: Optional[str] = None
     assigned_to_id: Optional[int] = None
     status: Optional[str] = None
+    comment: Optional[str] = None
     zenoti_location: Optional[str] = None
     zenoti_main_category: Optional[str] = None
     zenoti_sub_category: Optional[str] = None

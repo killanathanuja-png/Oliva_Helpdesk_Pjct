@@ -253,16 +253,19 @@ def send_ticket_created_email(
         return  # Fall through to existing SMTP in email_utils.py
 
     variables = {
-        "user_name": user_name,
-        "ticket_id": ticket_id,
+        # Match MSG91 template variables exactly
+        "name": user_name,
+        "code": ticket_id,
         "title": title,
+        "description": title,
         "department": department,
-        "center": center or "—",
+        "center_name": center or "—",
         "priority": priority,
         "category": category or "—",
         "assigned_to": assigned_to or "Unassigned",
         "status": "Open",
         "ticket_link": generate_ticket_link(ticket_db_id),
+        "raised_by": to_email,
     }
 
     _send_msg91_email_async(to_email, user_name, MSG91_EMAIL_TEMPLATE_TICKET_CREATED, variables)
@@ -290,8 +293,8 @@ def send_status_update_email(
         return
 
     variables = {
-        "user_name": user_name,
-        "ticket_id": ticket_id,
+        "name": user_name,
+        "code": ticket_id,
         "title": title,
         "old_status": old_status,
         "new_status": new_status,
@@ -326,10 +329,10 @@ def send_assignment_email(
 
     variables = {
         "agent_name": agent_name,
-        "ticket_id": ticket_id,
+        "code": ticket_id,
         "title": title,
         "department": department,
-        "center": center or "—",
+        "center_name": center or "—",
         "priority": priority,
         "assigned_by": assigned_by or "System",
         "ticket_link": generate_ticket_link(ticket_db_id),

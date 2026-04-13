@@ -269,11 +269,32 @@ def create_ticket(req: TicketCreate, current_user: User = Depends(get_current_us
                     if assigned_user:
                         assigned_to_id_value = assigned_user.id
 
-            # IT Department — no auto-assignment (both IT members see it)
-
             # Override status and approval
             ticket_status = TicketStatusEnum.Open
             approval_required = False
+
+        # Auto-assign to department members (round-robin by fewest open tickets)
+        if assigned_to_id_value is None and assigned_dept_value and assigned_dept_value.lower() not in ("admin department", "admin"):
+            dept_obj = db.query(Department).filter(Department.name == assigned_dept_value).first()
+            if dept_obj:
+                dept_members = db.query(User).filter(
+                    User.department_id == dept_obj.id,
+                    User.status == StatusEnum.Active,
+                ).all()
+                if dept_members:
+                    min_count = None
+                    best_user = None
+                    for member in dept_members:
+                        open_count = db.query(Ticket).filter(
+                            Ticket.assigned_to_id == member.id,
+                            Ticket.status.in_([TicketStatusEnum.Open, TicketStatusEnum.InProgress, TicketStatusEnum.Acknowledged]),
+                        ).count()
+                        if min_count is None or open_count < min_count:
+                            min_count = open_count
+                            best_user = member
+                    if best_user:
+                        assigned_to_id_value = best_user.id
+                        print(f"[AUTO-ASSIGN] {assigned_dept_value} ticket assigned to {best_user.name} ({min_count} open tickets)")
 
         # Auto-assign Admin Department tickets to L1 based on center location
         if (req.assigned_dept or "").lower() in ("admin department", "admin") and center_value:
@@ -468,37 +489,19 @@ def create_ticket(req: TicketCreate, current_user: User = Depends(get_current_us
         priority_val = ticket.priority.value if ticket.priority else "Medium"
         assigned_name = ticket.assigned_to_rel.name if ticket.assigned_to_rel else ""
 
-        # Email the raiser (confirmation)
+        # Email the raiser (confirmation) — only to the person who raised the ticket
         if current_user.email:
             send_ticket_created(current_user.email, ticket.code, ticket.title,
                 ticket.description or "", current_user.name, ticket.assigned_dept or "",
-                ticket.center or "", priority_val, ticket.category or "", assigned_name)
+                ticket.center or "", priority_val, ticket.category or "", assigned_name,
+                ticket_db_id=ticket.id)
 
-        # Email the assignee
+        # Email the assignee (assignment notification) — only to the assigned person
         if ticket.assigned_to_rel and ticket.assigned_to_rel.email and ticket.assigned_to_rel.id != current_user.id:
             send_ticket_assigned(ticket.assigned_to_rel.email, ticket.code, ticket.title,
                 ticket.assigned_to_rel.name, current_user.name,
-                ticket.assigned_dept or "", ticket.center or "", priority_val)
-
-        # Email department users
-        dept = db.query(Department).filter(Department.name == ticket.assigned_dept).first()
-        if dept:
-            dept_users = db.query(User).filter(User.department_id == dept.id, User.id != current_user.id).all()
-            for u in dept_users:
-                if u.email and (not ticket.assigned_to_rel or u.id != ticket.assigned_to_rel.id):
-                    send_ticket_created(u.email, ticket.code, ticket.title,
-                        ticket.description or "", current_user.name, ticket.assigned_dept or "",
-                        ticket.center or "", priority_val, ticket.category or "", assigned_name)
-
-        # Email center manager if center specified
-        if ticket.center:
-            center_obj = db.query(Center).filter(Center.name == ticket.center).first()
-            if center_obj and center_obj.center_manager_email:
-                cm = db.query(User).filter(User.email == center_obj.center_manager_email).first()
-                if cm and cm.id != current_user.id and (not ticket.assigned_to_rel or cm.id != ticket.assigned_to_rel.id):
-                    send_ticket_created(cm.email, ticket.code, ticket.title,
-                        ticket.description or "", current_user.name, ticket.assigned_dept or "",
-                        ticket.center or "", priority_val, ticket.category or "")
+                ticket.assigned_dept or "", ticket.center or "", priority_val,
+                ticket_db_id=ticket.id)
     except Exception as email_err:
         print(f"[EMAIL] Failed to send creation emails: {email_err}")
 
@@ -519,12 +522,19 @@ def update_ticket(ticket_id: int, req: TicketUpdate, current_user: User = Depend
     if not t:
         raise HTTPException(status_code=404, detail="Ticket not found")
     update_data = req.model_dump(exclude_unset=True)
+    # Extract comment before processing (don't set it on ticket model)
+    update_comment = update_data.pop("comment", None) or ""
     if "status" in update_data:
         update_data["status"] = TicketStatusEnum(update_data["status"])
     if "priority" in update_data:
         update_data["priority"] = PriorityEnum(update_data["priority"])
-    # Track if assigned_to changed
+
+    # Capture old values BEFORE updating
+    old_status = t.status.value if t.status else "Open"
     new_assignee_id = update_data.get("assigned_to_id")
+    status_changed = "status" in update_data and update_data["status"] != t.status
+
+    # Apply updates
     for key, value in update_data.items():
         setattr(t, key, value)
 
@@ -542,21 +552,23 @@ def update_ticket(ticket_id: int, req: TicketUpdate, current_user: User = Depend
     db.commit()
     db.refresh(t)
 
-    db.commit()
-
     # ── Email: Status Changed + Ticket Assigned ──
     try:
-        old_status = req.model_dump(exclude_unset=True).get("_old_status", "")
-        if "status" in update_data:
-            new_status = update_data["status"].value if hasattr(update_data["status"], "value") else str(update_data["status"])
+        if status_changed:
+            new_status = t.status.value if t.status else "Open"
+            print(f"[EMAIL] Status changed: {old_status} → {new_status} for {t.code} | comment: {update_comment}")
             # Email the raiser
-            if t.raised_by_rel and t.raised_by_rel.email and t.raised_by_id != current_user.id:
+            if t.raised_by_rel and t.raised_by_rel.email:
                 send_status_changed(t.raised_by_rel.email, t.code, t.title,
-                    old_status or "—", new_status, current_user.name)
-            # Email the assignee
-            if t.assigned_to_rel and t.assigned_to_rel.email and t.assigned_to_id != current_user.id:
+                    old_status, new_status, current_user.name,
+                    comment=update_comment,
+                    ticket_db_id=t.id)
+            # Email the assignee (if different from raiser)
+            if t.assigned_to_rel and t.assigned_to_rel.email and t.assigned_to_id != t.raised_by_id:
                 send_status_changed(t.assigned_to_rel.email, t.code, t.title,
-                    old_status or "—", new_status, current_user.name)
+                    old_status, new_status, current_user.name,
+                    comment=update_comment,
+                    ticket_db_id=t.id)
 
         if new_assignee_id:
             assignee = db.query(User).filter(User.id == new_assignee_id).first()
@@ -564,7 +576,8 @@ def update_ticket(ticket_id: int, req: TicketUpdate, current_user: User = Depend
                 send_ticket_assigned(assignee.email, t.code, t.title,
                     assignee.name, current_user.name,
                     t.assigned_dept or "", t.center or "",
-                    t.priority.value if t.priority else "")
+                    t.priority.value if t.priority else "",
+                    ticket_db_id=t.id)
     except Exception as email_err:
         print(f"[EMAIL] Failed to send update emails: {email_err}")
 

@@ -402,6 +402,7 @@ const TicketDetailPage = () => {
         }
         if (priorityChanged) payload.priority = editPriority;
         if (editAssignTo) payload.assigned_to_id = editAssignTo;
+        if (editComment.trim()) payload.comment = editComment.trim();
         if (Object.keys(payload).length > 0) {
           await ticketsApi.update(ticket._dbId, payload as import("@/lib/api").UpdateTicketPayload);
         }
