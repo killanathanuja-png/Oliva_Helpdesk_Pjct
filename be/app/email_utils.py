@@ -176,10 +176,11 @@ def send_ticket_assigned(to_email: str, ticket_code: str, title: str,
 
 def send_status_changed(to_email: str, ticket_code: str, title: str,
                         old_status: str, new_status: str, changed_by: str,
-                        comment: str = "", ticket_db_id: int = 0):
+                        comment: str = "", ticket_db_id: int = 0,
+                        recipient_name: str = ""):
     """Notify when a ticket's status changes. Uses MSG91 if enabled."""
     if is_msg91_enabled():
-        _msg91_status_update(to_email, "", ticket_code, title, old_status, new_status, changed_by, comment, ticket_db_id)
+        _msg91_status_update(to_email, recipient_name or to_email.split("@")[0], ticket_code, title, old_status, new_status, changed_by, comment, ticket_db_id)
         return
     subject = f"[Oliva Helpdesk] Ticket {ticket_code} Status → {new_status}"
     rows = (

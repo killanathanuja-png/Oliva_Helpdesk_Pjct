@@ -484,22 +484,35 @@ def create_ticket(req: TicketCreate, current_user: User = Depends(get_current_us
         print(f"[CREATE TICKET] FAILED: {traceback.format_exc()}")
         raise
 
-    # ── Email: Ticket Created ──
+    # ── Emails on Ticket Creation ──
+    # Rule 1: "Created" email → ONLY to the raiser (the person who raised the ticket)
+    # Rule 2: "Assigned" email → ONLY to the assigned person (if different from raiser)
     try:
+        db.refresh(ticket)
         priority_val = ticket.priority.value if ticket.priority else "Medium"
         assigned_name = ticket.assigned_to_rel.name if ticket.assigned_to_rel else ""
 
-        # Email the raiser (confirmation) — only to the person who raised the ticket
-        if current_user.email:
-            send_ticket_created(current_user.email, ticket.code, ticket.title,
-                ticket.description or "", current_user.name, ticket.assigned_dept or "",
+        # Use ticket's raised_by_rel (actual raiser stored in DB)
+        raiser = ticket.raised_by_rel
+        raiser_email = raiser.email if raiser else current_user.email
+        raiser_name = raiser.name if raiser else current_user.name
+        assignee = ticket.assigned_to_rel
+        assignee_email = assignee.email if assignee else None
+        assignee_name = assignee.name if assignee else ""
+
+        # 1. Created confirmation → raiser only
+        if raiser_email:
+            print(f"[EMAIL] Ticket Created → raiser: {raiser_name} ({raiser_email})")
+            send_ticket_created(raiser_email, ticket.code, ticket.title,
+                ticket.description or "", raiser_name, ticket.assigned_dept or "",
                 ticket.center or "", priority_val, ticket.category or "", assigned_name,
                 ticket_db_id=ticket.id)
 
-        # Email the assignee (assignment notification) — only to the assigned person
-        if ticket.assigned_to_rel and ticket.assigned_to_rel.email and ticket.assigned_to_rel.id != current_user.id:
-            send_ticket_assigned(ticket.assigned_to_rel.email, ticket.code, ticket.title,
-                ticket.assigned_to_rel.name, current_user.name,
+        # 2. Assignment notification → assignee only (skip if assignee is the raiser)
+        if assignee_email and assignee.id != raiser.id:
+            print(f"[EMAIL] Ticket Assigned → assignee: {assignee_name} ({assignee_email})")
+            send_ticket_assigned(assignee_email, ticket.code, ticket.title,
+                assignee_name, raiser_name,
                 ticket.assigned_dept or "", ticket.center or "", priority_val,
                 ticket_db_id=ticket.id)
     except Exception as email_err:
@@ -552,27 +565,41 @@ def update_ticket(ticket_id: int, req: TicketUpdate, current_user: User = Depend
     db.commit()
     db.refresh(t)
 
-    # ── Email: Status Changed + Ticket Assigned ──
+    # ── Emails on Ticket Update ──
+    # Rule 3: Status changed → email to BOTH raiser AND assigned person
+    # Rule 2: New assignment → email to assigned person only
     try:
+        raiser_email = t.raised_by_rel.email if t.raised_by_rel else None
+        assignee_email = t.assigned_to_rel.email if t.assigned_to_rel else None
+        sent_to = set()  # track emails sent to avoid duplicates
+
         if status_changed:
             new_status = t.status.value if t.status else "Open"
             print(f"[EMAIL] Status changed: {old_status} → {new_status} for {t.code} | comment: {update_comment}")
-            # Email the raiser
-            if t.raised_by_rel and t.raised_by_rel.email:
-                send_status_changed(t.raised_by_rel.email, t.code, t.title,
+
+            # Status update → raiser
+            if raiser_email:
+                raiser_name = t.raised_by_rel.name if t.raised_by_rel else ""
+                print(f"[EMAIL] Status Update → raiser: {raiser_email} ({raiser_name})")
+                send_status_changed(raiser_email, t.code, t.title,
                     old_status, new_status, current_user.name,
-                    comment=update_comment,
-                    ticket_db_id=t.id)
-            # Email the assignee (if different from raiser)
-            if t.assigned_to_rel and t.assigned_to_rel.email and t.assigned_to_id != t.raised_by_id:
-                send_status_changed(t.assigned_to_rel.email, t.code, t.title,
+                    comment=update_comment, ticket_db_id=t.id,
+                    recipient_name=raiser_name)
+                sent_to.add(raiser_email)
+
+            # Status update → assignee (even if same as raiser, both must get it)
+            if assignee_email and assignee_email not in sent_to:
+                assignee_name = t.assigned_to_rel.name if t.assigned_to_rel else ""
+                print(f"[EMAIL] Status Update → assignee: {assignee_email} ({assignee_name})")
+                send_status_changed(assignee_email, t.code, t.title,
                     old_status, new_status, current_user.name,
-                    comment=update_comment,
-                    ticket_db_id=t.id)
+                    comment=update_comment, ticket_db_id=t.id,
+                    recipient_name=assignee_name)
 
         if new_assignee_id:
             assignee = db.query(User).filter(User.id == new_assignee_id).first()
             if assignee and assignee.email:
+                print(f"[EMAIL] Ticket Assigned → assignee: {assignee.email}")
                 send_ticket_assigned(assignee.email, t.code, t.title,
                     assignee.name, current_user.name,
                     t.assigned_dept or "", t.center or "",

@@ -167,6 +167,7 @@ export interface UpdateTicketPayload {
   assigned_dept?: string;
   assigned_to_id?: number;
   status?: string;
+  comment?: string;
   zenoti_location?: string;
   zenoti_main_category?: string;
   zenoti_sub_category?: string;
