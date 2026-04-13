@@ -90,12 +90,27 @@ def generate_ticket_link_by_code(ticket_code: str, ticket_db_id: int) -> str:
 MSG91_SMS_URL = "https://control.msg91.com/api/v5/flow/"
 
 
+def _log_email(ticket_id, to_email, to_name, template, status, msg91_id="", error=""):
+    """Log email to DB for tracking."""
+    try:
+        from app.database import SessionLocal
+        from app.models.models import EmailLog
+        db = SessionLocal()
+        db.add(EmailLog(ticket_id=ticket_id, to_email=to_email, to_name=to_name or "",
+                        template=template, status=status, msg91_id=msg91_id, error=error))
+        db.commit()
+        db.close()
+    except Exception as e:
+        logger.error(f"Failed to log email: {e}")
+
+
 def _send_msg91_email(
     to_email: str,
     to_name: str,
     template_id: str,
     variables: Dict[str, str],
     cc: Optional[List[Dict[str, str]]] = None,
+    ticket_db_id: int = None,
 ):
     """
     Send email via MSG91 Email API using the correct recipients format.
@@ -142,23 +157,31 @@ def _send_msg91_email(
         "content-type": "application/json",
     }
 
+    template_label = "created" if "created" in template_id.lower() else "assigned" if "assign" in template_id.lower() else template_id
     try:
         logger.info(f"MSG91 sending email to {to_email} | template: {template_id} | vars: {list(variables.keys())}")
         resp = requests.post(MSG91_EMAIL_API_URL, json=payload, headers=headers, timeout=10)
         resp_data = resp.text
         if resp.status_code == 200:
             logger.info(f"MSG91 email sent to {to_email}: {resp_data}")
+            import json as _json
+            msg91_id = ""
+            try: msg91_id = _json.loads(resp_data).get("data", {}).get("unique_id", "")
+            except: pass
+            _log_email(ticket_db_id, to_email, to_name, template_label, "sent", msg91_id)
         else:
             logger.error(f"MSG91 email failed [{resp.status_code}]: {resp_data}")
+            _log_email(ticket_db_id, to_email, to_name, template_label, "failed", error=resp_data)
     except Exception as e:
         logger.error(f"MSG91 email error to {to_email}: {e}")
+        _log_email(ticket_db_id, to_email, to_name, template_label, "failed", error=str(e))
 
 
-def _send_msg91_email_async(to_email: str, to_name: str, template_id: str, variables: Dict[str, str], cc=None):
+def _send_msg91_email_async(to_email: str, to_name: str, template_id: str, variables: Dict[str, str], cc=None, ticket_db_id: int = None):
     """Fire-and-forget MSG91 email in background thread."""
     Thread(
         target=_send_msg91_email,
-        args=(to_email, to_name, template_id, variables, cc),
+        args=(to_email, to_name, template_id, variables, cc, ticket_db_id),
         daemon=True,
     ).start()
 
@@ -268,7 +291,7 @@ def send_ticket_created_email(
         "raised_by": to_email,
     }
 
-    _send_msg91_email_async(to_email, user_name, MSG91_EMAIL_TEMPLATE_TICKET_CREATED, variables)
+    _send_msg91_email_async(to_email, user_name, MSG91_EMAIL_TEMPLATE_TICKET_CREATED, variables, ticket_db_id=ticket_db_id)
 
 
 def send_status_update_email(
@@ -338,7 +361,7 @@ def send_assignment_email(
         "ticket_link": generate_ticket_link(ticket_db_id),
     }
 
-    _send_msg91_email_async(to_email, agent_name, MSG91_EMAIL_TEMPLATE_ASSIGNMENT, variables)
+    _send_msg91_email_async(to_email, agent_name, MSG91_EMAIL_TEMPLATE_ASSIGNMENT, variables, ticket_db_id=ticket_db_id)
 
 
 def send_ticket_created_sms(
