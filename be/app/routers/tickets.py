@@ -190,7 +190,7 @@ def list_tickets(
         # Users with map_level_access = "Can View and Edit" see all admin tickets
         if current_user.map_level_access == "Can View and Edit":
             tickets = db.query(Ticket).filter(
-                Ticket.assigned_dept == "Admin Department"
+                (Ticket.assigned_dept == "Admin Department") | (Ticket.assigned_dept == "IT Department")
             ).order_by(Ticket.created_at.desc()).all()
         else:
             # Get user's managed center names
