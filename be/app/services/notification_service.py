@@ -84,6 +84,26 @@ def generate_ticket_link_by_code(ticket_code: str, ticket_db_id: int) -> str:
 
 
 # ──────────────────────────────────────────────
+#  MSG91 Suppression Management
+# ──────────────────────────────────────────────
+
+def _unsuppress_email(email: str):
+    """Remove an email from MSG91 suppression list so it can receive emails again."""
+    try:
+        # MSG91 API to remove from suppression
+        url = "https://control.msg91.com/api/v5/email/suppression"
+        headers = {
+            "authkey": MSG91_AUTH_KEY,
+            "accept": "application/json",
+            "content-type": "application/json",
+        }
+        resp = requests.request("DELETE", url, headers=headers, json={"emails": [email]}, timeout=10)
+        print(f"[MSG91] Unsuppress {email}: {resp.status_code} {resp.text}")
+    except Exception as e:
+        print(f"[MSG91] Failed to unsuppress {email}: {e}")
+
+
+# ──────────────────────────────────────────────
 #  MSG91 API URLs
 # ──────────────────────────────────────────────
 
@@ -158,9 +178,10 @@ def _send_msg91_email(
 
     template_label = "created" if "created" in template_id.lower() else "assigned" if "assign" in template_id.lower() else template_id
     try:
-        logger.info(f"MSG91 sending email to {to_email} | template: {template_id} | vars: {list(variables.keys())}")
+        print(f"[MSG91] Sending email to {to_email} | template: {template_id}")
         resp = requests.post(MSG91_EMAIL_API_URL, json=payload, headers=headers, timeout=10)
         resp_data = resp.text
+<<<<<<< Updated upstream
         if resp.status_code == 200:
             logger.info(f"MSG91 email sent to {to_email}: {resp_data}")
             import json as _json
@@ -174,6 +195,27 @@ def _send_msg91_email(
     except Exception as e:
         logger.error(f"MSG91 email error to {to_email}: {e}")
         _log_email(ticket_db_id, to_email, to_name, template_label, "failed", error=str(e))
+=======
+        resp_json = resp.json() if resp.status_code == 200 else {}
+
+        if resp.status_code == 200 and resp_json.get("status") == "success":
+            print(f"[MSG91] Email sent to {to_email}: {resp_json.get('data', {}).get('unique_id', '')}")
+        else:
+            print(f"[MSG91] Email failed [{resp.status_code}]: {resp_data}")
+            # If failed due to suppression, try to unsuppress and retry once
+            if "previously failed" in resp_data.lower() or "suppression" in resp_data.lower() or "not delivering" in resp_data.lower():
+                print(f"[MSG91] Attempting to unsuppress {to_email} and retry...")
+                _unsuppress_email(to_email)
+                import time
+                time.sleep(1)
+                resp2 = requests.post(MSG91_EMAIL_API_URL, json=payload, headers=headers, timeout=10)
+                if resp2.status_code == 200:
+                    print(f"[MSG91] Retry succeeded for {to_email}")
+                else:
+                    print(f"[MSG91] Retry also failed for {to_email}: {resp2.text}")
+    except Exception as e:
+        print(f"[MSG91] Email error to {to_email}: {e}")
+>>>>>>> Stashed changes
 
 
 def _send_msg91_email_async(to_email: str, to_name: str, template_id: str, variables: Dict[str, str], cc=None, ticket_db_id: int = None):

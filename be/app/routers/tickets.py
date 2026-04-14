@@ -991,12 +991,10 @@ def check_admin_escalations(db: Session = Depends(get_db)):
     escalated_count = 0
 
     # Get all open/in-progress Admin Department tickets
+    _closed_statuses = [TicketStatusEnum.Resolved, TicketStatusEnum.Closed, TicketStatusEnum.Rejected, TicketStatusEnum.FinalClosed]
     admin_tickets = db.query(Ticket).filter(
         Ticket.assigned_dept.in_(["Admin Department", "Admin"]),
-        Ticket.status.notin_([
-            TicketStatusEnum.Resolved, TicketStatusEnum.Closed,
-            TicketStatusEnum.Rejected, TicketStatusEnum.FinalClosed,
-        ]),
+        ~Ticket.status.in_(_closed_statuses),
     ).all()
 
     for t in admin_tickets:

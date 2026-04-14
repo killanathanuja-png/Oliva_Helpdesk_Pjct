@@ -16,7 +16,7 @@ const roleAccess: Record<string, string[]> = {
   "Super Admin": ADMIN_PATHS,
   "Global Admin": ADMIN_PATHS,
   "Super User": ADMIN_PATHS,
-  "Help Desk Admin": ["/", "/tickets", "/sla-report", "/analytics", "/admin/users", "/admin/departments", "/admin/centers", "/admin/categories", "/admin/subcategories", "/admin/service-titles"],
+  "Help Desk Admin": ["/", "/tickets", "/sla-report", "/analytics"],
   "Helpdesk In-charge": ["/", "/tickets", "/sla-report", "/analytics", "/admin/users", "/admin/departments", "/admin/centers"],
   "Area Operations Manager": ["/", "/tickets", "/approvals", "/sla-report", "/analytics"],
   "Area Operations Manager Head": ["/", "/tickets", "/approvals", "/sla-report", "/analytics"],
