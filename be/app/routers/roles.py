@@ -5,6 +5,7 @@ from app.database import get_db
 from sqlalchemy import text
 from app.models.models import Role, User, StatusEnum
 from app.schemas.schemas import RoleCreate, RoleUpdate, RoleResponse
+from app.auth import get_current_user
 
 router = APIRouter(prefix="/api/roles", tags=["Roles"])
 
@@ -31,10 +32,15 @@ def _count_users_by_role_name(db: Session, role_name: str) -> int:
 
 
 @router.get("/", response_model=list[RoleResponse])
-def list_roles(db: Session = Depends(get_db)):
+def list_roles(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     roles = db.query(Role).order_by(Role.id).all()
+    # Non-super-admin users cannot see Super Admin role
+    user_roles = (current_user.role or "").lower()
+    is_super = "super admin" in user_roles or "global admin" in user_roles
     results = []
     for r in roles:
+        if not is_super and r.name in ("Super Admin", "Global Admin", "Super User"):
+            continue
         user_count = _count_users_by_role_name(db, r.name)
         perms = json.loads(r.permissions) if r.permissions else []
         results.append(RoleResponse(

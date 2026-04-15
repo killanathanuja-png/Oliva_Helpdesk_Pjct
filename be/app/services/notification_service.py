@@ -178,19 +178,38 @@ def _send_msg91_email(
 
     template_label = "created" if "created" in template_id.lower() else "assigned" if "assign" in template_id.lower() else template_id
     try:
+        # Pre-clear suppression for olivaclinic.com emails to prevent blocking
+        if to_email.endswith("@olivaclinic.com"):
+            _unsuppress_email(to_email)
+
         print(f"[MSG91] Sending email to {to_email} | template: {template_id}")
         resp = requests.post(MSG91_EMAIL_API_URL, json=payload, headers=headers, timeout=10)
         resp_data = resp.text
+
         if resp.status_code == 200:
             import json as _json
             msg91_id = ""
-            try: msg91_id = _json.loads(resp_data).get("data", {}).get("unique_id", "")
-            except: pass
+            try:
+                msg91_id = _json.loads(resp_data).get("data", {}).get("unique_id", "")
+            except Exception:
+                pass
             print(f"[MSG91] Email sent to {to_email}: {msg91_id}")
             _log_email(ticket_db_id, to_email, to_name, template_label, "sent", msg91_id)
         else:
             print(f"[MSG91] Email failed [{resp.status_code}]: {resp_data}")
             _log_email(ticket_db_id, to_email, to_name, template_label, "failed", error=resp_data)
+            # If failed due to suppression, try to unsuppress and retry once
+            if "previously failed" in resp_data.lower() or "suppression" in resp_data.lower() or "not delivering" in resp_data.lower():
+                print(f"[MSG91] Attempting to unsuppress {to_email} and retry...")
+                _unsuppress_email(to_email)
+                import time
+                time.sleep(1)
+                resp2 = requests.post(MSG91_EMAIL_API_URL, json=payload, headers=headers, timeout=10)
+                if resp2.status_code == 200:
+                    print(f"[MSG91] Retry succeeded for {to_email}")
+                    _log_email(ticket_db_id, to_email, to_name, template_label, "sent (retry)")
+                else:
+                    print(f"[MSG91] Retry also failed for {to_email}: {resp2.text}")
     except Exception as e:
         print(f"[MSG91] Email error to {to_email}: {e}")
         _log_email(ticket_db_id, to_email, to_name, template_label, "failed", error=str(e))

@@ -219,9 +219,6 @@ const AdminRolesPage = () => {
                 </div>
                 <div>
                   <h3 className="font-semibold">{r.name}</h3>
-                  <p className="text-xs text-muted-foreground flex items-center gap-1">
-                    <Users className="h-3 w-3" /> {r.userCount} users
-                  </p>
                 </div>
               </div>
               <div className="flex items-center gap-1">

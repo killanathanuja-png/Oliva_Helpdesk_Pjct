@@ -211,7 +211,7 @@ const TicketDetailPage = () => {
   // Roles that can always edit (even resolved/closed tickets)
   const alwaysEditRoleList = ["Employee", "Others", "Help Desk Admin", "Helpdesk In-charge", "Super Admin", "Global Admin", "Super User", "Zenoti Team"];
   const alwaysEdit = hasAnyRole(currentUserRole, alwaysEditRoleList);
-  // Roles that cannot edit at all (except for approval actions)
+  // Roles that cannot edit at all (view only)
   const noEditRoleList = ["Finance", "Finance Head"];
   const noEdit = hasAnyRole(currentUserRole, noEditRoleList);
   // AOM can edit only when ticket is Pending Approval (for approve/reject/follow-up) AND they are the current approver
@@ -758,10 +758,10 @@ const TicketDetailPage = () => {
 
       {/* ── Inline Edit Panel (always visible for users who can edit) ── */}
       {canEdit && (
-        <Section title="Edit Ticket" green>
+        <Section title={isAomRole ? "Attachments" : "Edit Ticket"} green>
           <div className="grid grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-4">
-            {/* Status */}
-            <div>
+            {/* Status — hidden for AOM (they use approval actions instead) */}
+            {!isAomRole && <div>
               <label className="flex items-center gap-1.5 text-[11px] font-medium text-muted-foreground uppercase tracking-wider mb-1">
                 <Clock className="h-3 w-3" /> Status
               </label>
@@ -776,6 +776,12 @@ const TicketDetailPage = () => {
                     {!isAomAssigned && !isCddRaisedTicket && <option value="Follow Up">Follow Up</option>}
                     {(isAomAssigned || isCddRaisedTicket) && (ticket.status as string) !== "Resolved" && <option value="Resolved">Resolved</option>}
                     {(isAomAssigned || isCddRaisedTicket) && (ticket.status as string) !== "Closed" && <option value="Closed">Closed</option>}
+                  </>
+                ) : hasAnyRole(currentUserRole, ["Helpdesk Admin"]) ? (
+                  <>
+                    <option value={ticket.status}>{ticket.status}</option>
+                    {(ticket.status as string) !== "Resolved" && <option value="Resolved">Resolved</option>}
+                    {(ticket.status as string) !== "Closed" && <option value="Closed">Closed</option>}
                   </>
                 ) : ["Employee", "Others"].includes(currentUserRole) ? (
                   <>
@@ -818,10 +824,10 @@ const TicketDetailPage = () => {
                   </>
                 )}
               </select>
-            </div>
+            </div>}
 
-            {/* Assign To — hidden for User, AOM, Clinic Manager roles, and Admin department tickets */}
-            {currentUserRole !== "User" && !isAomRole && !hasAnyRole(currentUserRole, ["Clinic Manager", "Clinic Incharge"]) && !["Admin Department", "Administration", "Admin"].includes(ticket.assignedDept) && (
+            {/* Assign To — hidden for User, AOM, Helpdesk Admin, Clinic Manager roles, and Admin department tickets */}
+            {currentUserRole !== "User" && !isAomRole && !hasAnyRole(currentUserRole, ["Clinic Manager", "Clinic Incharge", "Helpdesk Admin"]) && !["Admin Department", "Administration", "Admin"].includes(ticket.assignedDept) && (
               <div>
                 <label className="flex items-center gap-1.5 text-[11px] font-medium text-muted-foreground uppercase tracking-wider mb-1">
                   <User className="h-3 w-3" /> Assign To
@@ -851,8 +857,8 @@ const TicketDetailPage = () => {
               </label>
             </div>
 
-            {/* Description / Comment */}
-            <div className="col-span-full">
+            {/* Description / Comment — hidden for AOM */}
+            {!isAomRole && <div className="col-span-full">
               <label className="flex items-center gap-1.5 text-[11px] font-medium text-muted-foreground uppercase tracking-wider mb-1">
                 <MessageSquare className="h-3 w-3" /> Description / Reason for Change
                 {(["Employee", "Others"].includes(currentUserRole) || editStatus !== ticket.status) && <span className="text-destructive">*</span>}
@@ -879,7 +885,7 @@ const TicketDetailPage = () => {
                     : "This field is mandatory when changing status."}
                 </p>
               )}
-            </div>
+            </div>}
 
             {/* Show selected files */}
             {editFiles.length > 0 && (

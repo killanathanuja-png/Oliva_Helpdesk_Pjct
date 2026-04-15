@@ -462,42 +462,37 @@ def create_ticket(req: TicketCreate, current_user: User = Depends(get_current_us
         raise
 
     # ── Emails on Ticket Creation ──
-    # Rule 1: "Created" email → ONLY to the raiser (the person who raised the ticket)
+    # FINAL EMAIL RULES (production):
+    # Rule 1: "Created" email → ONLY to the raiser
     # Rule 2: "Assigned" email → ONLY to the assigned person (if different from raiser)
+    # Rule 3: NO emails to department members, center managers, or anyone else
     try:
         db.refresh(ticket)
         priority_val = ticket.priority.value if ticket.priority else "Medium"
-        assigned_name = ticket.assigned_to_rel.name if ticket.assigned_to_rel else ""
 
-        # 1. RAISER gets "Ticket Created Successfully" email
-        if current_user.email:
-            print(f"[EMAIL] Sending CREATED email to raiser: {current_user.email}")
-            send_ticket_created(current_user.email, ticket.code, ticket.title,
-                ticket.description or "", current_user.name, ticket.assigned_dept or "",
-                ticket.center or "", priority_val, ticket.category or "", assigned_name,
+        raiser = ticket.raised_by_rel
+        raiser_email = raiser.email if raiser else current_user.email
+        raiser_name = raiser.name if raiser else current_user.name
+        assignee = ticket.assigned_to_rel
+        assignee_email = assignee.email if assignee else None
+
+        # 1. RAISER gets "Ticket Created" email ONLY
+        if raiser_email:
+            print(f"[EMAIL] CREATED → raiser: {raiser_name} ({raiser_email})")
+            send_ticket_created(raiser_email, ticket.code, ticket.title,
+                ticket.description or "", raiser_name, ticket.assigned_dept or "",
+                ticket.center or "", priority_val, ticket.category or "",
+                assignee.name if assignee else "",
                 ticket_db_id=ticket.id)
 
-        # 2. ASSIGNEE gets "Ticket Assigned" email
-        notified_ids = {current_user.id}
-        if ticket.assigned_to_rel and ticket.assigned_to_rel.email and ticket.assigned_to_rel.id != current_user.id:
-            print(f"[EMAIL] Sending ASSIGNED email to assignee: {ticket.assigned_to_rel.email}")
-            send_ticket_assigned(ticket.assigned_to_rel.email, ticket.code, ticket.title,
-                ticket.assigned_to_rel.name, current_user.name,
+        # 2. ASSIGNEE gets "Ticket Assigned" email ONLY (skip if same as raiser or unassigned)
+        if assignee and assignee_email and assignee.id != (raiser.id if raiser else current_user.id):
+            print(f"[EMAIL] ASSIGNED → assignee: {assignee.name} ({assignee_email})")
+            send_ticket_assigned(assignee_email, ticket.code, ticket.title,
+                assignee.name, raiser_name,
                 ticket.assigned_dept or "", ticket.center or "", priority_val,
                 ticket_db_id=ticket.id)
-            notified_ids.add(ticket.assigned_to_rel.id)
 
-        # 3. ALL DEPARTMENT MEMBERS get "Ticket Assigned" email (except raiser & assignee)
-        dept = db.query(Department).filter(Department.name == ticket.assigned_dept).first()
-        if dept:
-            dept_users = db.query(User).filter(User.department_id == dept.id).all()
-            for u in dept_users:
-                if u.id not in notified_ids and u.email:
-                    print(f"[EMAIL] Sending ASSIGNED email to dept member: {u.email}")
-                    send_ticket_assigned(u.email, ticket.code, ticket.title,
-                        u.name, current_user.name,
-                        ticket.assigned_dept or "", ticket.center or "", priority_val,
-                        ticket_db_id=ticket.id)
     except Exception as email_err:
         import traceback
         print(f"[EMAIL] Failed to send creation emails: {email_err}")
@@ -991,10 +986,15 @@ def check_admin_escalations(db: Session = Depends(get_db)):
     escalated_count = 0
 
     # Get all open/in-progress Admin Department tickets
-    _closed_statuses = [TicketStatusEnum.Resolved, TicketStatusEnum.Closed, TicketStatusEnum.Rejected, TicketStatusEnum.FinalClosed]
     admin_tickets = db.query(Ticket).filter(
         Ticket.assigned_dept.in_(["Admin Department", "Admin"]),
-        ~Ticket.status.in_(_closed_statuses),
+        Ticket.status.in_([
+            TicketStatusEnum.Open, TicketStatusEnum.InProgress,
+            TicketStatusEnum.PendingApproval, TicketStatusEnum.Approved,
+            TicketStatusEnum.Acknowledged, TicketStatusEnum.AwaitingUserInputs,
+            TicketStatusEnum.UserInputsReceived, TicketStatusEnum.FollowUp,
+            TicketStatusEnum.EscalatedL1, TicketStatusEnum.EscalatedL2,
+        ]),
     ).all()
 
     for t in admin_tickets:

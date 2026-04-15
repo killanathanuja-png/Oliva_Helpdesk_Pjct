@@ -170,10 +170,10 @@ const TicketsPage = () => {
   const roleDeptMap: Record<string, string[]> = {
     "Zenoti Team": ["Zenoti"],
     "Zenoti Team Manager": ["Zenoti"],
-    "Area Operations Manager": ["Zenoti"],
-    "Area Operations Manager Head": ["Zenoti"],
-    "Finance": ["Zenoti"],
-    "Finance Head": ["Zenoti"],
+    "Area Operations Manager": [],   // AOM: only managed center tickets (handled below)
+    "Area Operations Manager Head": [], // AOM Head: only managed center tickets
+    "Finance": [],                   // Finance: only their approval tickets (handled below)
+    "Finance Head": [],              // Finance Head: only their approval tickets
     "Help Desk Admin": [], // sees all (handled below)
     "Helpdesk Admin": ["Admin Department"], // sees their center's admin tickets
     "Admin Department": ["Admin Department"], // sees all admin dept tickets
@@ -206,12 +206,32 @@ const TicketsPage = () => {
 
   // All department tickets (for All Tickets tab - includes resolved)
   const resolvedStatuses = ["Resolved", "Closed", "Final Closed"];
+  const isAomUser = hasAnyRole(currentUserRole, ["Area Operations Manager", "Area Operations Manager Head"]);
+  const isFinanceUser = hasAnyRole(currentUserRole, ["Finance", "Finance Head"]);
+
   const allDeptTickets = (() => {
+    // AOM: only tickets from their managed centers (Zenoti dept)
+    if (isAomUser) {
+      return data.filter((t) =>
+        t.raisedBy === currentUser ||
+        t.assignedTo === currentUser ||
+        (t.approver === currentUser && t.approvalRequired) ||
+        (managedCenters.length > 0 && managedCenters.some((c) => c.toLowerCase() === (t.center || "").toLowerCase()))
+      );
+    }
+    // Finance: Zenoti aom_finance tickets (pending, approved, rejected, follow up)
+    if (isFinanceUser) {
+      return data.filter((t) =>
+        t.raisedBy === currentUser ||
+        t.assignedTo === currentUser ||
+        (t.approvalRequired && (t as any).approvalType === "aom_finance") ||
+        (t.assignedDept === "Zenoti" && t.approvalStatus === "Approved")
+      );
+    }
     const allowedDepts = getUserDepts();
     if (allowedDepts.length > 0) {
       return data.filter((t) => {
         if (allowedDepts.includes(t.assignedDept)) return true;
-        // CDD Admin can see all tickets raised by CDD team (even if assigned to Clinic/other dept)
         if (isCddAdmin && t.raisedByDept === "CDD") return true;
         return false;
       });
@@ -223,15 +243,13 @@ const TicketsPage = () => {
   // View & Update: department tickets excluding Resolved/Closed/Final Closed
   const deptTickets = allDeptTickets.filter((t) => !resolvedStatuses.includes(t.status));
 
-  // "All Tickets": super admin sees everything, others see dept tickets + tickets they raised + managed center tickets
-  const isAomUser = hasAnyRole(currentUserRole, ["Area Operations Manager", "Area Operations Manager Head"]);
+  // "All Tickets": super admin sees everything, others see dept tickets + tickets they raised
   const roleFiltered = isSuperRole(currentUserRole)
     ? data
     : data.filter((t) => {
         if (allDeptTickets.includes(t)) return true;
         if (t.raisedBy === currentUser) return true;
         if (t.assignedTo === currentUser) return true;
-        if (isAomUser && managedCenters.length > 0 && managedCenters.some((c) => c.toLowerCase() === (t.center || "").toLowerCase())) return true;
         return false;
       });
 
