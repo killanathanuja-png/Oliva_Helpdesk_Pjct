@@ -251,7 +251,8 @@ const AdminUsersPage = () => {
   const _isCddAdmin = _userRole.toLowerCase().includes("cdd admin");
   const _isAdminDept = _userRole.toLowerCase().includes("admin department");
   const _isITUser = _userRole.toLowerCase() === "it" || _userDept.toLowerCase() === "it department";
-  const _isDeptFiltered = _isQualityHead || _isZenotiUser || _isCddAdmin || _isAdminDept || _isITUser;
+  const _isFinanceUser = _userRole.toLowerCase() === "finance" || _userRole.toLowerCase() === "finance head" || _userDept.toLowerCase() === "finance";
+  const _isDeptFiltered = _isQualityHead || _isZenotiUser || _isCddAdmin || _isAdminDept || _isITUser || _isFinanceUser;
   const [data, setData] = useState<LocalUser[]>([]);
   const [idMap, setIdMap] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
@@ -323,6 +324,8 @@ const AdminUsersPage = () => {
             apiUsers = apiUsers.filter((u) => (u.department || "") === "IT Department");
           } else if (_isZenotiUser) {
             apiUsers = apiUsers.filter((u) => (u.department || "") === "Zenoti");
+          } else if (_isFinanceUser) {
+            apiUsers = apiUsers.filter((u) => (u.department || "") === "Finance" || (u.department || "") === "Zenoti");
           } else if (_isDeptFiltered) {
             apiUsers = apiUsers.filter((u) => (u.department || "").toLowerCase().includes(_userDept.toLowerCase().split(" ")[0]));
           }

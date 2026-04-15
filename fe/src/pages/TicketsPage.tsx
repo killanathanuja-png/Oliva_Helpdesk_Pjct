@@ -59,6 +59,7 @@ function apiToTicket(t: ApiTicket): Ticket & { _dbId: number; tatHours: number |
     approvalRequired: t.approval_required,
     approver: t.approver || undefined,
     approvalStatus: t.approval_status as Ticket["approvalStatus"],
+    approvalType: t.approval_type || undefined,
     resolution: t.resolution || undefined,
     comments: t.comments.map((c) => ({
       id: String(c.id),
@@ -219,13 +220,14 @@ const TicketsPage = () => {
         (managedCenters.length > 0 && managedCenters.some((c) => c.toLowerCase() === (t.center || "").toLowerCase()))
       );
     }
-    // Finance: Zenoti aom_finance tickets (pending, approved, rejected, follow up)
+    // Finance: Zenoti tickets that need finance approval or are AOM-approved
     if (isFinanceUser) {
       return data.filter((t) =>
         t.raisedBy === currentUser ||
         t.assignedTo === currentUser ||
         (t.approvalRequired && (t as any).approvalType === "aom_finance") ||
-        (t.assignedDept === "Zenoti" && t.approvalStatus === "Approved")
+        (t.assignedDept === "Zenoti" && t.approvalStatus === "Approved") ||
+        (t.assignedDept === "Zenoti" && t.status === "Pending Approval")
       );
     }
     const allowedDepts = getUserDepts();

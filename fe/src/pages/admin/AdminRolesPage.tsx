@@ -39,6 +39,7 @@ const AdminRolesPage = () => {
   const _isQAUser = _userRole.toLowerCase().includes("quality") || _userDept.toLowerCase().includes("quality");
   const _isITUser = _userRole.toLowerCase() === "it" || _userDept.toLowerCase() === "it department";
   const _isZenotiUser = _userRole.toLowerCase().includes("zenoti") || _userDept.toLowerCase() === "zenoti";
+  const _isFinanceUser = _userRole.toLowerCase() === "finance" || _userRole.toLowerCase() === "finance head" || _userDept.toLowerCase() === "finance";
   const _isSuperAdmin = _userRole.toLowerCase().includes("super admin") || _userRole.toLowerCase().includes("global admin") || _userRole.toLowerCase().includes("super user");
 
   const [data, setData] = useState<LocalRole[]>([]);
@@ -69,6 +70,8 @@ const AdminRolesPage = () => {
             filtered = roles.filter((r) => r.name === "IT" || r.name.toLowerCase().startsWith("it ") || r.name.toLowerCase().includes("it department"));
           } else if (_isZenotiUser) {
             filtered = roles.filter((r) => r.name.toLowerCase().includes("zenoti"));
+          } else if (_isFinanceUser) {
+            filtered = roles.filter((r) => r.name.toLowerCase().includes("finance") || r.name.toLowerCase().includes("zenoti"));
           } else {
             // All other users: show only exact matching roles
             const userRoles = _userRole.split(",").map((r: string) => r.trim().toLowerCase());

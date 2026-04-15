@@ -137,7 +137,8 @@ const AdminCategoriesPage = () => {
   const _isAdminDept = _userRole.toLowerCase().includes("admin department");
   const _isITUser = _userRole.toLowerCase() === "it" || _userDept.toLowerCase() === "it department";
   const _isZenotiUser = _userRole.toLowerCase().includes("zenoti") || _userDept.toLowerCase() === "zenoti";
-  const _isDeptFiltered = _userDept.toLowerCase().includes("quality") || _isZenotiUser || _isCddAdmin || _isITUser;
+  const _isFinanceUser = _userRole.toLowerCase() === "finance" || _userRole.toLowerCase() === "finance head" || _userDept.toLowerCase() === "finance";
+  const _isDeptFiltered = _userDept.toLowerCase().includes("quality") || _isZenotiUser || _isCddAdmin || _isITUser || _isFinanceUser;
   const [data, setData] = useState<LocalCategory[]>([]);
   const [idMap, setIdMap] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
@@ -191,6 +192,8 @@ const AdminCategoriesPage = () => {
               apiCategories = apiCategories.filter((c: any) => (c.department || "") === "IT Department");
             } else if (_isZenotiUser) {
               apiCategories = apiCategories.filter((c: any) => (c.department || "") === "Zenoti");
+            } else if (_isFinanceUser) {
+              apiCategories = apiCategories.filter((c: any) => (c.department || "") === "Finance" || (c.department || "") === "Zenoti");
             } else {
               const deptKey = _userDept.toLowerCase().split(" ")[0];
               apiCategories = apiCategories.filter((c: any) => (c.department || "").toLowerCase().includes(deptKey));
