@@ -43,8 +43,8 @@ const allNavItems = [
     icon: Ticket,
     path: "/tickets",
     children: [
-      { label: "All Tickets", icon: ListChecks, path: "/tickets?tab=all" },
       { label: "View & Update Tickets", icon: Eye, path: "/tickets?tab=depttickets" },
+      { label: "All Tickets", icon: ListChecks, path: "/tickets?tab=all" },
     ],
   },
   { label: "Approvals", icon: ShieldCheck, path: "/approvals" },

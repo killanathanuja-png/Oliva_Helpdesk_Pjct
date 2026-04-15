@@ -407,8 +407,8 @@ const TicketDetailPage = () => {
       } else {
         const payload: Record<string, unknown> = {};
         if (statusChanged) {
-          // "Re-Open" maps to "Open" in backend
-          payload.status = editStatus === "Re-Open" ? "Open" : editStatus;
+          // Map display values to backend values
+          payload.status = editStatus === "Re-Open" ? "Open" : editStatus === "Resolved / Closed" ? "Resolved" : editStatus;
         }
         if (priorityChanged) payload.priority = editPriority;
         if (editAssignTo) payload.assigned_to_id = editAssignTo;
@@ -498,7 +498,7 @@ const TicketDetailPage = () => {
             <div className="flex items-center gap-2">
               <span className="text-sm font-mono text-primary font-bold">{ticket.id}</span>
               <span className={cn("px-2 py-0.5 rounded-full text-[11px] font-semibold", statusColors[ticket.status] || "bg-gray-100 text-gray-600")}>
-                {ticket.status}
+                {ticket.assignedDept !== "Zenoti" && (ticket.status === "Resolved" || ticket.status === "Closed" || (ticket.status as string) === "Final Closed") ? "Resolved/Closed" : ticket.status}
               </span>
               <span className="inline-flex items-center gap-1 text-[11px] font-medium">
                 <span className={cn("h-2 w-2 rounded-full", priorityDotColors[ticket.priority])} />
@@ -777,35 +777,6 @@ const TicketDetailPage = () => {
                     {(isAomAssigned || isCddRaisedTicket) && (ticket.status as string) !== "Resolved" && <option value="Resolved">Resolved</option>}
                     {(isAomAssigned || isCddRaisedTicket) && (ticket.status as string) !== "Closed" && <option value="Closed">Closed</option>}
                   </>
-                ) : hasAnyRole(currentUserRole, ["Helpdesk Admin"]) ? (
-                  <>
-                    <option value={ticket.status}>{ticket.status}</option>
-                    {(ticket.status as string) !== "Resolved" && <option value="Resolved">Resolved</option>}
-                    {(ticket.status as string) !== "Closed" && <option value="Closed">Closed</option>}
-                  </>
-                ) : ["Employee", "Others"].includes(currentUserRole) ? (
-                  <>
-                    <option value={ticket.status}>{ticket.status}</option>
-                    {((ticket.status as string) === "Resolved" || (ticket.status as string) === "Closed") && <option value="Re-Open">Re-Open</option>}
-                  </>
-                ) : currentUserDept?.toUpperCase() === "CDD" ? (
-                  <>
-                    <option value={ticket.status}>{ticket.status}</option>
-                    {(ticket.status as string) !== "In Progress" && <option value="In Progress">In Progress</option>}
-                    {(ticket.status as string) !== "Resolved" && <option value="Resolved">Resolved</option>}
-                    {(ticket.status as string) !== "Closed" && <option value="Closed">Closed</option>}
-                  </>
-                ) : hasAnyRole(currentUserRole, ["QA", "Clinic Incharge", "Clinic Manager"]) ? (
-                  <>
-                    <option value={ticket.status}>{ticket.status}</option>
-                    {(ticket.status as string) === "Open" && <option value="Acknowledged">Acknowledged</option>}
-                    {(ticket.status as string) === "Reopened by CDD" && <option value="Acknowledged">Acknowledged</option>}
-                    {(ticket.status as string) !== "In Progress" && <option value="In Progress">In Progress</option>}
-                    {isZenoti && (ticket.status as string) !== "Follow Up" && <option value="Follow Up">Follow Up</option>}
-                    {(ticket.status as string) !== "Resolved" && <option value="Resolved">Resolved</option>}
-                    {(ticket.status as string) !== "Closed" && <option value="Closed">Closed</option>}
-                    {((ticket.status as string) === "Resolved" || (ticket.status as string) === "Closed") && <option value="Re-Open">Re-Open</option>}
-                  </>
                 ) : isZenoti ? (
                   <>
                     <option value="Open">Open</option>
@@ -819,8 +790,7 @@ const TicketDetailPage = () => {
                   <>
                     <option value="Open">Open</option>
                     <option value="In Progress">In Progress</option>
-                    <option value="Resolved">Resolved</option>
-                    <option value="Closed">Closed</option>
+                    <option value="Resolved">Resolved / Closed</option>
                   </>
                 )}
               </select>
