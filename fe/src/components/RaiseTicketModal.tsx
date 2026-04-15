@@ -454,7 +454,7 @@ const RaiseTicketModal = ({ onClose, onSuccess, editMode, editTicket, userRole, 
         const finalSubCategory = isAdminDept ? adminModule : isITDept ? itSubCategory : (isCDDClinic && subCategory === "others" && customCategory) ? customCategory : subCategory;
         onSuccess({
           title: title || description.slice(0, 100), description, department, category: finalCategory, subCategory: finalSubCategory,
-          priority: isZenoti ? priority : "Medium",
+          priority: isZenoti ? (category.toLowerCase() === "zenoti-finance" ? "Critical" : "Medium") : "Medium",
           center: isZenoti ? zenotiFields.location : (isCDDToClinics ? assignedCenter : (isHelpdeskAdmin && currentUserCenter ? currentUserCenter : center)),
           zenotiChildCategory: isAdminDept ? adminSubCategory : childCategory,
           zenotiDescription: isAdminDept ? adminChildCategory : undefined,
@@ -499,6 +499,8 @@ const RaiseTicketModal = ({ onClose, onSuccess, editMode, editTicket, userRole, 
     setCddCmEmail("");
     setCddAomEmail("");
     setItCategory(""); setItSubCategory("");
+    // Reset priority when department changes
+    setPriority("");
     // Auto-set Category=FM Call, Module=HELPDESK for center mail users selecting Admin Department
     if (val === "Admin Department" && isHelpdeskAdmin) {
       setAdminMainCategory("FM Call");
@@ -521,9 +523,11 @@ const RaiseTicketModal = ({ onClose, onSuccess, editMode, editTicket, userRole, 
     setCategory(val);
     setSubCategory("");
     setChildCategory("");
-    // Auto-set priority to Critical for Zenoti-Finance
+    // Auto-set priority to Critical only for Zenoti-Finance
     if (val.toLowerCase() === "zenoti-finance") {
       setPriority("Critical");
+    } else if (department === "Zenoti") {
+      setPriority("");  // No priority for Zenoti-Operational and Operational Issues
     } else {
       setPriority("");
     }
@@ -1039,15 +1043,11 @@ const RaiseTicketModal = ({ onClose, onSuccess, editMode, editTicket, userRole, 
             {/* Priority & Center — hidden for CDD→Clinic and Admin Department */}
             {!isCDDToClinics && !isAdminDept && !isITDept && (
               <div className={cn("grid gap-3", isZenoti ? "grid-cols-1" : "grid-cols-1")}>
-                {isZenoti && (
+                {/* Zenoti-Finance: show Priority as read-only Critical */}
+                {isZenoti && category.toLowerCase() === "zenoti-finance" && (
                   <div>
-                    <label className={labelClass}>Priority <span className="text-destructive">*</span></label>
-                    <ComboBox
-                      value={priority}
-                      onChange={(val) => setPriority(val)}
-                      options={category.toLowerCase() === "zenoti-finance" ? ["Critical"] : ["High", "Medium", "Low"]}
-                      placeholder={matchingServiceTitle ? `Suggested: ${matchingServiceTitle.priority}` : "Select priority"}
-                    />
+                    <label className={labelClass}>Priority</label>
+                    <input type="text" value="Critical" readOnly className={cn(inputClass, "bg-muted cursor-not-allowed font-semibold text-red-600")} />
                   </div>
                 )}
                 {!isZenoti && (
