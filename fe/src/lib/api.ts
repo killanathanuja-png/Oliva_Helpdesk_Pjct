@@ -454,6 +454,7 @@ export const ticketsApi = {
     return request<ApiTicket[]>(`/tickets${q}`);
   },
   get: (id: number) => request<ApiTicket>(`/tickets/${id}`),
+  delete: (id: number) => request<{ message: string }>(`/tickets/${id}`, { method: "DELETE" }),
   create: (data: CreateTicketPayload) =>
     request<ApiTicket>("/tickets", { method: "POST", body: JSON.stringify(data) }),
   update: (id: number, data: UpdateTicketPayload) =>

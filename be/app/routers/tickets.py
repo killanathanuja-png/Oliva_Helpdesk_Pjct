@@ -509,6 +509,24 @@ def get_ticket(ticket_id: int, db: Session = Depends(get_db)):
     return _ticket_to_response(t)
  
  
+@router.delete("/{ticket_id}")
+def delete_ticket(ticket_id: int, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    """Delete a ticket (Super Admin only)."""
+    user_roles = (current_user.role or "").lower()
+    if not any(r in user_roles for r in ["super admin", "global admin", "super user"]):
+        raise HTTPException(status_code=403, detail="Only Super Admin can delete tickets")
+    t = db.query(Ticket).filter(Ticket.id == ticket_id).first()
+    if not t:
+        raise HTTPException(status_code=404, detail="Ticket not found")
+    # Delete related comments and email logs
+    db.query(TicketComment).filter(TicketComment.ticket_id == ticket_id).delete()
+    from app.models.models import EmailLog
+    db.query(EmailLog).filter(EmailLog.ticket_id == ticket_id).delete()
+    db.delete(t)
+    db.commit()
+    return {"message": f"Ticket {t.code} deleted successfully"}
+
+
 @router.patch("/{ticket_id}", response_model=TicketResponse)
 def update_ticket(ticket_id: int, req: TicketUpdate, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     t = db.query(Ticket).filter(Ticket.id == ticket_id).first()

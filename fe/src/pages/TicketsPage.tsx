@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { isSuperRole, hasAnyRole } from "@/lib/roles";
 import { tickets as dummyTickets, departments as fallbackDepartments } from "@/data/dummyData";
 import type { Ticket } from "@/data/dummyData";
-import { Search, Plus, Eye, AlertTriangle, CheckCircle2, X, FileText, ListChecks, Download, ArrowLeft, RefreshCw, User as UserIcon, Building2 } from "lucide-react";
+import { Search, Plus, Eye, Pencil, Trash2, AlertTriangle, CheckCircle2, X, FileText, ListChecks, Download, ArrowLeft, RefreshCw, User as UserIcon, Building2 } from "lucide-react";
 import { exportToExcel } from "@/lib/exportExcel";
 import { cn } from "@/lib/utils";
 import RaiseTicketModal from "@/components/RaiseTicketModal";
@@ -126,6 +126,8 @@ const TicketsPage = () => {
   const defaultTab = "all";
   const [activeTab, setActiveTab] = useState<TabKey>(tabFromUrl || defaultTab);
   const [editingTicket, setEditingTicket] = useState<Ticket | null>(null);
+  const [deleteConfirm, setDeleteConfirm] = useState<{ id: number; code: string } | null>(null);
+  const isSuperAdmin = isSuperRole(currentUserRole);
   const currentUserDept = parsedUser?.department || "";
   const isZenotiRole = hasAnyRole(currentUserRole, ["Zenoti Team", "Zenoti Team Manager"]);
   const currentUserCenter = parsedUser?.center || "";
@@ -692,6 +694,24 @@ const TicketsPage = () => {
                     >
                       <Eye className="h-3.5 w-3.5" />
                     </button>
+                    {isSuperAdmin && (
+                      <>
+                        <button
+                          onClick={(e) => { e.stopPropagation(); goToTicket(t); }}
+                          className="p-1.5 rounded-md text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors"
+                          title="Edit"
+                        >
+                          <Pencil className="h-3.5 w-3.5" />
+                        </button>
+                        <button
+                          onClick={(e) => { e.stopPropagation(); setDeleteConfirm({ id: (t as any)._dbId, code: t.id }); }}
+                          className="p-1.5 rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+                          title="Delete"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      </>
+                    )}
                   </div>
                 </td>
               </tr>
@@ -735,6 +755,40 @@ const TicketsPage = () => {
         </div>
       )}
 
+      {/* Delete Confirmation Modal */}
+      {deleteConfirm && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50">
+          <div className="bg-card rounded-xl shadow-xl border border-border w-full max-w-sm mx-4 p-6 animate-fade-in">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="h-10 w-10 rounded-full bg-destructive/10 flex items-center justify-center">
+                <Trash2 className="h-5 w-5 text-destructive" />
+              </div>
+              <div>
+                <h3 className="font-semibold">Delete Ticket</h3>
+                <p className="text-xs text-muted-foreground">This action cannot be undone</p>
+              </div>
+            </div>
+            <p className="text-sm text-muted-foreground mb-5">Are you sure you want to delete ticket <strong>{deleteConfirm.code}</strong>?</p>
+            <div className="flex gap-2">
+              <button onClick={() => setDeleteConfirm(null)} className="flex-1 px-4 py-2 rounded-lg border border-border text-sm font-medium hover:bg-muted transition-colors">Cancel</button>
+              <button
+                onClick={async () => {
+                  try {
+                    await ticketsApi.delete(deleteConfirm.id);
+                    setData((prev) => prev.filter((t) => (t as any)._dbId !== deleteConfirm.id));
+                    setDeleteConfirm(null);
+                  } catch {
+                    alert("Failed to delete ticket");
+                  }
+                }}
+                className="flex-1 px-4 py-2 rounded-lg bg-destructive text-destructive-foreground text-sm font-medium hover:opacity-90 transition-opacity"
+              >
+                Yes, Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
