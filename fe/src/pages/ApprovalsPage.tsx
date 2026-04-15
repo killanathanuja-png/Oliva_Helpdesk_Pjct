@@ -87,14 +87,15 @@ const ApprovalsPage = () => {
           return t.approvalType === "aom_finance" && (t.approver === "Finance Team" || isProcessed);
         }
         if (isAomRole) {
-          if (isProcessed) {
-            // Show processed tickets from managed centers or where user was approver
-            const isManagedCenter = managedCenters.length > 0 && managedCenters.includes(t.center);
-            return t.approver === currentUserName || isManagedCenter;
-          }
-          if (t.approver === "Finance Team") return false;
+          const isManagedCenter = managedCenters.length > 0 && managedCenters.some((c) => c.toLowerCase() === (t.center || "").toLowerCase());
           const isApprover = t.approver === currentUserName;
-          const isManagedCenter = managedCenters.length > 0 && managedCenters.includes(t.center);
+          if (isProcessed) {
+            // Show processed tickets: from managed centers, or where AOM was/is approver,
+            // or aom_finance tickets that AOM approved (approver changed to Finance Team)
+            return isApprover || isManagedCenter || (t.approvalType === "aom_finance" && t.approver === "Finance Team" && isManagedCenter);
+          }
+          // Pending tickets: only if AOM is current approver or from managed center (not already at Finance)
+          if (t.approver === "Finance Team") return false;
           return isApprover || isManagedCenter;
         }
         return true; // Super admin sees all
