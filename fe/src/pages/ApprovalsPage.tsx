@@ -62,18 +62,20 @@ function apiToTicket(t: ApiTicket): Ticket {
  
 const ApprovalsPage = () => {
   const navigate = useNavigate();
-  const [data, setData] = useState<Ticket[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [filterTab, setFilterTab] = useState<"pending" | "approved" | "rejected" | "followup" | "all">("pending");
- 
   const storedUser = localStorage.getItem("oliva_user");
   const parsedUser = storedUser ? JSON.parse(storedUser) : null;
   const currentUserRole = parsedUser?.role || "User";
+
+  const [data, setData] = useState<Ticket[]>([]);
+  const [loading, setLoading] = useState(true);
+  const isZenotiInit = hasAnyRole(currentUserRole, ["Zenoti Team", "Zenoti Team Manager", "Manager", "MANAGER"]);
+  const [filterTab, setFilterTab] = useState<"pending" | "approved" | "rejected" | "followup" | "all" | "aom_approved" | "finance_approved">(isZenotiInit ? "aom_approved" : "pending");
   const currentUserName = parsedUser?.name || "";
   const managedCenters: string[] = parsedUser?.managed_centers || [];
 
   const isAomRole = hasAnyRole(currentUserRole, ["Area Operations Manager", "Area Operations Manager Head"]);
   const isFinanceRole = hasAnyRole(currentUserRole, ["Finance", "Finance Head"]);
+  const isZenotiRole = hasAnyRole(currentUserRole, ["Zenoti Team", "Zenoti Team Manager", "Manager", "MANAGER"]);
 
   const fetchTickets = useCallback(async () => {
     try {
@@ -81,8 +83,11 @@ const ApprovalsPage = () => {
       const allTickets = apiTickets.map(apiToTicket);
       setData(allTickets.filter((t) => {
         if (!t.approvalRequired) return false;
-        // Already processed tickets (Approved/Rejected/Follow Up) visible to all relevant roles
-        const isProcessed = t.approvalStatus === "Approved" || t.approvalStatus === "Rejected" || t.status === "Follow Up";
+        const isProcessed = t.approvalStatus === "Approved" || t.approvalStatus === "Rejected" || (t.status as string) === "Follow Up";
+        // Zenoti Team: sees all approved Zenoti tickets (AOM approved + Finance approved)
+        if (isZenotiRole) {
+          return t.assignedDept === "Zenoti" && t.approvalStatus === "Approved";
+        }
         if (isFinanceRole) {
           return t.approvalType === "aom_finance" && (t.approver === "Finance Team" || isProcessed);
         }
@@ -90,11 +95,8 @@ const ApprovalsPage = () => {
           const isManagedCenter = managedCenters.length > 0 && managedCenters.some((c) => c.toLowerCase() === (t.center || "").toLowerCase());
           const isApprover = t.approver === currentUserName;
           if (isProcessed) {
-            // Show processed tickets: from managed centers, or where AOM was/is approver,
-            // or aom_finance tickets that AOM approved (approver changed to Finance Team)
             return isApprover || isManagedCenter || (t.approvalType === "aom_finance" && t.approver === "Finance Team" && isManagedCenter);
           }
-          // Pending tickets: only if AOM is current approver or from managed center (not already at Finance)
           if (t.approver === "Finance Team") return false;
           return isApprover || isManagedCenter;
         }
@@ -105,7 +107,7 @@ const ApprovalsPage = () => {
     } finally {
       setLoading(false);
     }
-  }, [isAomRole, isFinanceRole, currentUserName, managedCenters]);
+  }, [isAomRole, isFinanceRole, isZenotiRole, currentUserName, managedCenters]);
  
   useEffect(() => {
     fetchTickets();
@@ -115,14 +117,18 @@ const ApprovalsPage = () => {
     if (filterTab === "pending") return t.approvalStatus === "Pending" || !t.approvalStatus;
     if (filterTab === "approved") return t.approvalStatus === "Approved";
     if (filterTab === "rejected") return t.approvalStatus === "Rejected";
-    if (filterTab === "followup") return t.status === "Follow Up";
+    if (filterTab === "followup") return (t.status as string) === "Follow Up";
+    if (filterTab === "aom_approved") return t.approvalStatus === "Approved" && t.approvalType === "aom_only";
+    if (filterTab === "finance_approved") return t.approvalStatus === "Approved" && t.approvalType === "aom_finance";
     return true;
   });
 
   const pendingCount = data.filter((t) => t.approvalStatus === "Pending" || !t.approvalStatus).length;
   const approvedCount = data.filter((t) => t.approvalStatus === "Approved").length;
   const rejectedCount = data.filter((t) => t.approvalStatus === "Rejected").length;
-  const followUpCount = data.filter((t) => t.status === "Follow Up").length;
+  const followUpCount = data.filter((t) => (t.status as string) === "Follow Up").length;
+  const aomApprovedCount = data.filter((t) => t.approvalStatus === "Approved" && t.approvalType === "aom_only").length;
+  const financeApprovedCount = data.filter((t) => t.approvalStatus === "Approved" && t.approvalType === "aom_finance").length;
  
   if (loading) {
     return (
@@ -134,11 +140,14 @@ const ApprovalsPage = () => {
  
   return (
     <div className="space-y-4 animate-fade-in">
-      <h1 className="text-xl font-bold font-display">Pending Approvals</h1>
- 
+      <h1 className="text-xl font-bold font-display">{isZenotiRole ? "Approved Tickets" : "Pending Approvals"}</h1>
+
       {/* Filter tabs */}
       <div className="flex gap-1 bg-muted/50 rounded-lg p-1">
-        {([
+        {(isZenotiRole ? [
+          { key: "aom_approved" as const, label: "AOM Approved", count: aomApprovedCount, icon: CheckCircle2 },
+          { key: "finance_approved" as const, label: "Finance Approved", count: financeApprovedCount, icon: CheckCircle2 },
+        ] : [
           { key: "pending" as const, label: "Pending", count: pendingCount, icon: Clock },
           { key: "approved" as const, label: "Approved", count: approvedCount, icon: CheckCircle2 },
           { key: "rejected" as const, label: "Rejected", count: rejectedCount, icon: XCircle },

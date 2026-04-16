@@ -88,8 +88,6 @@ const AdminCentersPage = () => {
     if (!form.centerManagerEmail.trim()) missing.push("Center Manager Mail");
     if (!form.aomEmail.trim()) missing.push("AOM Mail");
     if (!form.country.trim()) missing.push("Country");
-    if (!form.zone.trim()) missing.push("Zone");
-    if (!form.pincode.trim()) missing.push("Pincode");
     if (missing.length > 0) { setFormError(`Please fill: ${missing.join(", ")}`); return; }
     setFormError("");
 
@@ -345,7 +343,7 @@ const AdminCentersPage = () => {
                     className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-muted-foreground mb-1.5">Zone <span className="text-destructive">*</span></label>
+                  <label className="block text-xs font-medium text-muted-foreground mb-1.5">Zone</label>
                   <select value={form.zone} onChange={(e) => setForm({ ...form, zone: e.target.value })}
                     className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/30">
                     <option value="">-- Select --</option>
@@ -353,7 +351,7 @@ const AdminCentersPage = () => {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-muted-foreground mb-1.5">Pincode <span className="text-destructive">*</span></label>
+                  <label className="block text-xs font-medium text-muted-foreground mb-1.5">Pincode</label>
                   <input type="text" value={form.pincode} onChange={(e) => setForm({ ...form, pincode: e.target.value })} placeholder="Enter pincode"
                     className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" />
                 </div>
