@@ -5,7 +5,7 @@ export type AppRole = string;
 
 // Full admin paths
 const ADMIN_PATHS = [
-  "/", "/tickets", "/sla-report", "/analytics",
+  "/", "/tickets", "/sla-report", "/analytics", "/certificates",
   "/admin/users", "/admin/departments", "/admin/roles",
   "/admin/centers", "/admin/sla", "/admin/categories",
   "/admin/subcategories", "/admin/child-categories", "/admin/admin-sub-categories", "/admin/service-titles", "/admin/login-history", "/admin/designations",
@@ -34,7 +34,7 @@ const roleAccess: Record<string, string[]> = {
   "CDD": ["/", "/tickets", "/sla-report", "/analytics"],
   "CDD Admin": ["/", "/tickets", "/sla-report", "/analytics", "/admin/users", "/admin/departments", "/admin/centers", "/admin/roles", "/admin/categories", "/admin/subcategories"],
   "Administration": ["/", "/tickets", "/sla-report", "/analytics"],
-  "Admin Department": ["/", "/tickets", "/sla-report", "/analytics"],
+  "Admin Department": ["/", "/tickets", "/sla-report", "/analytics", "/certificates"],
   "Helpdesk Admin": ["/", "/tickets", "/sla-report", "/analytics"],
   "CDD L2 Manager": ["/", "/tickets", "/sla-report", "/analytics"],
   "IT": ["/", "/tickets", "/sla-report", "/analytics"],

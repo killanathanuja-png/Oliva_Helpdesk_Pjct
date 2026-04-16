@@ -79,6 +79,22 @@ class NotificationTypeEnum(str, enum.Enum):
 
 # --- Models ---
 
+class Certificate(Base):
+    __tablename__ = "certificates"
+    id = Column(Integer, primary_key=True, index=True)
+    center_id = Column(Integer, ForeignKey("centers.id"), nullable=False)
+    cert_type = Column(String, nullable=False)  # Trade, Labour, Medical License, PCB, PPL, GST
+    file_name = Column(String, nullable=True)
+    file_path = Column(String, nullable=True)
+    start_date = Column(DateTime, nullable=True)
+    expiry_date = Column(DateTime, nullable=True)
+    status = Column(String, default="Active")  # Active, Expired
+    uploaded_by = Column(String, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+    center = relationship("Center", backref="certificates")
+
+
 class EmailLog(Base):
     __tablename__ = "email_logs"
     id = Column(Integer, primary_key=True, index=True)

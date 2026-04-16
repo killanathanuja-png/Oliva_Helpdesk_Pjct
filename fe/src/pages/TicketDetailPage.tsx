@@ -253,6 +253,11 @@ const TicketDetailPage = () => {
 
   const currentUserDept = parsedUser?.department || "";
 
+  // CM raised to other dept: hide edit
+  const _isCMRole = hasAnyRole(currentUserRole, ["Clinic Manager", "Clinic Incharge"]);
+  const cmRaisedToOtherDept = _isCMRole && ticket && ticket.raisedBy === currentUser && ticket.assignedDept !== "Clinic" && ticket.assignedDept !== currentUserDept;
+  const canEditFinal = cmRaisedToOtherDept ? false : canEdit;
+
   // Zenoti department ticket assignees
   const ZENOTI_ASSIGNEE_IDS = [707, 816, 823, 811]; // Kalyani Thadoju, Ramya Janagam, Swapna M, Poornima Oliva
 
@@ -347,7 +352,7 @@ const TicketDetailPage = () => {
 
   // Auto-initialize edit fields for all users (no Edit button needed)
   useEffect(() => {
-    if (ticket && canEdit && !editStatus) {
+    if (ticket && canEditFinal && !editStatus) {
       setEditStatus(ticket.status);
       setEditPriority(ticket.priority);
       setEditComment("");
@@ -757,7 +762,7 @@ const TicketDetailPage = () => {
       )}
 
       {/* ── Inline Edit Panel (always visible for users who can edit) ── */}
-      {canEdit && (
+      {canEditFinal && (
         <Section title={isAomRole ? "Attachments" : "Edit Ticket"} green>
           <div className="grid grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-4">
             {/* Status — hidden for AOM (they use approval actions instead) */}

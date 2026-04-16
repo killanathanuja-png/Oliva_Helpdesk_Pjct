@@ -47,6 +47,7 @@ const allNavItems = [
       { label: "All Tickets", icon: ListChecks, path: "/tickets?tab=all" },
     ],
   },
+  { label: "Certificates", icon: Layers, path: "/certificates" },
   { label: "Approvals", icon: ShieldCheck, path: "/approvals" },
   { label: "Finance Approvals", icon: DollarSign, path: "/finance-approvals" },
   { label: "Zenoti Requests", icon: Wrench, path: "/zenoti-requests" },
@@ -345,6 +346,7 @@ const AppLayout = ({ children }: AppLayoutProps) => {
             <h2 className="text-sm font-medium text-white/90">
               {location.pathname === "/" && "Dashboard"}
               {location.pathname.startsWith("/tickets") && "Ticket Management"}
+              {location.pathname === "/certificates" && "Certificates"}
               {location.pathname === "/approvals" && "Pending Approvals"}
               {location.pathname === "/finance-approvals" && "Finance Approvals"}
               {location.pathname === "/zenoti-requests" && "Zenoti Requests"}

@@ -773,3 +773,40 @@ export const tatReportApi = {
 
 export const authLogout = () =>
   request<{ message: string }>("/auth/logout/", { method: "POST" });
+
+// --- Certificates ---
+
+export interface CertificateData {
+  id: number | null;
+  cert_type: string;
+  file_name: string | null;
+  start_date: string | null;
+  expiry_date: string | null;
+  status: string;
+  uploaded_by: string | null;
+  created_at: string | null;
+  updated_at: string | null;
+  has_file: boolean;
+}
+
+export const certificatesApi = {
+  getForCenter: (centerId: number) => request<{ center_id: number; center_name: string; city: string; certificates: CertificateData[] }>(`/certificates/center/${centerId}`),
+  upload: (formData: FormData) => {
+    const token = localStorage.getItem("oliva_token");
+    return fetch(`${API_BASE}/certificates/upload/`, {
+      method: "POST",
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      body: formData,
+    }).then((res) => res.json());
+  },
+  download: (certId: number) => {
+    const token = localStorage.getItem("oliva_token");
+    return fetch(`${API_BASE}/certificates/download/${certId}/`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    }).then((res) => {
+      if (!res.ok) throw new Error("Download failed");
+      return res.blob();
+    });
+  },
+  delete: (certId: number) => request<{ message: string }>(`/certificates/${certId}`, { method: "DELETE" }),
+};
