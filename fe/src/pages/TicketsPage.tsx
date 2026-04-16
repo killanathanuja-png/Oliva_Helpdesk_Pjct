@@ -268,7 +268,19 @@ const TicketsPage = () => {
 
   const filtered = tabFiltered.filter((t) => {
     const q = search.toLowerCase();
-    const matchSearch = t.title.toLowerCase().includes(q) || t.id.toLowerCase().includes(q) || ((t as Ticket & { zenotiCustomerId?: string }).zenotiCustomerId || "").toLowerCase().includes(q);
+    const matchSearch = !q ||
+      t.id.toLowerCase().includes(q) ||
+      t.title.toLowerCase().includes(q) ||
+      (t.description || "").toLowerCase().includes(q) ||
+      (t.category || "").toLowerCase().includes(q) ||
+      (t.subCategory || "").toLowerCase().includes(q) ||
+      t.status.toLowerCase().includes(q) ||
+      (t.assignedDept || "").toLowerCase().includes(q) ||
+      (t.assignedTo || "").toLowerCase().includes(q) ||
+      (t.raisedBy || "").toLowerCase().includes(q) ||
+      (t.center || "").toLowerCase().includes(q) ||
+      t.priority.toLowerCase().includes(q) ||
+      ((t as any).zenotiCustomerId || "").toLowerCase().includes(q);
     const matchStatus = statusFilter === "All" || t.status === statusFilter || (statusFilter === "Resolved/Closed" && (t.status === "Resolved" || t.status === "Closed" || t.status === "Final Closed"));
     const matchPriority = priorityFilter === "All" || t.priority === priorityFilter;
     const matchDept = deptFilter === "All" || t.assignedDept === deptFilter;
