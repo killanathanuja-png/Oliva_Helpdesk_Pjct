@@ -5,7 +5,7 @@ export type AppRole = string;
 
 // Full admin paths
 const ADMIN_PATHS = [
-  "/", "/tickets", "/sla-report", "/analytics", "/certificates",
+  "/", "/tickets", "/sla-report", "/analytics",
   "/admin/users", "/admin/departments", "/admin/roles",
   "/admin/centers", "/admin/sla", "/admin/categories",
   "/admin/subcategories", "/admin/child-categories", "/admin/admin-sub-categories", "/admin/service-titles", "/admin/login-history", "/admin/designations",
@@ -35,7 +35,7 @@ const roleAccess: Record<string, string[]> = {
   "CDD": ["/", "/tickets", "/sla-report", "/analytics"],
   "CDD Admin": ["/", "/tickets", "/sla-report", "/analytics", "/admin/users", "/admin/departments", "/admin/centers", "/admin/roles", "/admin/categories", "/admin/subcategories"],
   "Administration": ["/", "/tickets", "/sla-report", "/analytics"],
-  "Admin Department": ["/", "/tickets", "/sla-report", "/analytics", "/certificates"],
+  "Admin Department": ["/", "/tickets", "/sla-report", "/analytics"],
   "Helpdesk Admin": ["/", "/tickets", "/sla-report", "/analytics"],
   "CDD L2 Manager": ["/", "/tickets", "/sla-report", "/analytics"],
   "IT": ["/", "/tickets", "/sla-report", "/analytics"],
@@ -112,6 +112,11 @@ export function getAllowedPaths(): string[] {
   // Only users with "Can View and Edit" map_level_access get master pages
   if (getUserMapLevelAccess() === "Can View and Edit") {
     MASTER_PATHS.forEach((p) => paths.add(p));
+    // Certificates only for Admin Department masters (Rajesh)
+    const userRole = getUserRole();
+    if (userRole.toLowerCase().includes("admin department")) {
+      paths.add("/certificates");
+    }
   }
   return [...paths];
 }

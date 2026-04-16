@@ -253,10 +253,9 @@ const TicketDetailPage = () => {
 
   const currentUserDept = parsedUser?.department || "";
 
-  // CM raised to other dept: hide edit
-  const _isCMRole = hasAnyRole(currentUserRole, ["Clinic Manager", "Clinic Incharge"]);
-  const cmRaisedToOtherDept = _isCMRole && ticket && ticket.raisedBy === currentUser && ticket.assignedDept !== "Clinic" && ticket.assignedDept !== currentUserDept;
-  const canEditFinal = cmRaisedToOtherDept ? false : canEdit;
+  // Hide edit for anyone who raised the ticket (only assigned dept team can edit)
+  const raisedByCurrentUser = ticket && ticket.raisedBy === currentUser && ticket.assignedDept !== currentUserDept;
+  const canEditFinal = raisedByCurrentUser ? false : canEdit;
 
   // Zenoti department ticket assignees
   const ZENOTI_ASSIGNEE_IDS = [707, 816, 823, 811]; // Kalyani Thadoju, Ramya Janagam, Swapna M, Poornima Oliva
