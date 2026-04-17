@@ -198,6 +198,97 @@ def on_startup():
             time.sleep(300)  # Check every 5 minutes
     threading.Thread(target=escalation_loop, daemon=True).start()
 
+    # Certificate expiry reminder loop (runs every 6 hours)
+    def certificate_expiry_loop():
+        import time as _time
+        _time.sleep(30)  # Wait 30 seconds after startup
+        while True:
+            try:
+                from app.models.models import Certificate, Center, User, StatusEnum
+                from datetime import datetime, timedelta, timezone
+                from app.services.notification_service import is_msg91_enabled, _send_msg91_email
+                from app.config import MSG91_EMAIL_TEMPLATE_STATUS_UPDATE
+
+                db = SessionLocal()
+                today = datetime.now().date()
+                thirty_days = today + timedelta(days=30)
+
+                # Find certificates expiring within 30 days
+                expiring = db.query(Certificate).filter(
+                    Certificate.expiry_date != None,
+                    Certificate.expiry_date <= datetime.combine(thirty_days, datetime.min.time()),
+                    Certificate.renewal_status != "renewed",
+                ).all()
+
+                for cert in expiring:
+                    exp_date = cert.expiry_date.date() if cert.expiry_date else None
+                    if not exp_date:
+                        continue
+                    days_left = (exp_date - today).days
+
+                    # Skip if already sent reminder today
+                    if cert.last_reminder_sent and cert.last_reminder_sent.date() == today:
+                        continue
+
+                    # Update status
+                    if days_left < 0:
+                        cert.status = "Expired"
+                    else:
+                        cert.status = "Expiring Soon"
+
+                    center = db.query(Center).filter(Center.id == cert.center_id).first()
+                    center_name = center.name if center else "Unknown"
+                    center_city = center.city if center else ""
+
+                    # Find Rajesh's email
+                    rajesh = db.query(User).filter(User.name.like("%Rajesh%Alur%")).first()
+                    rajesh_email = rajesh.email if rajesh else "rajesh@olivaclinic.com"
+
+                    # Find center's helpdesk admin email
+                    hd_user = db.query(User).filter(
+                        User.role == "Helpdesk Admin",
+                    ).all()
+                    center_hd_email = None
+                    for u in hd_user:
+                        if u.center_rel and u.center_rel.name == center_name:
+                            center_hd_email = u.email
+                            break
+
+                    status_msg = f"EXPIRED" if days_left < 0 else f"expiring in {days_left} days"
+                    subject_line = f"{cert.cert_type} certificate for {center_name} ({center_city}) is {status_msg}. Expiry: {exp_date.strftime('%d %b %Y')}"
+
+                    # Send email to Rajesh
+                    if is_msg91_enabled() and MSG91_EMAIL_TEMPLATE_STATUS_UPDATE:
+                        variables = {
+                            "name": "Rajesh Alur",
+                            "code": f"CERT-{center_name}",
+                            "title": f"{cert.cert_type} Certificate - {center_name}",
+                            "old_status": cert.status,
+                            "new_status": status_msg,
+                            "changed_by": "System",
+                            "comment": subject_line,
+                            "ticket_link": "",
+                        }
+                        _send_msg91_email(rajesh_email, "Rajesh Alur", MSG91_EMAIL_TEMPLATE_STATUS_UPDATE, variables)
+                        print(f"[CERT REMINDER] Sent to {rajesh_email}: {subject_line}")
+
+                        # Send to center helpdesk admin
+                        if center_hd_email:
+                            variables["name"] = center_name
+                            _send_msg91_email(center_hd_email, center_name, MSG91_EMAIL_TEMPLATE_STATUS_UPDATE, variables)
+                            print(f"[CERT REMINDER] Sent to {center_hd_email}: {subject_line}")
+
+                    cert.last_reminder_sent = datetime.now(timezone.utc)
+                    db.commit()
+
+                db.close()
+                print(f"[CERT CHECK] Checked {len(expiring)} expiring certificates")
+            except Exception as e:
+                print(f"[CERT CHECK ERROR] {e}")
+            _time.sleep(21600)  # Run every 6 hours
+
+    threading.Thread(target=certificate_expiry_loop, daemon=True).start()
+
 
 @app.get("/")
 def root():

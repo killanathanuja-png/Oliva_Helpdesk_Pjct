@@ -17,7 +17,7 @@ os.makedirs(UPLOAD_DIR, exist_ok=True)
 CERT_TYPES = ["Trade", "Labour", "Medical License", "PCB", "PPL", "GST"]
 
 
-@router.get("/center/{center_id}")
+@router.get("/center/{center_id}/")
 def get_certificates(center_id: int, db: Session = Depends(get_db)):
     """Get all certificates for a center."""
     center = db.query(Center).filter(Center.id == center_id).first()
@@ -25,33 +25,45 @@ def get_certificates(center_id: int, db: Session = Depends(get_db)):
         raise HTTPException(404, "Center not found")
 
     certs = db.query(Certificate).filter(Certificate.center_id == center_id).all()
-    existing = {c.cert_type: {
-        "id": c.id,
-        "cert_type": c.cert_type,
-        "file_name": c.file_name,
-        "start_date": c.start_date.strftime("%Y-%m-%d") if c.start_date else None,
-        "expiry_date": c.expiry_date.strftime("%Y-%m-%d") if c.expiry_date else None,
-        "status": c.status,
-        "uploaded_by": c.uploaded_by,
-        "created_at": c.created_at.isoformat() if c.created_at else None,
-        "updated_at": c.updated_at.isoformat() if c.updated_at else None,
-        "has_file": bool(c.file_path and os.path.exists(c.file_path)),
-    } for c in certs}
+    from datetime import datetime as dt
+    today = dt.now().date()
+    existing = {}
+    for c in certs:
+        days_left = (c.expiry_date.date() - today).days if c.expiry_date else None
+        cert_status = c.status
+        if c.expiry_date:
+            if days_left is not None and days_left < 0:
+                cert_status = "Expired"
+            elif days_left is not None and days_left <= 30:
+                cert_status = "Expiring Soon"
+        existing[c.cert_type] = {
+            "id": c.id,
+            "cert_type": c.cert_type,
+            "file_name": c.file_name,
+            "start_date": c.start_date.strftime("%Y-%m-%d") if c.start_date else None,
+            "expiry_date": c.expiry_date.strftime("%Y-%m-%d") if c.expiry_date else None,
+            "status": cert_status,
+            "renewal_status": c.renewal_status or "pending",
+            "days_to_expiry": days_left,
+            "uploaded_by": c.uploaded_by,
+            "created_at": c.created_at.isoformat() if c.created_at else None,
+            "updated_at": c.updated_at.isoformat() if c.updated_at else None,
+            "has_file": bool(c.file_path and os.path.exists(c.file_path)),
+        }
 
-    # Return all cert types, with data if uploaded
     result = []
     for ct in CERT_TYPES:
         if ct in existing:
             result.append(existing[ct])
         else:
             result.append({"id": None, "cert_type": ct, "file_name": None, "start_date": None, "expiry_date": None,
-                           "status": "Not Uploaded", "uploaded_by": None, "created_at": None,
-                           "updated_at": None, "has_file": False})
+                           "status": "Not Uploaded", "renewal_status": "pending", "days_to_expiry": None,
+                           "uploaded_by": None, "created_at": None, "updated_at": None, "has_file": False})
 
     return {"center_id": center_id, "center_name": center.name, "city": center.city, "certificates": result}
 
 
-@router.post("/upload")
+@router.post("/upload/")
 async def upload_certificate(
     center_id: int = Form(...),
     cert_type: str = Form(...),
@@ -62,8 +74,7 @@ async def upload_certificate(
     db: Session = Depends(get_db),
 ):
     """Upload or replace a certificate file."""
-    if cert_type not in CERT_TYPES:
-        raise HTTPException(400, f"Invalid cert_type. Must be one of: {CERT_TYPES}")
+    # Allow any cert_type (predefined + custom)
 
     center = db.query(Center).filter(Center.id == center_id).first()
     if not center:
@@ -102,6 +113,7 @@ async def upload_certificate(
         existing.expiry_date = exp_date
         existing.uploaded_by = uploaded_by
         existing.status = "Active"
+        existing.renewal_status = "renewed"
         db.commit()
         return {"message": f"{cert_type} certificate updated", "id": existing.id}
     else:
@@ -116,7 +128,7 @@ async def upload_certificate(
         return {"message": f"{cert_type} certificate uploaded", "id": cert.id}
 
 
-@router.get("/view/{cert_id}")
+@router.get("/view/{cert_id}/")
 def view_certificate(cert_id: int, db: Session = Depends(get_db)):
     """View a certificate file inline in browser."""
     import mimetypes
@@ -128,7 +140,7 @@ def view_certificate(cert_id: int, db: Session = Depends(get_db)):
                         headers={"Content-Disposition": f"inline; filename=\"{cert.file_name or cert.cert_type}\""})
 
 
-@router.get("/download/{cert_id}")
+@router.get("/download/{cert_id}/")
 def download_certificate(cert_id: int, db: Session = Depends(get_db)):
     """Download a certificate file."""
     cert = db.query(Certificate).filter(Certificate.id == cert_id).first()
@@ -138,7 +150,7 @@ def download_certificate(cert_id: int, db: Session = Depends(get_db)):
                         media_type="application/octet-stream")
 
 
-@router.delete("/{cert_id}")
+@router.delete("/{cert_id}/")
 def delete_certificate(cert_id: int, db: Session = Depends(get_db)):
     """Delete a certificate."""
     cert = db.query(Certificate).filter(Certificate.id == cert_id).first()

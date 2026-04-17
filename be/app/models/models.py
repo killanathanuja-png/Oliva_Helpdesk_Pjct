@@ -88,7 +88,9 @@ class Certificate(Base):
     file_path = Column(String, nullable=True)
     start_date = Column(DateTime, nullable=True)
     expiry_date = Column(DateTime, nullable=True)
-    status = Column(String, default="Active")  # Active, Expired
+    status = Column(String, default="Active")  # Active, Expired, Expiring Soon
+    renewal_status = Column(String, default="pending")  # pending, renewed
+    last_reminder_sent = Column(DateTime, nullable=True)
     uploaded_by = Column(String, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
