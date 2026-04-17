@@ -222,14 +222,12 @@ const TicketsPage = () => {
         (managedCenters.length > 0 && managedCenters.some((c) => c.toLowerCase() === (t.center || "").toLowerCase()))
       );
     }
-    // Finance: Zenoti tickets that need finance approval or are AOM-approved
+    // Finance: Only Zenoti-Finance tickets (aom_finance type)
     if (isFinanceUser) {
       return data.filter((t) =>
         t.raisedBy === currentUser ||
         t.assignedTo === currentUser ||
-        (t.approvalRequired && (t as any).approvalType === "aom_finance") ||
-        (t.assignedDept === "Zenoti" && t.approvalStatus === "Approved") ||
-        (t.assignedDept === "Zenoti" && t.status === "Pending Approval")
+        ((t as any).approvalType === "aom_finance")
       );
     }
     const allowedDepts = getUserDepts();

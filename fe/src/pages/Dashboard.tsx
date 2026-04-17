@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef } from "react";
+import { useNavigate } from "react-router-dom";
 import { isSuperRole } from "@/lib/roles";
-import { dashboardApi } from "@/lib/api";
-import type { ApiDashboardStats } from "@/lib/api";
+import { dashboardApi, certificatesApi, centersApi } from "@/lib/api";
+import type { ApiDashboardStats, CertificateData } from "@/lib/api";
 import {
   Ticket,
   AlertTriangle,
@@ -79,6 +80,13 @@ const Dashboard = () => {
   const userId = user?.id;
   const [stats, setStats] = useState<ApiDashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
+  const navigate = useNavigate();
+  const isAdminDept = userRole.toLowerCase().includes("admin department");
+  const isHelpdeskAdmin = userRole.toLowerCase().includes("helpdesk admin") || userRole.toLowerCase().includes("help desk admin");
+  const userCenter = user?.center || "";
+  const [expiringCerts, setExpiringCerts] = useState<{ centerName: string; city: string; centerId: number; cert_type: string; expiry_date: string; days_left: number }[]>([]);
+  const [certsLoaded, setCertsLoaded] = useState(false);
+  const showCertCard = isAdminDept || isHelpdeskAdmin;
 
   /* ── Filters ── */
   const [filterDept, setFilterDept] = useState("All");
@@ -135,6 +143,30 @@ const Dashboard = () => {
   // Reset category when department changes
   useEffect(() => { setFilterCategory("All"); }, [filterDept]);
 
+  // Fetch expiring certificates for Admin Department and Helpdesk Admin
+  useEffect(() => {
+    if (!isAdminDept && !isHelpdeskAdmin) return;
+    centersApi.list().then(async (centers) => {
+      const expiring: typeof expiringCerts = [];
+      const activeCenters = centers.filter((c) => c.status !== "Inactive");
+      // Helpdesk Admin: only their center, Admin Dept: all centers
+      const targetCenters = isHelpdeskAdmin ? activeCenters.filter((c) => c.name === userCenter) : activeCenters;
+      for (const center of targetCenters) {
+        try {
+          const data = await certificatesApi.getForCenter(center.id);
+          for (const cert of data.certificates) {
+            if (cert.days_to_expiry !== null && cert.days_to_expiry <= 30 && cert.renewal_status !== "renewed") {
+              expiring.push({ centerName: center.name, city: center.city || "", centerId: center.id, cert_type: cert.cert_type, expiry_date: cert.expiry_date || "", days_left: cert.days_to_expiry });
+            }
+          }
+        } catch { /* skip */ }
+      }
+      expiring.sort((a, b) => a.days_left - b.days_left);
+      setExpiringCerts(expiring);
+      setCertsLoaded(true);
+    }).catch(() => setCertsLoaded(true));
+  }, []);
+
   /* ── Loading / Error ── */
   if (loading && !stats) {
     return <div className="flex items-center justify-center h-64"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
@@ -158,7 +190,7 @@ const Dashboard = () => {
       </div>
 
       {/* ── KPI Cards ── */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+      <div className={cn("grid grid-cols-2 gap-3", showCertCard ? "lg:grid-cols-5" : "lg:grid-cols-4")}>
         <div className="bg-card rounded-xl p-4 card-shadow border border-border border-l-4 border-l-primary">
           <div className="flex items-center gap-3">
             <div className="inline-flex items-center justify-center h-9 w-9 rounded-lg bg-primary/10 flex-shrink-0"><Ticket className="h-4 w-4 text-primary" /></div>
@@ -183,6 +215,26 @@ const Dashboard = () => {
             <div><span className="text-2xl font-bold leading-none">{stats.avg_resolution_hours != null ? `${stats.avg_resolution_hours}h` : "—"}</span><p className="text-[11px] font-medium text-muted-foreground mt-0.5">Avg Resolution</p></div>
           </div>
         </div>
+        {showCertCard && (
+          <div className={cn("rounded-xl p-4 card-shadow border border-l-4 cursor-pointer hover:opacity-90 transition-opacity",
+            expiringCerts.length > 0 ? "bg-amber-50 border-amber-200 border-l-amber-500" : "bg-emerald-50 border-emerald-200 border-l-emerald-500"
+          )} onClick={() => navigate("/certificates?view=expiring")}>
+            <div className="flex items-center gap-3">
+              <div className={cn("inline-flex items-center justify-center h-9 w-9 rounded-lg flex-shrink-0", expiringCerts.length > 0 ? "bg-amber-100" : "bg-emerald-100")}>
+                {expiringCerts.length > 0 ? <AlertTriangle className="h-4 w-4 text-amber-600" /> : <CheckCircle2 className="h-4 w-4 text-emerald-500" />}
+              </div>
+              <div>
+                {!certsLoaded ? (
+                  <><span className="text-2xl font-bold leading-none text-muted-foreground">...</span><p className="text-[11px] font-medium text-muted-foreground mt-0.5">Checking</p></>
+                ) : expiringCerts.length > 0 ? (
+                  <><span className="text-2xl font-bold leading-none text-amber-600">{expiringCerts.length}</span><p className="text-[11px] font-medium text-amber-700 mt-0.5">Certificate Expiring</p></>
+                ) : (
+                  <><span className="text-2xl font-bold leading-none text-emerald-600">0</span><p className="text-[11px] font-medium text-emerald-700 mt-0.5">Certificate Expiring</p></>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
 

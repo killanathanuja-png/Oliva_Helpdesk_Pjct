@@ -783,6 +783,8 @@ export interface CertificateData {
   start_date: string | null;
   expiry_date: string | null;
   status: string;
+  renewal_status: string;
+  days_to_expiry: number | null;
   uploaded_by: string | null;
   created_at: string | null;
   updated_at: string | null;
