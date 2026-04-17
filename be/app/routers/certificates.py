@@ -17,6 +17,38 @@ os.makedirs(UPLOAD_DIR, exist_ok=True)
 CERT_TYPES = ["Trade", "Labour", "Medical License", "PCB", "PPL", "GST"]
 
 
+@router.get("/expiring/")
+def get_expiring_certificates(db: Session = Depends(get_db)):
+    """Get all certificates expiring within 30 days."""
+    from datetime import datetime as dt, timedelta
+    today = dt.now().date()
+    thirty_days = dt.combine(today + timedelta(days=30), dt.min.time())
+
+    certs = db.query(Certificate).filter(
+        Certificate.expiry_date != None,
+        Certificate.expiry_date <= thirty_days,
+        Certificate.renewal_status != "renewed",
+    ).all()
+
+    result = []
+    for c in certs:
+        center = db.query(Center).filter(Center.id == c.center_id).first()
+        days_left = (c.expiry_date.date() - today).days if c.expiry_date else 0
+        result.append({
+            "id": c.id,
+            "cert_type": c.cert_type,
+            "center_id": c.center_id,
+            "center_name": center.name if center else "",
+            "city": center.city if center else "",
+            "file_name": c.file_name,
+            "expiry_date": c.expiry_date.strftime("%Y-%m-%d") if c.expiry_date else None,
+            "days_left": days_left,
+            "status": "Expired" if days_left < 0 else "Expiring Soon",
+        })
+    result.sort(key=lambda x: x["days_left"])
+    return result
+
+
 @router.get("/center/{center_id}/")
 def get_certificates(center_id: int, db: Session = Depends(get_db)):
     """Get all certificates for a center."""

@@ -58,26 +58,14 @@ const CertificatesPage = () => {
 
   // Fetch expiring certificates for expiring view
   useEffect(() => {
-    if (!isExpiringView || centers.length === 0) return;
+    if (!isExpiringView) return;
     setExpiringLoading(true);
-    (async () => {
-      const expiring: typeof expiringList = [];
-      const targetCenters = isHelpdeskAdmin ? centers.filter((c) => c.name === userCenter) : centers;
-      for (const center of targetCenters) {
-        try {
-          const data = await certificatesApi.getForCenter(center.id);
-          for (const cert of data.certificates) {
-            if (cert.days_to_expiry !== null && cert.days_to_expiry <= 30 && cert.renewal_status !== "renewed") {
-              expiring.push({ centerName: center.name, city: center.city || "", centerId: center.id, cert_type: cert.cert_type, expiry_date: cert.expiry_date || "", days_left: cert.days_to_expiry, file_name: cert.file_name || "" });
-            }
-          }
-        } catch { /* skip */ }
-      }
-      expiring.sort((a, b) => a.days_left - b.days_left);
-      setExpiringList(expiring);
+    certificatesApi.getExpiring().then((data) => {
+      const filtered = isHelpdeskAdmin ? data.filter((c) => c.center_name === userCenter) : data;
+      setExpiringList(filtered.map((c) => ({ centerName: c.center_name, city: c.city, centerId: c.center_id, cert_type: c.cert_type, expiry_date: c.expiry_date || "", days_left: c.days_left, file_name: c.file_name || "" })));
       setExpiringLoading(false);
-    })();
-  }, [isExpiringView, centers]);
+    }).catch(() => setExpiringLoading(false));
+  }, [isExpiringView]);
 
   // Fetch certificates when center is selected
   useEffect(() => {

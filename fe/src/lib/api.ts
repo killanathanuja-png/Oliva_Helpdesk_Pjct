@@ -791,7 +791,20 @@ export interface CertificateData {
   has_file: boolean;
 }
 
+export interface ExpiringCert {
+  id: number;
+  cert_type: string;
+  center_id: number;
+  center_name: string;
+  city: string;
+  file_name: string;
+  expiry_date: string | null;
+  days_left: number;
+  status: string;
+}
+
 export const certificatesApi = {
+  getExpiring: () => request<ExpiringCert[]>("/certificates/expiring"),
   getForCenter: (centerId: number) => request<{ center_id: number; center_name: string; city: string; certificates: CertificateData[] }>(`/certificates/center/${centerId}`),
   upload: (formData: FormData) => {
     const token = localStorage.getItem("oliva_token");

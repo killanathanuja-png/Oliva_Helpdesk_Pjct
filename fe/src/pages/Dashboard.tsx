@@ -1,8 +1,8 @@
 import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { isSuperRole } from "@/lib/roles";
-import { dashboardApi, certificatesApi, centersApi } from "@/lib/api";
-import type { ApiDashboardStats, CertificateData } from "@/lib/api";
+import { dashboardApi, certificatesApi } from "@/lib/api";
+import type { ApiDashboardStats } from "@/lib/api";
 import {
   Ticket,
   AlertTriangle,
@@ -146,23 +146,9 @@ const Dashboard = () => {
   // Fetch expiring certificates for Admin Department and Helpdesk Admin
   useEffect(() => {
     if (!isAdminDept && !isHelpdeskAdmin) return;
-    centersApi.list().then(async (centers) => {
-      const expiring: typeof expiringCerts = [];
-      const activeCenters = centers.filter((c) => c.status !== "Inactive");
-      // Helpdesk Admin: only their center, Admin Dept: all centers
-      const targetCenters = isHelpdeskAdmin ? activeCenters.filter((c) => c.name === userCenter) : activeCenters;
-      for (const center of targetCenters) {
-        try {
-          const data = await certificatesApi.getForCenter(center.id);
-          for (const cert of data.certificates) {
-            if (cert.days_to_expiry !== null && cert.days_to_expiry <= 30 && cert.renewal_status !== "renewed") {
-              expiring.push({ centerName: center.name, city: center.city || "", centerId: center.id, cert_type: cert.cert_type, expiry_date: cert.expiry_date || "", days_left: cert.days_to_expiry });
-            }
-          }
-        } catch { /* skip */ }
-      }
-      expiring.sort((a, b) => a.days_left - b.days_left);
-      setExpiringCerts(expiring);
+    certificatesApi.getExpiring().then((data) => {
+      const filtered = isHelpdeskAdmin ? data.filter((c) => c.center_name === userCenter) : data;
+      setExpiringCerts(filtered.map((c) => ({ centerName: c.center_name, city: c.city, centerId: c.center_id, cert_type: c.cert_type, expiry_date: c.expiry_date || "", days_left: c.days_left })));
       setCertsLoaded(true);
     }).catch(() => setCertsLoaded(true));
   }, []);
