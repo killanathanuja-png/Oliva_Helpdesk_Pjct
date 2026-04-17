@@ -223,11 +223,11 @@ const AnalyticsPage = () => {
                 <div className="mt-2 flex items-center gap-4 text-xs text-muted-foreground">
                   <div className="flex items-center gap-1.5">
                     <div className="h-2.5 w-2.5 rounded-full bg-success" />
-                    <span className="font-medium">Resolved: {resolved}</span>
+                    <span className="font-medium">Resolved: {total > 0 ? Math.round((resolved / total) * 100) : 0}%</span>
                   </div>
                   <div className="flex items-center gap-1.5">
                     <div className="h-2.5 w-2.5 rounded-full bg-destructive" />
-                    <span className="font-medium">Breached: {breached}</span>
+                    <span className="font-medium">Breached: {total > 0 ? Math.round((breached / total) * 100) : 0}%</span>
                   </div>
                 </div>
               </>

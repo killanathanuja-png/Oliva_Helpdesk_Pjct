@@ -433,12 +433,23 @@ const RaiseTicketModal = ({ onClose, onSuccess, editMode, editTicket, userRole, 
         setShowAlert(true);
         return;
       }
-      // CDD Clinic: Type and Category are mandatory
+      // CDD Clinic: All fields are mandatory
       if (isCDDClinic) {
         const typeVal = category === "others" ? customType : category;
         const catVal = subCategory === "others" ? customCategory : subCategory;
-        if (!typeVal.trim() || !catVal.trim()) {
-          alert("Please select both Type and Category before submitting.");
+        const missing: string[] = [];
+        if (!cddClientCode.trim()) missing.push("Client Code");
+        if (!cddClientName.trim()) missing.push("Client Name");
+        if (!description.trim()) missing.push("Complaint Description");
+        if (!typeVal.trim()) missing.push("Category");
+        if (!catVal.trim()) missing.push("Sub Category");
+        if (!cddServiceName.trim()) missing.push("Service Name");
+        if (!cddCrtName.trim()) missing.push("CRT Name");
+        if (!cddPrimaryDoctor.trim()) missing.push("Primary Doctor");
+        if (!cddTherapistName.trim()) missing.push("Therapist Name");
+        if (!assignedCenter.trim()) missing.push("Assigned Center");
+        if (missing.length > 0) {
+          alert(`Please fill all mandatory fields:\n${missing.join(", ")}`);
           setSubmitting(false);
           return;
         }
@@ -663,11 +674,11 @@ const RaiseTicketModal = ({ onClose, onSuccess, editMode, editTicket, userRole, 
                 {/* 1. Client Code & Client Name */}
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className={labelClass}>Client Code</label>
+                    <label className={labelClass}>Client Code <span className="text-destructive">*</span></label>
                     <input type="text" value={cddClientCode} onChange={(e) => setCddClientCode(e.target.value)} className={inputClass} placeholder="Enter client code" />
                   </div>
                   <div>
-                    <label className={labelClass}>Client Name</label>
+                    <label className={labelClass}>Client Name <span className="text-destructive">*</span></label>
                     <input type="text" value={cddClientName} onChange={(e) => setCddClientName(e.target.value)} className={inputClass} placeholder="Enter client name" />
                   </div>
                 </div>
@@ -681,11 +692,11 @@ const RaiseTicketModal = ({ onClose, onSuccess, editMode, editTicket, userRole, 
                 {/* Service Name & CRT Name */}
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className={labelClass}>Service Name</label>
+                    <label className={labelClass}>Service Name <span className="text-destructive">*</span></label>
                     <input type="text" value={cddServiceName} onChange={(e) => setCddServiceName(e.target.value)} className={inputClass} placeholder="Enter service name" />
                   </div>
                   <div>
-                    <label className={labelClass}>CRT Name</label>
+                    <label className={labelClass}>CRT Name <span className="text-destructive">*</span></label>
                     <input type="text" value={cddCrtName} onChange={(e) => setCddCrtName(e.target.value)} className={inputClass} placeholder="Enter CRT name" />
                   </div>
                 </div>
@@ -693,11 +704,11 @@ const RaiseTicketModal = ({ onClose, onSuccess, editMode, editTicket, userRole, 
                 {/* Primary Doctor & Therapist Name */}
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className={labelClass}>Primary Doctor</label>
+                    <label className={labelClass}>Primary Doctor <span className="text-destructive">*</span></label>
                     <input type="text" value={cddPrimaryDoctor} onChange={(e) => setCddPrimaryDoctor(e.target.value)} className={inputClass} placeholder="Enter primary doctor" />
                   </div>
                   <div>
-                    <label className={labelClass}>Therapist Name</label>
+                    <label className={labelClass}>Therapist Name <span className="text-destructive">*</span></label>
                     <input type="text" value={cddTherapistName} onChange={(e) => setCddTherapistName(e.target.value)} className={inputClass} placeholder="Enter therapist name" />
                   </div>
                 </div>
@@ -849,29 +860,29 @@ const RaiseTicketModal = ({ onClose, onSuccess, editMode, editTicket, userRole, 
             {!isZenoti && !isAdminDept && !isITDept && !(isHelpdeskAdmin && department === "IT Department") && (
               <div className={cn("grid gap-3", (isCDDToClinics || isCDDClinic || isQualityAudit) ? "grid-cols-2" : "grid-cols-3")}>
                 <div>
-                  <label className={labelClass}>{isCDDClinic ? "Type" : "Category"}{isCDDClinic && <span className="text-destructive"> *</span>}</label>
+                  <label className={labelClass}>{isCDDClinic ? "Category" : "Category"}{isCDDClinic && <span className="text-destructive"> *</span>}</label>
                   <ComboBox
                     value={category}
                     onChange={(val) => { handleCategoryChange(val); if (val !== "others") setCustomType(""); }}
                     options={categoryOptions}
-                    placeholder={isCDDClinic ? "Select type" : "Select category"}
+                    placeholder="Select category"
                   />
                   {isCDDClinic && category === "others" && (
                     <input type="text" value={customType} onChange={(e) => setCustomType(e.target.value)}
-                      className={cn(inputClass, "mt-2")} placeholder="Enter custom type..." />
+                      className={cn(inputClass, "mt-2")} placeholder="Enter custom category..." />
                   )}
                 </div>
                 <div>
-                  <label className={labelClass}>{isCDDClinic ? "Category" : "Sub-Category"}{isCDDClinic && <span className="text-destructive"> *</span>}</label>
+                  <label className={labelClass}>{isCDDClinic ? "Sub Category" : "Sub-Category"}{isCDDClinic && <span className="text-destructive"> *</span>}</label>
                   <ComboBox
                     value={subCategory}
                     onChange={(val) => { handleSubCategoryChange2(val); if (val !== "others") setCustomCategory(""); }}
                     options={subCategoryOptions}
-                    placeholder={isCDDClinic ? "Select category" : "Select sub-category"}
+                    placeholder="Select sub category"
                   />
                   {isCDDClinic && subCategory === "others" && (
                     <input type="text" value={customCategory} onChange={(e) => setCustomCategory(e.target.value)}
-                      className={cn(inputClass, "mt-2")} placeholder="Enter custom category..." />
+                      className={cn(inputClass, "mt-2")} placeholder="Enter custom sub category..." />
                   )}
                 </div>
                 {!isQualityAudit && !isCDDToClinics && !isCDDClinic && (

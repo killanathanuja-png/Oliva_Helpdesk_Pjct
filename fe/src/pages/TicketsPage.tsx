@@ -499,8 +499,8 @@ const TicketsPage = () => {
                 return {
                   "Ticket ID": t.id,
                   "Description": t.description || t.title,
-                  [isCddUser ? "Type" : "Category"]: t.assignedDept === "Admin Department" ? ((t as any).zenotiChildCategory || t.category) : t.category,
-                  [isCddUser ? "Category" : "Sub-Category"]: t.assignedDept === "Admin Department" ? ((t as any).zenotiDescription || t.subCategory || "") : (t.subCategory || ""),
+                  "Category": t.assignedDept === "Admin Department" ? ((t as any).zenotiChildCategory || t.category) : t.category,
+                  "Sub-Category": t.assignedDept === "Admin Department" ? ((t as any).zenotiDescription || t.subCategory || "") : (t.subCategory || ""),
                   "Priority": t.priority,
                   "Status": t.status,
                   "Raised By": t.raisedBy,
@@ -597,8 +597,8 @@ const TicketsPage = () => {
               <th className="px-4 py-3 font-medium">Description</th>
               {isCddUser && <th className="px-4 py-3 font-medium">Client Code</th>}
               {isCddUser && <th className="px-4 py-3 font-medium">Client Name</th>}
-              <th className="px-4 py-3 font-medium">{isCddUser ? "Type" : "Category"}</th>
-              <th className="px-4 py-3 font-medium">{isCddUser ? "Category" : "Sub-Category"}</th>
+              <th className="px-4 py-3 font-medium">Category</th>
+              <th className="px-4 py-3 font-medium">Sub-Category</th>
               {isZenotiRole && <th className="px-4 py-3 font-medium">Child Category</th>}
               {isCddUser && <th className="px-4 py-3 font-medium">Service Name</th>}
               {isCddUser && <th className="px-4 py-3 font-medium">CRT Name</th>}

@@ -279,8 +279,8 @@ const AppLayout = ({ children }: AppLayoutProps) => {
                       } else if (isCddUser) {
                         if (child.label === "SLA Report") displayLabel = "TAT Report";
                         else if (child.label === "SLA Analytics") displayLabel = "TAT Analytics";
-                        else if (child.label === "Categories") displayLabel = "Type";
-                        else if (child.label === "Subcategory") displayLabel = "Category";
+                        else if (child.label === "Categories") displayLabel = "Category";
+                        else if (child.label === "Subcategory") displayLabel = "Sub Category";
                       }
                       return (
                         <Link
@@ -289,8 +289,8 @@ const AppLayout = ({ children }: AppLayoutProps) => {
                           className={cn(
                             "flex items-center gap-2.5 rounded-md px-3 py-2 text-[13px] transition-colors",
                             childActive
-                              ? "text-sidebar-primary bg-sidebar-accent font-medium"
-                              : "text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                              ? "bg-sidebar-primary text-sidebar-primary-foreground font-medium"
+                              : "text-white/70 hover:bg-white/10 hover:text-white"
                           )}
                         >
                           <child.icon className="h-4 w-4 shrink-0" />

@@ -366,9 +366,9 @@ const SLAReportPage = () => {
               className="px-2 py-1.5 rounded-md border border-primary bg-primary/5 text-primary text-xs font-medium focus:outline-none focus:ring-2 focus:ring-primary/30 w-[140px]"
             >
               <option value="">Select TAT View</option>
-              <option value="CM Response">TAT - CM Response</option>
-              <option value="AOM Response">TAT - AOM Response</option>
-              <option value="AMH Response">TAT - AMH Response</option>
+              <option value="CM Response">TAT - CM</option>
+              <option value="AOM Response">TAT - AOM</option>
+              <option value="AMH Response">TAT - AMH</option>
               <option value="Other Dept">TAT - Other Dept</option>
             </select>
           )}
@@ -546,7 +546,7 @@ const SLAReportPage = () => {
             <div className="px-6 py-4 border-b border-border bg-gradient-to-r from-primary/10 to-transparent">
               <h2 className="font-semibold text-sm flex items-center gap-2">
                 <BarChart3 className="h-4 w-4 text-primary" />
-                {activeTatView === "Other Dept" ? "Other Dept Response" : activeTatView} — {dateLabel}
+                {activeTatView === "Other Dept" ? "Other Dept" : activeTatView?.replace(" Response", "")} — {dateLabel}
               </h2>
             </div>
             <div className="overflow-x-auto">

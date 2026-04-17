@@ -23,7 +23,7 @@ const LoginPage = () => {
       // Fetch user profile
       const user = await authApi.me();
       localStorage.setItem("oliva_user", JSON.stringify(user));
-      navigate(isAdminLikeRole(user.role || "") ? "/" : "/tickets");
+      navigate("/");
     } catch {
       setError("Invalid username or password");
     } finally {

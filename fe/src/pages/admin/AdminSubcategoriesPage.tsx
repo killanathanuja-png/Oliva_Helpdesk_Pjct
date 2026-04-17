@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { subcategories as initialSubcategories } from "@/data/dummyData";
 import type { Subcategory } from "@/data/dummyData";
-import { subcategoriesApi, categoriesApi, cddTypesApi, adminMastersApi } from "@/lib/api";
+import { subcategoriesApi, categoriesApi, cddTypesApi, adminMastersApi, departmentsApi } from "@/lib/api";
 import type { ApiSubcategory, ApiCategory } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { X, Pencil, Trash2, Loader2, AlertTriangle, Download, Search, ArrowLeft, RefreshCw } from "lucide-react";
@@ -103,15 +103,15 @@ const AdminSubcategoriesPage = () => {
   const _parsedUser = _storedUser ? JSON.parse(_storedUser) : null;
   const _userDept = _parsedUser?.department || "";
   const _userRole = _parsedUser?.role || "";
-  const _isCddAdmin = _userRole.toLowerCase().includes("cdd admin");
-  const _isAdminDept = _userRole.toLowerCase().includes("admin department");
   const _isSuperAdmin = _userRole.toLowerCase().includes("super admin") || _userRole.toLowerCase().includes("global admin") || _userRole.toLowerCase().includes("super user");
   const [deptView, setDeptView] = useState("All");
   const [deptOptions, setDeptOptions] = useState<string[]>([]);
+  const _isCddAdmin = _isSuperAdmin ? deptView === "CDD" : _userRole.toLowerCase().includes("cdd admin");
+  const _isAdminDept = _isSuperAdmin ? deptView === "Admin Department" : _userRole.toLowerCase().includes("admin department");
   const _isITUser = _userRole.toLowerCase() === "it" || _userDept.toLowerCase() === "it department";
   const _isZenotiUser = _userRole.toLowerCase().includes("zenoti") || _userDept.toLowerCase() === "zenoti";
   const _isFinanceUser = _userRole.toLowerCase() === "finance" || _userRole.toLowerCase() === "finance head" || _userDept.toLowerCase() === "finance";
-  const _isDeptFiltered = _userDept.toLowerCase().includes("quality") || _isZenotiUser || _isCddAdmin || _isITUser || _isFinanceUser;
+  const _isDeptFiltered = _isSuperAdmin ? (deptView !== "All" && deptView !== "Admin Department" && deptView !== "CDD") : (_userDept.toLowerCase().includes("quality") || _isZenotiUser || _isCddAdmin || _isITUser || _isFinanceUser);
   const [data, setData] = useState<LocalSubcategory[]>([]);
   const [apiCategories, setApiCategories] = useState<ApiCategory[]>([]);
   const [idMap, setIdMap] = useState<Record<string, number>>({});
@@ -122,6 +122,11 @@ const AdminSubcategoriesPage = () => {
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
   const [formError, setFormError] = useState("");
   const [search, setSearch] = useState("");
+
+  useEffect(() => {
+    if (!_isSuperAdmin) return;
+    departmentsApi.list().then((d) => setDeptOptions(d.map((x) => x.name).sort())).catch(() => {});
+  }, []);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -219,7 +224,7 @@ const AdminSubcategoriesPage = () => {
       }
     };
     fetchData();
-  }, []);
+  }, [deptView]);
 
   const categoryOptions = apiCategories.filter((c) => c.status !== "Inactive").map((c) => c.name);
 
@@ -231,8 +236,8 @@ const AdminSubcategoriesPage = () => {
 
   const handleSave = async () => {
     const missing: string[] = [];
-    if (!form.subcategory) missing.push(_isAdminDept ? "Module Name" : _isCddAdmin ? "Category Name" : "Sub Category Name");
-    if (!form.category) missing.push(_isAdminDept ? "Category" : _isCddAdmin ? "Type" : "Main Category");
+    if (!form.subcategory) missing.push(_isAdminDept ? "Module Name" : _isCddAdmin ? "Sub Category Name" : "Sub Category Name");
+    if (!form.category) missing.push(_isAdminDept ? "Category" : _isCddAdmin ? "Category" : "Main Category");
     if (missing.length > 0) { setFormError(`Please fill: ${missing.join(", ")}`); return; }
     setFormError("");
 
@@ -366,11 +371,21 @@ const AdminSubcategoriesPage = () => {
 
   return (
     <div className="space-y-4 animate-fade-in">
+      {_isSuperAdmin && (
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-medium text-muted-foreground">Department:</span>
+          <select value={deptView} onChange={(e) => setDeptView(e.target.value)}
+            className="px-3 py-1.5 rounded-lg border border-border bg-card text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary/30 min-w-[180px]">
+            <option value="All">All Departments</option>
+            {deptOptions.map((d) => <option key={d} value={d}>{d}</option>)}
+          </select>
+        </div>
+      )}
       <div className="flex items-center justify-between gap-4">
         <div className="shrink-0 flex items-center gap-3">
           <button onClick={() => window.history.back()} className="p-2 rounded-lg border border-border hover:bg-muted transition-colors" title="Back"><ArrowLeft className="h-4 w-4" /></button>
           <div>
-            <h1 className="text-xl font-bold font-display">{_isAdminDept ? "Module Management" : _isCddAdmin ? "Category Management" : "Subcategory Management"}</h1>
+            <h1 className="text-xl font-bold font-display">{_isAdminDept ? "Module Management" : _isCddAdmin ? "Sub Category Management" : "Subcategory Management"}</h1>
             <p className="text-xs text-muted-foreground mt-0.5">Total: <span className="font-semibold text-foreground">{activeData.length}</span></p>
           </div>
         </div>
@@ -402,7 +417,7 @@ const AdminSubcategoriesPage = () => {
             onClick={() => { setEditingId(null); setForm({ ...emptyForm }); setFormError(""); setShowModal(true); }}
             className="px-4 py-2.5 rounded-lg gradient-primary text-primary-foreground text-sm font-medium hover:opacity-90 transition-opacity"
           >
-            + {_isAdminDept ? "Add Module" : _isCddAdmin ? "Add Category" : "Add Subcategory"}
+            + {_isAdminDept ? "Add Module" : _isCddAdmin ? "Add Sub Category" : "Add Subcategory"}
           </button>
         </div>
       </div>
@@ -412,8 +427,8 @@ const AdminSubcategoriesPage = () => {
           <thead>
             <tr className="text-left text-[11px] uppercase tracking-wider text-muted-foreground border-b border-border bg-muted/30 whitespace-nowrap">
               {!_isCddAdmin && !_isAdminDept && <th className="px-4 py-3 font-semibold">Sub Category Code</th>}
-              <th className="px-4 py-3 font-semibold">{_isAdminDept ? "Module Name" : _isCddAdmin ? "Category" : "Sub Category Name"}</th>
-              <th className="px-4 py-3 font-semibold">{_isAdminDept ? "Category" : _isCddAdmin ? "Type" : "Main Category"}</th>
+              <th className="px-4 py-3 font-semibold">{_isAdminDept ? "Module Name" : _isCddAdmin ? "Sub Category" : "Sub Category Name"}</th>
+              <th className="px-4 py-3 font-semibold">{_isAdminDept ? "Category" : _isCddAdmin ? "Category" : "Main Category"}</th>
               {!_isCddAdmin && !_isAdminDept && <th className="px-4 py-3 font-semibold">Status</th>}
               <th className="px-4 py-3 font-semibold">Actions</th>
             </tr>
@@ -448,7 +463,7 @@ const AdminSubcategoriesPage = () => {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={handleCancel}>
           <div className="bg-card rounded-xl shadow-xl border border-border w-full max-w-md mx-4 animate-fade-in" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between px-6 py-4 border-b border-border">
-              <h2 className="text-lg font-bold font-display">{editingId ? (_isAdminDept ? "Edit Module" : _isCddAdmin ? "Edit Category" : "Edit Subcategory") : (_isAdminDept ? "Add Module" : _isCddAdmin ? "Add Category" : "Add Subcategory")}</h2>
+              <h2 className="text-lg font-bold font-display">{editingId ? (_isAdminDept ? "Edit Module" : _isCddAdmin ? "Edit Sub Category" : "Edit Subcategory") : (_isAdminDept ? "Add Module" : _isCddAdmin ? "Add Sub Category" : "Add Subcategory")}</h2>
               <button onClick={handleCancel} className="text-muted-foreground hover:text-foreground transition-colors">
                 <X className="h-5 w-5" />
               </button>
@@ -462,12 +477,12 @@ const AdminSubcategoriesPage = () => {
                 </div>
               )}
               <div>
-                <label className="block text-xs font-medium text-muted-foreground mb-1.5">{_isAdminDept ? "Module Name" : _isCddAdmin ? "Category Name" : "Sub Category Name"} <span className="text-destructive">*</span></label>
+                <label className="block text-xs font-medium text-muted-foreground mb-1.5">{_isAdminDept ? "Module Name" : _isCddAdmin ? "Sub Category Name" : "Sub Category Name"} <span className="text-destructive">*</span></label>
                 <ComboBox value={form.subcategory} onChange={(val) => setForm({ ...form, subcategory: val })} options={[]} placeholder={_isAdminDept ? "Enter module name" : _isCddAdmin ? "Enter category name" : "Type subcategory name"} allowCreate />
               </div>
               <div>
-                <label className="block text-xs font-medium text-muted-foreground mb-1.5">{_isAdminDept ? "Category" : _isCddAdmin ? "Type" : "Main Category"} <span className="text-destructive">*</span></label>
-                <ComboBox value={form.category} onChange={handleCategoryChange} options={categoryOptions} placeholder={_isAdminDept ? "Select category" : _isCddAdmin ? "Select type" : "Select main category"} allowCreate />
+                <label className="block text-xs font-medium text-muted-foreground mb-1.5">{_isAdminDept ? "Category" : _isCddAdmin ? "Category" : "Main Category"} <span className="text-destructive">*</span></label>
+                <ComboBox value={form.category} onChange={handleCategoryChange} options={categoryOptions} placeholder={_isAdminDept ? "Select category" : _isCddAdmin ? "Select category" : "Select main category"} allowCreate />
               </div>
               {!_isCddAdmin && !_isAdminDept && (
                 <div>
@@ -482,7 +497,7 @@ const AdminSubcategoriesPage = () => {
             <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-border">
               <button onClick={handleCancel} className="px-4 py-2 rounded-lg border border-border text-sm font-medium hover:bg-muted transition-colors">Cancel</button>
               <button onClick={handleSave} className="px-5 py-2 rounded-lg gradient-primary text-primary-foreground text-sm font-medium hover:opacity-90 transition-opacity">
-                {editingId ? (_isAdminDept ? "Update Module" : _isCddAdmin ? "Update Category" : "Update Subcategory") : (_isAdminDept ? "Create Module" : _isCddAdmin ? "Create Category" : "Create Subcategory")}
+                {editingId ? (_isAdminDept ? "Update Module" : _isCddAdmin ? "Update Sub Category" : "Update Subcategory") : (_isAdminDept ? "Create Module" : _isCddAdmin ? "Create Sub Category" : "Create Subcategory")}
               </button>
             </div>
           </div>

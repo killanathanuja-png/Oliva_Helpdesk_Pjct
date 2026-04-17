@@ -133,12 +133,15 @@ const AdminCategoriesPage = () => {
   const _parsedUser = _storedUser ? JSON.parse(_storedUser) : null;
   const _userDept = _parsedUser?.department || "";
   const _userRole = _parsedUser?.role || "";
-  const _isCddAdmin = _userRole.toLowerCase().includes("cdd admin");
-  const _isAdminDept = _userRole.toLowerCase().includes("admin department");
+  const _isSuperAdmin = _userRole.toLowerCase().includes("super admin") || _userRole.toLowerCase().includes("global admin") || _userRole.toLowerCase().includes("super user");
+  const [deptView, setDeptView] = useState("All");
+  const [deptOptions, setDeptOptions] = useState<string[]>([]);
+  const _isCddAdmin = _isSuperAdmin ? deptView === "CDD" : _userRole.toLowerCase().includes("cdd admin");
+  const _isAdminDept = _isSuperAdmin ? deptView === "Admin Department" : _userRole.toLowerCase().includes("admin department");
   const _isITUser = _userRole.toLowerCase() === "it" || _userDept.toLowerCase() === "it department";
   const _isZenotiUser = _userRole.toLowerCase().includes("zenoti") || _userDept.toLowerCase() === "zenoti";
   const _isFinanceUser = _userRole.toLowerCase() === "finance" || _userRole.toLowerCase() === "finance head" || _userDept.toLowerCase() === "finance";
-  const _isDeptFiltered = _userDept.toLowerCase().includes("quality") || _isZenotiUser || _isCddAdmin || _isITUser || _isFinanceUser;
+  const _isDeptFiltered = _isSuperAdmin ? (deptView !== "All" && deptView !== "Admin Department" && deptView !== "CDD") : (_userDept.toLowerCase().includes("quality") || _isZenotiUser || _isCddAdmin || _isITUser || _isFinanceUser);
   const [data, setData] = useState<LocalCategory[]>([]);
   const [idMap, setIdMap] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
@@ -148,6 +151,14 @@ const AdminCategoriesPage = () => {
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
   const [formError, setFormError] = useState("");
   const [search, setSearch] = useState("");
+
+  // Fetch department options for Super Admin
+  useEffect(() => {
+    if (!_isSuperAdmin) return;
+    import("@/lib/api").then(({ departmentsApi }) => {
+      departmentsApi.list().then((d) => setDeptOptions(d.map((x) => x.name).sort())).catch(() => {});
+    });
+  }, []);
 
   useEffect(() => {
     async function fetchData() {
@@ -187,7 +198,9 @@ const AdminCategoriesPage = () => {
           setIdMap(map);
         } else {
           let apiCategories = await categoriesApi.list().catch(() => null);
-          if (_isDeptFiltered && apiCategories) {
+          if (_isSuperAdmin && deptView !== "All" && deptView !== "Admin Department" && deptView !== "CDD" && apiCategories) {
+            apiCategories = apiCategories.filter((c: any) => (c.department || "") === deptView);
+          } else if (_isDeptFiltered && apiCategories) {
             if (_isITUser) {
               apiCategories = apiCategories.filter((c: any) => (c.department || "") === "IT Department");
             } else if (_isZenotiUser) {
@@ -215,11 +228,11 @@ const AdminCategoriesPage = () => {
       }
     }
     fetchData();
-  }, []);
+  }, [deptView]);
 
   const handleSave = async () => {
     const missing: string[] = [];
-    if (!form.category) missing.push(_isAdminDept ? "Category Name" : _isCddAdmin ? "Type Name" : "Main Category Name");
+    if (!form.category) missing.push(_isAdminDept ? "Category Name" : _isCddAdmin ? "Category Name" : "Main Category Name");
     if (missing.length > 0) { setFormError(`Please fill: ${missing.join(", ")}`); return; }
     setFormError("");
 
@@ -350,12 +363,22 @@ const AdminCategoriesPage = () => {
 
   return (
     <div className="space-y-4 animate-fade-in">
+      {_isSuperAdmin && (
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-medium text-muted-foreground">Department:</span>
+          <select value={deptView} onChange={(e) => setDeptView(e.target.value)}
+            className="px-3 py-1.5 rounded-lg border border-border bg-card text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary/30 min-w-[180px]">
+            <option value="All">All Departments</option>
+            {deptOptions.map((d) => <option key={d} value={d}>{d}</option>)}
+          </select>
+        </div>
+      )}
       <div className="flex items-center justify-between gap-4">
         <div className="shrink-0 flex items-center gap-3">
           <button onClick={() => window.history.back()} className="p-2 rounded-lg border border-border hover:bg-muted transition-colors" title="Back"><ArrowLeft className="h-4 w-4" /></button>
           <div>
-            <h1 className="text-xl font-bold font-display">{_isAdminDept ? "Category Management" : _isCddAdmin ? "Type Management" : "Category Management"}</h1>
-            <p className="text-xs text-muted-foreground mt-0.5">Total {_isAdminDept ? "Categories" : _isCddAdmin ? "Types" : "Categories"}: <span className="font-semibold text-foreground">{activeData.length}</span></p>
+            <h1 className="text-xl font-bold font-display">{_isAdminDept ? "Category Management" : _isCddAdmin ? "Category Management" : "Category Management"}</h1>
+            <p className="text-xs text-muted-foreground mt-0.5">Total {_isAdminDept ? "Categories" : _isCddAdmin ? "Categories" : "Categories"}: <span className="font-semibold text-foreground">{activeData.length}</span></p>
           </div>
         </div>
         <div className="relative flex-1 max-w-sm">
@@ -389,7 +412,7 @@ const AdminCategoriesPage = () => {
             onClick={() => { setEditingId(null); setForm({ categoryCode: "", category: "", module: "" }); setFormError(""); setShowModal(true); }}
             className="px-4 py-2.5 rounded-lg gradient-primary text-primary-foreground text-sm font-medium hover:opacity-90 transition-opacity"
           >
-            + {_isAdminDept ? "Add Category" : _isCddAdmin ? "Add Type" : "Add Category"}
+            + {_isAdminDept ? "Add Category" : _isCddAdmin ? "Add Category" : "Add Category"}
           </button>
         </div>
       </div>
@@ -398,7 +421,7 @@ const AdminCategoriesPage = () => {
           <thead>
             <tr className="text-left text-[11px] uppercase tracking-wider text-muted-foreground border-b border-border bg-muted/30 whitespace-nowrap">
               {!_isCddAdmin && !_isAdminDept && <th className="px-4 py-3 font-semibold">Main Category Code</th>}
-              <th className="px-4 py-3 font-semibold">{_isAdminDept ? "Category Name" : _isCddAdmin ? "Type" : "Main Category Name"}</th>
+              <th className="px-4 py-3 font-semibold">{_isAdminDept ? "Category Name" : _isCddAdmin ? "Category Name" : "Main Category Name"}</th>
               {!_isCddAdmin && !_isAdminDept && <th className="px-4 py-3 font-semibold">Status</th>}
               <th className="px-4 py-3 font-semibold">Actions</th>
             </tr>
@@ -432,7 +455,7 @@ const AdminCategoriesPage = () => {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={handleCancel}>
           <div className="bg-card rounded-xl shadow-xl border border-border w-full max-w-md mx-4 animate-fade-in" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between px-6 py-4 border-b border-border">
-              <h2 className="text-lg font-bold font-display">{editingId ? (_isAdminDept ? "Edit Category" : _isCddAdmin ? "Edit Type" : "Edit Category") : (_isAdminDept ? "Add Category" : _isCddAdmin ? "Add Type" : "Add Category")}</h2>
+              <h2 className="text-lg font-bold font-display">{editingId ? (_isAdminDept ? "Edit Category" : _isCddAdmin ? "Edit Category" : "Edit Category") : (_isAdminDept ? "Add Category" : _isCddAdmin ? "Add Category" : "Add Category")}</h2>
               <button onClick={handleCancel} className="text-muted-foreground hover:text-foreground transition-colors">
                 <X className="h-5 w-5" />
               </button>
@@ -446,12 +469,12 @@ const AdminCategoriesPage = () => {
                 </div>
               )}
               <div>
-                <label className="block text-xs font-medium text-muted-foreground mb-1.5">{_isAdminDept ? "Category Name" : _isCddAdmin ? "Type Name" : "Main Category Name"} <span className="text-destructive">*</span></label>
+                <label className="block text-xs font-medium text-muted-foreground mb-1.5">{_isAdminDept ? "Category Name" : _isCddAdmin ? "Category Name" : "Main Category Name"} <span className="text-destructive">*</span></label>
                 <ComboBox
                   value={form.category}
                   onChange={(val) => setForm({ ...form, category: val })}
                   options={data.filter((c) => c.status !== "Inactive").map((c) => c.name)}
-                  placeholder={_isCddAdmin ? "Enter type name" : "Type or select category name"}
+                  placeholder={_isCddAdmin ? "Enter category name" : "Type or select category name"}
                   allowCreate
                 />
               </div>
@@ -476,7 +499,7 @@ const AdminCategoriesPage = () => {
                 Cancel
               </button>
               <button onClick={handleSave} className="px-5 py-2 rounded-lg gradient-primary text-primary-foreground text-sm font-medium hover:opacity-90 transition-opacity">
-                {editingId ? (_isAdminDept ? "Update Category" : _isCddAdmin ? "Update Type" : "Update Category") : (_isAdminDept ? "Create Category" : _isCddAdmin ? "Create Type" : "Create Category")}
+                {editingId ? (_isAdminDept ? "Update Category" : _isCddAdmin ? "Update Category" : "Update Category") : (_isAdminDept ? "Create Category" : _isCddAdmin ? "Create Category" : "Create Category")}
               </button>
             </div>
           </div>

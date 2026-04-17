@@ -64,6 +64,14 @@ const AdminRolesPage = () => {
             filtered = roles.filter((r) => ADMIN_DEPT_ROLES.some((ar) => r.name.toLowerCase().includes(ar.toLowerCase())));
           } else if (_isCddAdmin) {
             filtered = roles.filter((r) => CDD_ROLES.some((cr) => r.name.toLowerCase().includes(cr.toLowerCase())));
+            // If no CDD roles found in DB, show user's own role names
+            if (filtered.length === 0) {
+              const userRoles = _userRole.split(",").map((r: string) => r.trim());
+              // Create virtual role entries for display
+              setData(userRoles.map((r, i) => ({ id: `VR${i}`, name: r, description: "", userCount: 0, permissions: [], status: "Active" as const })));
+              setLoading(false);
+              return;
+            }
           } else if (_isQAUser) {
             filtered = roles.filter((r) => QA_ROLES.some((qr) => r.name.toLowerCase().includes(qr.toLowerCase())));
           } else if (_isITUser) {
@@ -101,14 +109,13 @@ const AdminRolesPage = () => {
   const handleSave = async () => {
     const missing: string[] = [];
     if (!form.name.trim()) missing.push("Role Name");
-    if (!form.description.trim()) missing.push("Description");
     if (missing.length > 0) { setFormError(`Please fill: ${missing.join(", ")}`); return; }
     setFormError("");
     if (editingId) {
       const numericId = idMap[editingId];
       if (numericId) {
         try {
-          const updated = await rolesApi.update(numericId, { name: form.name.trim(), description: form.description.trim() });
+          const updated = await rolesApi.update(numericId, { name: form.name.trim(), description: form.description.trim() || "" });
           setData((prev) => prev.map((r) => r.id === editingId ? toLocal(updated) : r));
           showToast("Role updated successfully");
         } catch {
