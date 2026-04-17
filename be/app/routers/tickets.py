@@ -536,7 +536,12 @@ def update_ticket(ticket_id: int, req: TicketUpdate, current_user: User = Depend
     # Extract comment before processing (don't set it on ticket model)
     update_comment = update_data.pop("comment", None) or ""
     if "status" in update_data:
-        update_data["status"] = TicketStatusEnum(update_data["status"])
+        # If reopening a Closed/Resolved ticket, set status to "Reopened"
+        new_status_str = update_data["status"]
+        if new_status_str == "Open" and t.status in (TicketStatusEnum.Closed, TicketStatusEnum.Resolved, TicketStatusEnum.FinalClosed):
+            update_data["status"] = TicketStatusEnum.Reopened
+        else:
+            update_data["status"] = TicketStatusEnum(new_status_str)
     if "priority" in update_data:
         update_data["priority"] = PriorityEnum(update_data["priority"])
 

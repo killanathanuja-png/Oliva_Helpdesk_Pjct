@@ -1,8 +1,14 @@
 import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
+<<<<<<< Updated upstream
 import { isSuperRole } from "@/lib/roles";
 import { dashboardApi, certificatesApi } from "@/lib/api";
 import type { ApiDashboardStats } from "@/lib/api";
+=======
+import { isSuperRole, hasAnyRole } from "@/lib/roles";
+import { dashboardApi, certificatesApi, centersApi } from "@/lib/api";
+import type { ApiDashboardStats, CertificateData } from "@/lib/api";
+>>>>>>> Stashed changes
 import {
   Ticket,
   AlertTriangle,
@@ -176,7 +182,7 @@ const Dashboard = () => {
       </div>
 
       {/* ── KPI Cards ── */}
-      <div className={cn("grid grid-cols-2 gap-3", showCertCard ? "lg:grid-cols-5" : "lg:grid-cols-4")}>
+      <div className={cn("grid grid-cols-2 gap-3", showCertCard ? "lg:grid-cols-6" : "lg:grid-cols-5")}>
         <div className="bg-card rounded-xl p-4 card-shadow border border-border border-l-4 border-l-primary">
           <div className="flex items-center gap-3">
             <div className="inline-flex items-center justify-center h-9 w-9 rounded-lg bg-primary/10 flex-shrink-0"><Ticket className="h-4 w-4 text-primary" /></div>
@@ -195,10 +201,16 @@ const Dashboard = () => {
             <div><span className="text-2xl font-bold leading-none">{stats.resolved}</span><p className="text-[11px] font-medium text-muted-foreground mt-0.5">Resolved</p></div>
           </div>
         </div>
+        <div className={cn("bg-card rounded-xl p-4 card-shadow border border-border border-l-4", stats.reopened > 0 ? "border-l-orange-500" : "border-l-gray-300")}>
+          <div className="flex items-center gap-3">
+            <div className={cn("inline-flex items-center justify-center h-9 w-9 rounded-lg flex-shrink-0", stats.reopened > 0 ? "bg-orange-50" : "bg-gray-50")}><RefreshCw className={cn("h-4 w-4", stats.reopened > 0 ? "text-orange-500" : "text-gray-400")} /></div>
+            <div><span className={cn("text-2xl font-bold leading-none", stats.reopened > 0 ? "text-orange-600" : "")}>{stats.reopened}</span><p className="text-[11px] font-medium text-muted-foreground mt-0.5">Reopen Tickets</p></div>
+          </div>
+        </div>
         <div className="bg-card rounded-xl p-4 card-shadow border border-border border-l-4 border-l-sky-500">
           <div className="flex items-center gap-3">
             <div className="inline-flex items-center justify-center h-9 w-9 rounded-lg bg-sky-50 flex-shrink-0"><Clock className="h-4 w-4 text-sky-500" /></div>
-            <div><span className="text-2xl font-bold leading-none">{stats.avg_resolution_hours != null ? `${stats.avg_resolution_hours}h` : "—"}</span><p className="text-[11px] font-medium text-muted-foreground mt-0.5">Avg Resolution</p></div>
+            <div><span className="text-2xl font-bold leading-none">{stats.avg_resolution_hours != null ? `${stats.avg_resolution_hours}h` : "—"}</span><p className="text-[11px] font-medium text-muted-foreground mt-0.5">Avg Resolution Time</p></div>
           </div>
         </div>
         {showCertCard && (
@@ -223,6 +235,34 @@ const Dashboard = () => {
         )}
       </div>
 
+      {/* ── Time Range Filter ── */}
+      <div className="flex flex-wrap items-center gap-2 bg-card rounded-lg px-3 py-2 card-shadow border border-border">
+        <Filter className="h-3.5 w-3.5 text-muted-foreground" />
+        <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
+        <select value={timePreset} onChange={(e) => setTimePreset(e.target.value)}
+          className="px-2 py-1.5 rounded-md border border-border bg-background text-xs focus:outline-none focus:ring-2 focus:ring-primary/30">
+          <option value="all">All Time</option>
+          <option value="this_month">This Month</option>
+          <option value="last_month">Last Month</option>
+          <option value="last_3_months">Last 3 Months</option>
+          <option value="custom">Custom</option>
+        </select>
+        {timePreset === "custom" && (
+          <>
+            <input type="date" value={customFrom} onChange={(e) => setCustomFrom(e.target.value)} className="px-2 py-1.5 rounded-md border border-border bg-background text-xs focus:outline-none focus:ring-2 focus:ring-primary/30 w-[130px]" />
+            <span className="text-xs text-muted-foreground">to</span>
+            <input type="date" value={customTo} onChange={(e) => setCustomTo(e.target.value)} className="px-2 py-1.5 rounded-md border border-border bg-background text-xs focus:outline-none focus:ring-2 focus:ring-primary/30 w-[130px]" />
+          </>
+        )}
+        <button onClick={doFetch} disabled={loading}
+          className="px-3 py-1.5 rounded-md bg-primary text-primary-foreground text-xs font-medium hover:bg-primary/90 transition-colors flex items-center gap-1 disabled:opacity-50">
+          <Filter className="h-3 w-3" /> Submit
+        </button>
+        <button onClick={() => { setTimePreset("all"); setCustomFrom(""); setCustomTo(""); setTimeout(doFetch, 50); }}
+          className="px-3 py-1.5 rounded-md border border-border bg-card text-xs font-medium hover:bg-muted transition-colors flex items-center gap-1">
+          <RefreshCw className="h-3 w-3" /> Refresh
+        </button>
+      </div>
 
       {/* ── CDD Dashboard: Clinic-wise, Escalation, Department, Category, Sub-Category ── */}
       {userDept.toUpperCase() === "CDD" ? (
@@ -317,27 +357,27 @@ const Dashboard = () => {
             ) : <p className="text-[10px] text-muted-foreground text-center py-8">No data</p>}
           </div>
 
-          {/* 4. Type-wise — Full pie (no hole) */}
+          {/* 4. Category-wise — Full pie */}
           {(() => {
-            const typeData = (stats.tickets_by_category || []).map((c) => ({ name: c.name, value: c.count }));
+            const catData = (stats.tickets_by_category || []).map((c) => ({ name: c.name, value: c.count }));
             return (
               <div className="bg-card rounded-xl p-3 card-shadow border border-border">
                 <div className="flex items-center gap-1.5 mb-1">
                   <Target className="h-3.5 w-3.5 text-primary" />
-                  <h3 className="font-bold text-[11px]">Type-wise</h3>
+                  <h3 className="font-bold text-[11px]">Category</h3>
                 </div>
-                {typeData.length > 0 ? (
+                {catData.length > 0 ? (
                   <>
                     <ResponsiveContainer width="100%" height={100}>
                       <PieChart>
-                        <Pie data={typeData} cx="50%" cy="50%" outerRadius={42} dataKey="value" nameKey="name" paddingAngle={1}>
-                          {typeData.map((_, i) => <Cell key={i} fill={categoryColors[i % categoryColors.length]} />)}
+                        <Pie data={catData} cx="50%" cy="50%" outerRadius={42} dataKey="value" nameKey="name" paddingAngle={1}>
+                          {catData.map((_, i) => <Cell key={i} fill={categoryColors[i % categoryColors.length]} />)}
                         </Pie>
                         <Tooltip content={<ChartTooltip />} />
                       </PieChart>
                     </ResponsiveContainer>
                     <div className="space-y-0.5 mt-1">
-                      {typeData.map((d, i) => (
+                      {catData.map((d, i) => (
                         <div key={d.name} className="flex items-center justify-between text-[10px]">
                           <div className="flex items-center gap-1 truncate">
                             <div className="h-1.5 w-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: categoryColors[i % categoryColors.length] }} />
@@ -352,11 +392,42 @@ const Dashboard = () => {
               </div>
             );
           })()}
+
+          {/* 5. Sub-Category-wise — bar chart */}
+          {(() => {
+            const subCatData = (stats.tickets_by_sub_category || []).filter((s) => s.count > 0);
+            return (
+              <div className="bg-card rounded-xl p-3 card-shadow border border-border">
+                <div className="flex items-center gap-1.5 mb-1">
+                  <Layers className="h-3.5 w-3.5 text-primary" />
+                  <h3 className="font-bold text-[11px]">Sub-Category</h3>
+                </div>
+                {subCatData.length > 0 ? (
+                  <div className="space-y-1 max-h-[160px] overflow-y-auto">
+                    {subCatData.slice(0, 10).map((c, i) => {
+                      const max = subCatData[0]?.count || 1;
+                      return (
+                        <div key={c.name}>
+                          <div className="flex items-center justify-between text-[10px] mb-0.5">
+                            <span className="text-muted-foreground truncate max-w-[120px]" title={c.name}>{c.name}</span>
+                            <span className="font-bold">{c.count}</span>
+                          </div>
+                          <div className="w-full h-1.5 bg-muted rounded-full overflow-hidden">
+                            <div className="h-full rounded-full transition-all duration-500" style={{ width: `${(c.count / max) * 100}%`, backgroundColor: categoryColors[i % categoryColors.length] }} />
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : <p className="text-[10px] text-muted-foreground text-center py-4">No data</p>}
+              </div>
+            );
+          })()}
         </div>
       ) : (
         <>
-          {/* ── Non-CDD: Charts: Dept Pie + Priority Pie + Category Bars ── */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
+          {/* ── Non-CDD: Charts: Dept Pie + Priority Pie + Category + Sub-Category ── */}
+          <div className="grid grid-cols-1 lg:grid-cols-4 gap-3">
             {/* Department-wise Pie */}
             <div className="bg-card rounded-xl p-4 card-shadow border border-border">
               <div className="flex items-center gap-2 mb-3">
@@ -444,10 +515,36 @@ const Dashboard = () => {
                 </div>
               ) : <p className="text-xs text-muted-foreground text-center py-8">No data</p>}
             </div>
+
+            {/* Sub-Category-wise Bars */}
+            <div className="bg-card rounded-xl p-4 card-shadow border border-border">
+              <div className="flex items-center gap-2 mb-3">
+                <Layers className="h-4 w-4 text-primary" />
+                <h3 className="font-semibold text-xs">Sub-Category</h3>
+              </div>
+              {(stats.tickets_by_sub_category || []).length > 0 ? (
+                <div className="space-y-2 max-h-[160px] overflow-y-auto">
+                  {(stats.tickets_by_sub_category || []).slice(0, 10).map((c, i) => {
+                    const max = (stats.tickets_by_sub_category || [])[0]?.count || 1;
+                    return (
+                      <div key={c.name}>
+                        <div className="flex items-center justify-between text-[11px] mb-0.5">
+                          <span className="text-muted-foreground truncate max-w-[140px]" title={c.name}>{c.name}</span>
+                          <span className="font-bold">{c.count}</span>
+                        </div>
+                        <div className="w-full h-1.5 bg-muted rounded-full overflow-hidden">
+                          <div className="h-full rounded-full transition-all duration-500" style={{ width: `${(c.count / max) * 100}%`, backgroundColor: categoryColors[i % categoryColors.length] }} />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : <p className="text-xs text-muted-foreground text-center py-8">No data</p>}
+            </div>
           </div>
 
-          {/* ── Center-wise Breakdown (non-CDD) ── */}
-          {stats.top_centers && stats.top_centers.length > 0 && (
+          {/* ── Center-wise Breakdown (hidden for Clinic Managers) ── */}
+          {stats.top_centers && stats.top_centers.length > 0 && !hasAnyRole(userRole, ["Clinic Manager", "Clinic Incharge"]) && (
             <div className="bg-card rounded-xl card-shadow border border-border overflow-hidden">
               <div className="px-4 py-3 border-b border-border flex items-center gap-2 bg-gradient-to-r from-primary/5 to-transparent">
                 <Building2 className="h-4 w-4 text-primary" />

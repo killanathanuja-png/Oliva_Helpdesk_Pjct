@@ -225,8 +225,7 @@ const TicketDetailPage = () => {
   const canEdit = ticket
     ? zenotiBlockedByFinance ? false
     : aomCanEdit || (!noEdit && (
-        alwaysEdit ||
-        (ticket.status !== "Resolved" && ticket.status !== "Closed" && (ticket.status as string) !== "Cancelled" && (ticket.status as string) !== "Final Closed")
+        alwaysEdit || true  // Always allow edit so users can reopen closed/resolved tickets
       ))
     : false;
 
@@ -253,9 +252,10 @@ const TicketDetailPage = () => {
 
   const currentUserDept = parsedUser?.department || "";
 
-  // Hide edit for anyone who raised the ticket (only assigned dept team can edit)
+  // Hide edit for raiser — BUT allow if ticket is Closed/Resolved (so they can reopen)
+  const isClosed = ticket && ["Closed", "Resolved", "Final Closed"].includes(ticket.status as string);
   const raisedByCurrentUser = ticket && ticket.raisedBy === currentUser && ticket.assignedDept !== currentUserDept;
-  const canEditFinal = raisedByCurrentUser ? false : canEdit;
+  const canEditFinal = raisedByCurrentUser ? (isClosed ? true : false) : canEdit;
 
   // Zenoti department ticket assignees
   const ZENOTI_ASSIGNEE_IDS = [707, 816, 823, 811]; // Kalyani Thadoju, Ramya Janagam, Swapna M, Poornima Oliva
@@ -371,15 +371,26 @@ const TicketDetailPage = () => {
     if (!ticket) return;
     const statusChanged = editStatus !== ticket.status;
     const priorityChanged = editPriority !== ticket.priority;
-    // Prevent changes on already Resolved/Closed tickets
+    // Allow Re-Open on Closed/Resolved tickets (max 2 times)
     const closedStatuses = ["Resolved", "Closed", "Final Closed"];
     if (closedStatuses.includes(ticket.status)) {
-      alert(`This ticket is already "${ticket.status}". No further changes are allowed.`);
-      return;
+      if (editStatus !== "Re-Open") {
+        alert(`This ticket is "${ticket.status}". You can only Re-Open it.`);
+        return;
+      }
+      // Count how many times this ticket was reopened (from comments)
+      const reopenCount = ticket.comments.filter((c) =>
+        c.message.toLowerCase().includes("re-open") || c.message.toLowerCase().includes("reopened")
+      ).length;
+      if (reopenCount >= 2) {
+        alert("This ticket has already been reopened 2 times. No further reopens are allowed.");
+        return;
+      }
     }
-    // Only assigned department team can resolve/change status (except Super Admin)
+    // Only assigned department team can resolve/change status (except Super Admin and Re-Open)
     const _isSuperAdmin = hasAnyRole(currentUserRole, ["Super Admin", "Global Admin", "Super User"]);
-    if (statusChanged && !_isSuperAdmin && currentUserDept && ticket.assignedDept && currentUserDept !== ticket.assignedDept) {
+    const isReopening = editStatus === "Re-Open";
+    if (statusChanged && !isReopening && !_isSuperAdmin && currentUserDept && ticket.assignedDept && currentUserDept !== ticket.assignedDept) {
       alert(`You cannot change the status of this ticket. Only the ${ticket.assignedDept} team can resolve or update this ticket.`);
       return;
     }
@@ -412,7 +423,7 @@ const TicketDetailPage = () => {
         const payload: Record<string, unknown> = {};
         if (statusChanged) {
           // Map display values to backend values
-          payload.status = editStatus === "Re-Open" ? "Open" : editStatus === "Resolved / Closed" ? "Resolved" : editStatus;
+          payload.status = editStatus === "Re-Open" ? "Open" : editStatus;  // Backend converts "Open" to "Reopened" if ticket was Closed/Resolved
         }
         if (priorityChanged) payload.priority = editPriority;
         if (editAssignTo) payload.assigned_to_id = editAssignTo;
@@ -502,7 +513,7 @@ const TicketDetailPage = () => {
             <div className="flex items-center gap-2">
               <span className="text-sm font-mono text-primary font-bold">{ticket.id}</span>
               <span className={cn("px-2 py-0.5 rounded-full text-[11px] font-semibold", statusColors[ticket.status] || "bg-gray-100 text-gray-600")}>
-                {ticket.assignedDept !== "Zenoti" && (ticket.status === "Resolved" || ticket.status === "Closed" || (ticket.status as string) === "Final Closed") ? "Resolved/Closed" : ticket.status}
+                {ticket.status}
               </span>
               <span className="inline-flex items-center gap-1 text-[11px] font-medium">
                 <span className={cn("h-2 w-2 rounded-full", priorityDotColors[ticket.priority])} />
@@ -525,6 +536,12 @@ const TicketDetailPage = () => {
             {timeline.map((event, idx) => {
               const isLast = idx === timeline.length - 1;
               const msg = event.message.toLowerCase();
+
+              // Extract destination status: "to "X"" pattern
+              const toMatch = msg.match(/to "([^"]+)"/);
+              const toStatus = toMatch ? toMatch[1].toLowerCase() : "";
+
+              // Determine label from destination status
               const label =
                 event.type === "created" ? "Ticket Created" :
                 event.type === "approval" ? (
@@ -533,29 +550,29 @@ const TicketDetailPage = () => {
                   msg.includes("(finance)") ? "Finance Approval" : "AOM Approval"
                 ) :
                 event.type === "status_change" ? (
-                  (msg.includes('to "resolved"') || msg.includes("to \"resolved\"")) ? "Resolved" :
-                  (msg.includes('to "closed"') || msg.includes("to \"closed\"") || msg.includes('to "final closed"')) ? "Closed" :
-                  (msg.includes('to "reopened"') || msg.includes("reopen")) ? "Reopened" :
-                  (msg.includes('to "in progress"') || msg.includes("in progress")) ? "In Progress" :
-                  msg.includes("auto-escalated to l1") ? "Escalated to L1" :
-                  msg.includes("auto-escalated to l2") ? "Escalated to L2" :
-                  msg.includes("auto-escalated to l3") ? "Escalated to L3" :
-                  msg.includes("escalated to l1") ? "Escalated to L1" :
-                  msg.includes("escalated to l2") ? "Escalated to L2" :
-                  msg.includes("escalated to l3") ? "Escalated to L3" :
+                  toStatus === "re-open" || toStatus === "reopened" ? "Reopened" :
+                  toStatus === "open" ? "Open" :
+                  toStatus === "resolved" ? "Resolved" :
+                  toStatus === "closed" || toStatus === "final closed" ? "Closed" :
+                  toStatus === "in progress" ? "In Progress" :
+                  toStatus === "follow up" ? "Follow Up" :
+                  toStatus === "acknowledged" ? "Acknowledged" :
+                  msg.includes("auto-escalated to l3") || msg.includes("escalated to l3") ? "Escalated to L3" :
+                  msg.includes("auto-escalated to l2") || msg.includes("escalated to l2") ? "Escalated to L2" :
+                  msg.includes("auto-escalated to l1") || msg.includes("escalated to l1") ? "Escalated to L1" :
                   msg.includes("assigned") ? "Assigned" :
-                  (msg.includes("resolve") && !msg.includes("did not resolve")) ? "Resolved" :
-                  msg.includes("close") ? "Closed" : "Status Update"
+                  "Status Update"
                 ) :
                 "Comment";
 
-              const isRejected = msg.includes("reject");
-              const isResolved = msg.includes("resolve") || msg.includes("close") || msg.includes("final close");
-              const isEscalatedL1 = msg.includes("escalated to l1") || msg.includes("escalated to l2 (");
-              const isEscalatedL2 = msg.includes("escalated to l3") || msg.includes("escalated to l2");
-              const isApproved = msg.includes("approved");
-              const isFollowUp = msg.includes("follow");
-              const isReopened = msg.includes("reopen");
+              const isRejected = label === "Rejected";
+              const isReopened = label === "Reopened";
+              const isResolved = label === "Resolved";
+              const isClosed = label === "Closed";
+              const isEscalatedL1 = label === "Escalated to L1";
+              const isEscalatedL2 = label === "Escalated to L2" || label === "Escalated to L3";
+              const isApproved = label.includes("Approval");
+              const isFollowUp = label === "Follow Up";
               const isAssigned = msg.includes("assigned") || msg.includes("ticket assigned");
               const isComment = event.type === "comment";
               const isCreated = event.type === "created";
@@ -564,25 +581,26 @@ const TicketDetailPage = () => {
               // Emoji for each event type — check event.type first, then message content
               const emoji = isCreated ? "📦" :
                 isComment ? "🗨️" :
+                isReopened ? "🔄" :
                 isRejected ? "👎" :
                 isApproved ? "👍" :
                 isEscalatedL2 ? "🚨" :
                 isEscalatedL1 ? "🆘" :
                 isResolved ? "🥳" :
+                isClosed ? "🥳" :
                 isFollowUp ? "💡" :
-                isReopened ? "🔓" :
                 isInProgress ? "⏳" :
                 isAssigned ? "👤" : "✅";
 
               const nodeColor = isRejected ? "bg-red-100 ring-red-200" :
-                isResolved ? "bg-emerald-100 ring-emerald-200" :
+                isReopened ? "bg-orange-100 ring-orange-200" :
+                (isResolved || isClosed) ? "bg-emerald-100 ring-emerald-200" :
                 isApproved ? "bg-green-100 ring-green-200" :
                 isEscalatedL1 || isEscalatedL2 ? "bg-orange-100 ring-orange-200" :
-                isReopened ? "bg-amber-100 ring-amber-200" :
                 isCreated ? "bg-blue-100 ring-blue-200" :
                 "bg-primary/10 ring-primary/20";
-              const lineColor = isRejected ? "bg-destructive/40" : isResolved ? "bg-emerald-400" : "bg-primary";
-              const labelColor = isRejected ? "text-destructive" : isResolved ? "text-emerald-700" : "text-primary";
+              const lineColor = isRejected ? "bg-destructive/40" : isReopened ? "bg-orange-400" : (isResolved || isClosed) ? "bg-emerald-400" : "bg-primary";
+              const labelColor = isRejected ? "text-destructive" : isReopened ? "text-orange-600" : (isResolved || isClosed) ? "text-emerald-700" : "text-primary";
 
               return (
                 <div key={event.id} className="flex items-start flex-1 min-w-0">
@@ -778,30 +796,32 @@ const TicketDetailPage = () => {
                     {!isAomAssigned && !isCddRaisedTicket && <option value="Approved">Approved</option>}
                     {!isAomAssigned && !isCddRaisedTicket && <option value="Rejected">Rejected</option>}
                     {!isAomAssigned && !isCddRaisedTicket && <option value="Follow Up">Follow Up</option>}
-                    {(isAomAssigned || isCddRaisedTicket) && (ticket.status as string) !== "Resolved" && <option value="Resolved">Resolved</option>}
                     {(isAomAssigned || isCddRaisedTicket) && (ticket.status as string) !== "Closed" && <option value="Closed">Closed</option>}
+                    {(isAomAssigned || isCddRaisedTicket) && ((ticket.status as string) === "Closed") && <option value="Re-Open">Re-Open</option>}
                   </>
                 ) : isZenoti ? (
                   <>
-                    <option value="Open">Open</option>
-                    <option value="In Progress">In Progress</option>
-                    <option value="Follow Up">Follow Up</option>
-                    <option value="Pending Approval">Pending Approval</option>
-                    <option value="Resolved">Resolved</option>
-                    <option value="Closed">Closed</option>
+                    <option value={ticket.status}>{ticket.status}</option>
+                    {!["Open", "Closed", "Resolved", "Reopened"].includes(ticket.status as string) && <option value="Open">Open</option>}
+                    {(ticket.status as string) !== "In Progress" && !["Closed", "Resolved"].includes(ticket.status as string) && <option value="In Progress">In Progress</option>}
+                    {(ticket.status as string) !== "Follow Up" && !["Closed", "Resolved"].includes(ticket.status as string) && <option value="Follow Up">Follow Up</option>}
+                    {!["Closed", "Resolved"].includes(ticket.status as string) && <option value="Closed">Closed</option>}
+                    {["Closed", "Resolved"].includes(ticket.status as string) && <option value="Re-Open">Re-Open</option>}
                   </>
                 ) : (
                   <>
-                    <option value="Open">Open</option>
-                    <option value="In Progress">In Progress</option>
-                    <option value="Resolved">Resolved / Closed</option>
+                    <option value={ticket.status}>{ticket.status}</option>
+                    {!["Open", "Closed", "Resolved", "Reopened"].includes(ticket.status as string) && <option value="Open">Open</option>}
+                    {(ticket.status as string) !== "In Progress" && !["Closed", "Resolved"].includes(ticket.status as string) && <option value="In Progress">In Progress</option>}
+                    {!["Closed", "Resolved"].includes(ticket.status as string) && <option value="Closed">Closed</option>}
+                    {["Closed", "Resolved"].includes(ticket.status as string) && <option value="Re-Open">Re-Open</option>}
                   </>
                 )}
               </select>
             </div>}
 
-            {/* Assign To — hidden for User, AOM, Helpdesk Admin, Clinic Manager roles, and Admin department tickets */}
-            {currentUserRole !== "User" && !isAomRole && !hasAnyRole(currentUserRole, ["Clinic Manager", "Clinic Incharge", "Helpdesk Admin"]) && !["Admin Department", "Administration", "Admin"].includes(ticket.assignedDept) && (
+            {/* Assign To — hidden for closed/resolved tickets, User, AOM, Helpdesk Admin, Clinic Manager roles, and Admin department tickets */}
+            {!isClosed && currentUserRole !== "User" && !isAomRole && !hasAnyRole(currentUserRole, ["Clinic Manager", "Clinic Incharge", "Helpdesk Admin"]) && !["Admin Department", "Administration", "Admin"].includes(ticket.assignedDept) && (
               <div>
                 <label className="flex items-center gap-1.5 text-[11px] font-medium text-muted-foreground uppercase tracking-wider mb-1">
                   <User className="h-3 w-3" /> Assign To

@@ -31,7 +31,7 @@ def _migrate_enums(db: Session):
 
     # TicketStatusEnum: ensure new status values exist
     for val in ("Follow Up", "FollowUp", "Approved", "Acknowledged", "AwaitingUserInputs",
-                "Awaiting User Inputs", "UserInputsReceived", "User Inputs Received"):
+                "Awaiting User Inputs", "UserInputsReceived", "User Inputs Received", "Reopened"):
         try:
             db.execute(text(
                 f"ALTER TYPE ticketstatusenum ADD VALUE IF NOT EXISTS '{val}'"

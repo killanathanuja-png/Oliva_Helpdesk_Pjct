@@ -175,6 +175,16 @@ def get_dashboard_stats(
     )
     category_list = [{"name": cat, "count": cnt} for cat, cnt in by_category]
 
+    # Tickets by sub-category
+    by_sub_category = (
+        base.filter(Ticket.sub_category.isnot(None), Ticket.sub_category != "")
+        .with_entities(Ticket.sub_category, func.count(Ticket.id))
+        .group_by(Ticket.sub_category)
+        .order_by(func.count(Ticket.id).desc())
+        .all()
+    )
+    sub_category_list = [{"name": sub, "count": cnt} for sub, cnt in by_sub_category]
+
     # Department-wise SLA compliance
     dept_sla = (
         base.with_entities(
@@ -263,6 +273,7 @@ def get_dashboard_stats(
         resolved=_count(TicketStatusEnum.Resolved) + _count(TicketStatusEnum.Closed) + _count(TicketStatusEnum.FinalClosed),
         closed=_count(TicketStatusEnum.Closed),
         rejected=_count(TicketStatusEnum.Rejected),
+        reopened=_count(TicketStatusEnum.Reopened) + _count(TicketStatusEnum.ReopenedByCDD),
         sla_breached=breached,
         sla_compliance_pct=round(sla_compliance_pct, 1),
         avg_resolution_hours=avg_resolution_hours,
@@ -271,6 +282,7 @@ def get_dashboard_stats(
         tickets_by_department=dept_list,
         tickets_by_status=status_list,
         tickets_by_category=category_list,
+        tickets_by_sub_category=sub_category_list,
         dept_sla_compliance=dept_sla_compliance,
         priority_sla_compliance=priority_sla_compliance,
         recent_tickets=recent_list,

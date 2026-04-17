@@ -491,6 +491,7 @@ class DashboardStats(BaseModel):
     resolved: int = 0
     closed: int = 0
     rejected: int = 0
+    reopened: int = 0
     sla_breached: int = 0
     sla_compliance_pct: float = 0.0
     avg_resolution_hours: Optional[float] = None
@@ -499,6 +500,7 @@ class DashboardStats(BaseModel):
     tickets_by_department: list = []
     tickets_by_status: list = []
     tickets_by_category: list = []
+    tickets_by_sub_category: list = []
     dept_sla_compliance: list = []
     priority_sla_compliance: list = []
     recent_tickets: list = []

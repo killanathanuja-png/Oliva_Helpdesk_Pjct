@@ -28,12 +28,13 @@ const statusColors: Record<string, string> = {
   "User Inputs Received": "bg-purple-100 text-purple-700",
   "Follow Up": "bg-orange-100 text-orange-700",
   Resolved: "bg-success text-success-foreground",
-  Closed: "bg-muted text-muted-foreground",
+  Closed: "bg-emerald-100 text-emerald-700",
   Rejected: "bg-destructive text-destructive-foreground",
   Cancelled: "bg-gray-200 text-gray-600",
   "Escalated to L1": "bg-orange-200 text-orange-800",
   "Escalated to L2": "bg-red-200 text-red-800",
   "Reopened by CDD": "bg-amber-200 text-amber-800",
+  "Reopened": "bg-orange-200 text-orange-800",
   "Final Closed": "bg-emerald-200 text-emerald-800",
 };
 
@@ -279,7 +280,7 @@ const TicketsPage = () => {
       (t.center || "").toLowerCase().includes(q) ||
       t.priority.toLowerCase().includes(q) ||
       ((t as any).zenotiCustomerId || "").toLowerCase().includes(q);
-    const matchStatus = statusFilter === "All" || t.status === statusFilter || (statusFilter === "Resolved/Closed" && (t.status === "Resolved" || t.status === "Closed" || t.status === "Final Closed"));
+    const matchStatus = statusFilter === "All" || t.status === statusFilter;
     const matchPriority = priorityFilter === "All" || t.priority === priorityFilter;
     const matchDept = deptFilter === "All" || t.assignedDept === deptFilter;
     return matchSearch && matchStatus && matchPriority && matchDept;
@@ -550,15 +551,10 @@ const TicketsPage = () => {
           className="px-3 py-2 rounded-lg border border-border bg-card text-sm focus:outline-none focus:ring-2 focus:ring-ring"
         >
           <option value="All">All Status</option>
-          <option>Open</option>
-          <option>In Progress</option>
-          {(deptFilter === "Zenoti" || currentUserDept === "Zenoti" || hasAnyRole(currentUserRole, ["Zenoti Team", "Zenoti Team Manager", "Area Operations Manager", "Area Operations Manager Head", "Finance", "Finance Head"])) && (
-            <>
-              <option>Pending Approval</option>
-              <option>Follow Up</option>
-            </>
-          )}
-          <option value="Resolved/Closed">Resolved/Closed</option>
+          <option value="Open">Open</option>
+          <option value="In Progress">In Progress</option>
+          <option value="Reopened">Re-Open</option>
+          <option value="Closed">Closed</option>
         </select>
         {isZenotiRole && (
           <select
@@ -653,7 +649,7 @@ const TicketsPage = () => {
                 )}
                 <td className="px-4 py-3">
                   <span className={cn("inline-block px-2 py-0.5 rounded-full text-[11px] font-medium", statusColors[t.status] || "bg-gray-100 text-gray-600")}>
-                    {t.assignedDept !== "Zenoti" && (t.status === "Resolved" || t.status === "Closed" || t.status === "Final Closed") ? "Resolved/Closed" : t.status}
+                    {t.status}
                   </span>
                 </td>
                 <td className="px-4 py-3 text-xs text-muted-foreground">{t.assignedDept}</td>

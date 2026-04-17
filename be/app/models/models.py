@@ -40,6 +40,7 @@ class TicketStatusEnum(str, enum.Enum):
     EscalatedL1 = "Escalated to L1"
     EscalatedL2 = "Escalated to L2"
     ReopenedByCDD = "Reopened by CDD"
+    Reopened = "Reopened"
     FinalClosed = "Final Closed"
 
 

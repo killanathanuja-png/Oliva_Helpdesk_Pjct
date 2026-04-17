@@ -595,6 +595,7 @@ export interface ApiDashboardStats {
   resolved: number;
   closed: number;
   rejected: number;
+  reopened: number;
   sla_breached: number;
   sla_compliance_pct: number;
   avg_resolution_hours: number | null;
@@ -603,6 +604,7 @@ export interface ApiDashboardStats {
   tickets_by_department: { name: string; count: number }[];
   tickets_by_status: { name: string; count: number }[];
   tickets_by_category: { name: string; count: number }[];
+  tickets_by_sub_category: { name: string; count: number }[];
   dept_sla_compliance: { name: string; total: number; breached: number; on_track: number; compliance_pct: number }[];
   priority_sla_compliance: { name: string; total: number; breached: number; on_track: number; compliance_pct: number }[];
   recent_tickets: { id: string; title: string; priority: string; status: string; department: string; center: string; sla_breached: boolean; created_at?: string; raised_by?: string }[];
