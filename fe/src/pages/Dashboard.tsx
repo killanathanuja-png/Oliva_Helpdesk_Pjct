@@ -1,14 +1,8 @@
 import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-<<<<<<< Updated upstream
 import { isSuperRole } from "@/lib/roles";
 import { dashboardApi, certificatesApi } from "@/lib/api";
 import type { ApiDashboardStats } from "@/lib/api";
-=======
-import { isSuperRole, hasAnyRole } from "@/lib/roles";
-import { dashboardApi, certificatesApi, centersApi } from "@/lib/api";
-import type { ApiDashboardStats, CertificateData } from "@/lib/api";
->>>>>>> Stashed changes
 import {
   Ticket,
   AlertTriangle,
