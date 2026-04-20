@@ -53,7 +53,13 @@ app.include_router(certificates.router)
 
 @app.on_event("startup")
 def on_startup():
-    seed()
+    try:
+        from app.database import engine
+        from app.models.models import Base
+        Base.metadata.create_all(bind=engine)
+        print("[STARTUP] Tables created/verified")
+    except Exception as e:
+        print(f"[STARTUP] Table creation error (non-fatal): {e}")
     # Start background escalation checker
     import threading
     import time

@@ -26,7 +26,7 @@ _OPEN_STATUSES = [
 ]
 
 
-@router.get("/stats", response_model=DashboardStats)
+@router.get("/stats/", response_model=DashboardStats)
 def get_dashboard_stats(
     department: Optional[str] = Query(None, description="Filter by department"),
     category: Optional[str] = Query(None, description="Filter by category"),
@@ -35,6 +35,15 @@ def get_dashboard_stats(
     to_date: Optional[str] = Query(None, description="End date (YYYY-MM-DD)"),
     db: Session = Depends(get_db),
 ):
+    print(f"[DASHBOARD] Stats request: dept={department}, user={user_id}")
+    import traceback
+    try:
+        return _get_dashboard_stats_impl(department, category, user_id, from_date, to_date, db)
+    except Exception as e:
+        traceback.print_exc()
+        raise
+
+def _get_dashboard_stats_impl(department, category, user_id, from_date, to_date, db):
     # Base query — optionally filtered by department or user
     base = db.query(Ticket)
     # Department alias mapping (departments that share tickets)

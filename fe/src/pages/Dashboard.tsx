@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { isSuperRole } from "@/lib/roles";
+import { isSuperRole, hasAnyRole } from "@/lib/roles";
 import { dashboardApi, certificatesApi } from "@/lib/api";
 import type { ApiDashboardStats } from "@/lib/api";
 import {
