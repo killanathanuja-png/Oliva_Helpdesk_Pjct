@@ -77,9 +77,6 @@ const LoginHistoryPage = () => {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <button onClick={() => window.history.back()} className="p-2 rounded-lg border border-border hover:bg-muted transition-colors" title="Back">
-            <ArrowLeft className="h-4 w-4" />
-          </button>
           <div>
             <h1 className="text-2xl font-bold font-display tracking-tight">Login History Report</h1>
             <p className="text-sm text-muted-foreground mt-0.5">Track employee login and logout activity</p>

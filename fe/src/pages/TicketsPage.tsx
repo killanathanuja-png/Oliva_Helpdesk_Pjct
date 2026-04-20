@@ -482,8 +482,7 @@ const TicketsPage = () => {
       )}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div className="flex items-center gap-3">
-          <button onClick={() => window.history.back()} className="p-2 rounded-lg border border-border hover:bg-muted transition-colors" title="Back"><ArrowLeft className="h-4 w-4" /></button>
-          <h1 className="text-xl font-bold font-display">Ticket Management</h1>
+          <h1 className="text-xl font-bold font-display">{activeTab === "all" ? "All Tickets" : "View & Update Tickets"}</h1>
         </div>
         <div className="flex items-center gap-2">
           <button

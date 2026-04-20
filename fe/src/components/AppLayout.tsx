@@ -345,7 +345,7 @@ const AppLayout = ({ children }: AppLayoutProps) => {
           <div className="hidden lg:block">
             <h2 className="text-sm font-medium text-white/90">
               {location.pathname === "/" && "Dashboard"}
-              {location.pathname.startsWith("/tickets") && "Ticket Management"}
+              {location.pathname.startsWith("/tickets") && (new URLSearchParams(location.search).get("tab") === "all" ? "Tickets / All Tickets" : "Tickets / View & Update Tickets")}
               {location.pathname === "/certificates" && "Certificates"}
               {location.pathname === "/approvals" && "Pending Approvals"}
               {location.pathname === "/finance-approvals" && "Finance Approvals"}

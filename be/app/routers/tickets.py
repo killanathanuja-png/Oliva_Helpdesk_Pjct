@@ -503,6 +503,34 @@ def create_ticket(req: TicketCreate, current_user: User = Depends(get_current_us
                     ticket.assigned_dept or "", ticket.center or "", priority_val,
                     ticket_db_id=ticket.id)
 
+        # 4. IT Department — notify both IT members on ticket creation
+        sent_emails = {raiser_email, assignee_email}
+        if ticket.assigned_dept == "IT Department":
+            for it_email in ["ramakrishna.kanchu@olivaclinic.com", "suresh.v@olivaclinic.com"]:
+                if it_email not in sent_emails:
+                    it_user = db.query(User).filter(User.email == it_email).first()
+                    if it_user:
+                        print(f"[EMAIL] IT MEMBER → {it_user.name} ({it_email})")
+                        send_ticket_assigned(it_email, ticket.code, ticket.title,
+                            it_user.name, raiser_name,
+                            "IT Department", ticket.center or "", priority_val,
+                            ticket_db_id=ticket.id)
+                        sent_emails.add(it_email)
+
+        # 5. Center Manager — notify when ticket is raised for their center (if not already emailed)
+        if ticket.center:
+            center_obj = db.query(Center).filter(Center.name == ticket.center).first()
+            if center_obj and center_obj.center_manager_email:
+                cm_email = center_obj.center_manager_email
+                if cm_email not in sent_emails:
+                    cm_user = db.query(User).filter(User.email == cm_email).first()
+                    if cm_user:
+                        print(f"[EMAIL] CENTER MANAGER → {cm_user.name} ({cm_email})")
+                        send_ticket_assigned(cm_email, ticket.code, ticket.title,
+                            cm_user.name, raiser_name,
+                            ticket.assigned_dept or "", ticket.center or "", priority_val,
+                            ticket_db_id=ticket.id)
+
     except Exception as email_err:
         import traceback
         print(f"[EMAIL] Failed to send creation emails: {email_err}")

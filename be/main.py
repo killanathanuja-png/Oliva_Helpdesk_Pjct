@@ -132,6 +132,13 @@ def on_startup():
                             db.add(TicketComment(ticket_id=t.id, user="System", message=f"Auto-escalated to L2 ({l2u.name}). Originally assigned to {orig_name}.", type=CommentTypeEnum.status_change))
                             count += 1
                             level = 2
+                            # Email L2 user about escalation
+                            try:
+                                from app.email_utils import send_ticket_assigned
+                                send_ticket_assigned(l2u.email, t.code, t.title, l2u.name, "System (Auto-Escalation)", t.assigned_dept or "", t.center or "", t.priority.value if t.priority else "Medium", ticket_db_id=t.id)
+                                print(f"[ESCALATION EMAIL] Admin L2 → {l2u.name} ({l2u.email})")
+                            except Exception as ee:
+                                print(f"[ESCALATION EMAIL ERROR] {ee}")
 
                     # Step 2: Escalate to L3 if past L2 threshold
                     if hrs > l2_t and level < 3:
@@ -142,6 +149,13 @@ def on_startup():
                             l2_display = l2_name.name if l2_name else "L2"
                             db.add(TicketComment(ticket_id=t.id, user="System", message=f"Auto-escalated to L3 ({l3u.name}). L2 ({l2_display}) did not resolve.", type=CommentTypeEnum.status_change))
                             count += 1
+                            # Email L3 user about escalation
+                            try:
+                                from app.email_utils import send_ticket_assigned
+                                send_ticket_assigned(l3u.email, t.code, t.title, l3u.name, "System (Auto-Escalation)", t.assigned_dept or "", t.center or "", t.priority.value if t.priority else "Medium", ticket_db_id=t.id)
+                                print(f"[ESCALATION EMAIL] Admin L3 → {l3u.name} ({l3u.email})")
+                            except Exception as ee:
+                                print(f"[ESCALATION EMAIL ERROR] {ee}")
                 if count > 0:
                     db.commit()
                     print(f"[ESCALATION] Auto-escalated {count} admin tickets")
@@ -182,6 +196,13 @@ def on_startup():
                                 db.add(TicketComment(ticket_id=t.id, user="System", message=f"Auto-escalated to L1 AOM ({aom_user.name}). Originally assigned to {orig_name}.", type=CommentTypeEnum.status_change))
                                 cdd_count += 1; level = 1
                                 print(f"[CDD ESCALATION] {t.code} -> L1 AOM ({aom_user.name})")
+                                # Email AOM about escalation
+                                try:
+                                    from app.email_utils import send_ticket_assigned
+                                    send_ticket_assigned(aom_user.email, t.code, t.title, aom_user.name, "System (Auto-Escalation)", t.assigned_dept or "", t.center or "", t.priority.value if t.priority else "Medium", ticket_db_id=t.id)
+                                    print(f"[CDD ESCALATION EMAIL] L1 AOM → {aom_user.name} ({aom_user.email})")
+                                except Exception as ee:
+                                    print(f"[CDD ESCALATION EMAIL ERROR] {ee}")
 
                     # Step 2: Escalate to L2 (Atman) after 6+8=14 hours
                     if hrs > (CDD_L1_HOURS + CDD_L2_HOURS) and level < 2:
@@ -193,6 +214,13 @@ def on_startup():
                             db.add(TicketComment(ticket_id=t.id, user="System", message=f"Auto-escalated to L2 ({l2_user.name}). L1 AOM ({aom_name}) did not resolve.", type=CommentTypeEnum.status_change))
                             cdd_count += 1
                             print(f"[CDD ESCALATION] {t.code} -> L2 ({l2_user.name})")
+                            # Email L2 about escalation
+                            try:
+                                from app.email_utils import send_ticket_assigned
+                                send_ticket_assigned(l2_user.email, t.code, t.title, l2_user.name, "System (Auto-Escalation)", t.assigned_dept or "", t.center or "", t.priority.value if t.priority else "Medium", ticket_db_id=t.id)
+                                print(f"[CDD ESCALATION EMAIL] L2 → {l2_user.name} ({l2_user.email})")
+                            except Exception as ee:
+                                print(f"[CDD ESCALATION EMAIL ERROR] {ee}")
 
                 if cdd_count > 0:
                     db.commit()

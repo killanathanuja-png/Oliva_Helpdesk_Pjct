@@ -383,7 +383,7 @@ const AdminSubcategoriesPage = () => {
       )}
       <div className="flex items-center justify-between gap-4">
         <div className="shrink-0 flex items-center gap-3">
-          <button onClick={() => window.history.back()} className="p-2 rounded-lg border border-border hover:bg-muted transition-colors" title="Back"><ArrowLeft className="h-4 w-4" /></button>
+
           <div>
             <h1 className="text-xl font-bold font-display">{_isAdminDept ? "Module Management" : _isCddAdmin ? "Sub Category Management" : "Subcategory Management"}</h1>
             <p className="text-xs text-muted-foreground mt-0.5">Total: <span className="font-semibold text-foreground">{activeData.length}</span></p>
