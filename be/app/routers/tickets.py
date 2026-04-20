@@ -13,6 +13,26 @@ from datetime import datetime, timezone, timedelta
 router = APIRouter(prefix="/api/tickets", tags=["Tickets"])
 
 
+def _check_sla_breach(ticket):
+    """Check if ticket has breached SLA and update the flag."""
+    if not ticket.due_date or not ticket.created_at:
+        return
+    now = datetime.now(timezone.utc)
+    due = ticket.due_date.replace(tzinfo=timezone.utc) if ticket.due_date.tzinfo is None else ticket.due_date
+    # For resolved/closed tickets, check if resolution time exceeded due_date
+    resolved_statuses = [TicketStatusEnum.Resolved, TicketStatusEnum.Closed, TicketStatusEnum.FinalClosed]
+    if ticket.status in resolved_statuses:
+        # Use updated_at as resolution time
+        resolved_at = ticket.updated_at or now
+        resolved_at = resolved_at.replace(tzinfo=timezone.utc) if resolved_at.tzinfo is None else resolved_at
+        if resolved_at > due:
+            ticket.sla_breached = True
+    else:
+        # Open tickets — breach if past due date
+        if now > due:
+            ticket.sla_breached = True
+
+
 def _create_notification(db, user_id, title, message, ticket_id, notif_type=NotificationTypeEnum.info):
     notif = Notification(
         title=title,
@@ -209,8 +229,9 @@ def list_tickets(
                 ).order_by(Ticket.created_at.desc()).all()
     elif is_clinic_manager and current_user.center_rel:
         center_name = current_user.center_rel.name
+        user_dept = current_user.department_rel.name if current_user.department_rel else ""
         tickets = db.query(Ticket).filter(
-            (Ticket.center == center_name) | (Ticket.raised_by_id == current_user.id)
+            (Ticket.center == center_name) | (Ticket.raised_by_id == current_user.id) | (Ticket.assigned_to_id == current_user.id) | (Ticket.assigned_dept == user_dept)
         ).order_by(Ticket.created_at.desc()).all()
     else:
         tickets = db.query(Ticket).order_by(Ticket.created_at.desc()).all()
@@ -603,6 +624,7 @@ def update_ticket(ticket_id: int, req: TicketUpdate, current_user: User = Depend
                 type=CommentTypeEnum.status_change,
             ))
 
+    _check_sla_breach(t)
     db.commit()
     db.refresh(t)
 
@@ -813,7 +835,8 @@ def approve_ticket(ticket_id: int, req: ApprovalRequest, db: Session = Depends(g
         ))
     else:
         raise HTTPException(status_code=400, detail="Invalid action. Use 'Approve', 'Follow-up', or 'Reject'.")
- 
+
+    _check_sla_breach(t)
     db.commit()
     db.refresh(t)
 
@@ -875,6 +898,7 @@ def resolve_ticket(ticket_id: int, req: ResolveRequest, db: Session = Depends(ge
     else:
         raise HTTPException(status_code=400, detail="Invalid action. Use 'Resolve' or 'Close'.")
 
+    _check_sla_breach(t)
     db.commit()
     db.refresh(t)
 
@@ -993,6 +1017,7 @@ def cdd_ticket_action(ticket_id: int, req: EscalateRequest, current_user: User =
     else:
         raise HTTPException(status_code=400, detail="Invalid action. Use 'Acknowledge', 'Escalate L1', 'Escalate L2', 'Reopen', or 'Final Close'.")
 
+    _check_sla_breach(t)
     try:
         db.commit()
         db.refresh(t)

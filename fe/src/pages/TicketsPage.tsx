@@ -87,6 +87,7 @@ function apiToTicket(t: ApiTicket): Ticket & { _dbId: number; tatHours: number |
     tatBreached: t.tat_breached,
     originalAssignedTo: t.original_assigned_to || null,
     escalationLevel: t.escalation_level || 0,
+    escalatedTo: t.escalated_to || null,
     serviceName: t.service_name || "",
     crtName: t.crt_name || "",
     primaryDoctor: t.primary_doctor || "",
@@ -653,16 +654,17 @@ const TicketsPage = () => {
                 </td>
                 <td className="px-4 py-3 text-xs text-muted-foreground">{t.assignedDept}</td>
                 <td className="px-4 py-3 text-xs text-muted-foreground">
-                  {(() => { return (
+                  {(() => {
+                    const ext = t as Ticket & { originalAssignedTo?: string | null; escalationLevel?: number; escalatedTo?: string | null };
+                    return (
                     <>
                       {t.assignedTo || "—"}
-                      {(() => {
-                        const ext = t as Ticket & { originalAssignedTo?: string | null; escalationLevel?: number };
-                        if (ext.escalationLevel && ext.escalationLevel >= 2 && ext.originalAssignedTo) {
-                          return <p className="text-[10px] text-destructive mt-0.5">L1: {ext.originalAssignedTo}</p>;
-                        }
-                        return null;
-                      })()}
+                      {ext.escalationLevel != null && ext.escalationLevel >= 1 && ext.escalatedTo && (
+                        <p className="text-[10px] text-orange-600 mt-0.5">Escalated to: {ext.escalatedTo}</p>
+                      )}
+                      {ext.escalationLevel != null && ext.escalationLevel >= 1 && ext.originalAssignedTo && (
+                        <p className="text-[10px] text-muted-foreground mt-0.5">Originally: {ext.originalAssignedTo}</p>
+                      )}
                     </>
                   ); })()}
                 </td>

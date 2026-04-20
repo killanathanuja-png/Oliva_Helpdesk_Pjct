@@ -197,7 +197,7 @@ const AnalyticsPage = () => {
         <div className="lg:col-span-4 bg-card rounded-2xl card-shadow border border-border p-6 flex flex-col items-center justify-center">
           {(() => {
             const pieData = [
-              { name: "Resolved", value: resolved, color: "hsl(145, 65%, 42%)" },
+              { name: "On Track", value: onTrack, color: "hsl(145, 65%, 42%)" },
               { name: "Breached", value: breached, color: "hsl(0, 72%, 55%)" },
             ].filter((d) => d.value > 0);
             if (pieData.length === 0) pieData.push({ name: "No Tickets", value: 1, color: "hsl(200, 10%, 80%)" });
@@ -223,7 +223,7 @@ const AnalyticsPage = () => {
                 <div className="mt-2 flex items-center gap-4 text-xs text-muted-foreground">
                   <div className="flex items-center gap-1.5">
                     <div className="h-2.5 w-2.5 rounded-full bg-success" />
-                    <span className="font-medium">Resolved: {total > 0 ? Math.round((resolved / total) * 100) : 0}%</span>
+                    <span className="font-medium">On Track: {total > 0 ? Math.round((onTrack / total) * 100) : 0}%</span>
                   </div>
                   <div className="flex items-center gap-1.5">
                     <div className="h-2.5 w-2.5 rounded-full bg-destructive" />
@@ -259,7 +259,7 @@ const AnalyticsPage = () => {
               <Shield className="h-4 w-4 text-success/40" />
             </div>
             <p className="text-2xl font-bold text-success">{resolved}</p>
-            <p className="text-[11px] text-muted-foreground font-medium mt-0.5">Resolved</p>
+            <p className="text-[11px] text-muted-foreground font-medium mt-0.5">Closed Tickets</p>
           </div>
           {showEscalation ? (
             <div

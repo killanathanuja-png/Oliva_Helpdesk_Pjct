@@ -646,7 +646,7 @@ const TicketDetailPage = () => {
             </div>
           </div>
           <Field label="Raised By" value={`${ticket.raisedBy}${ticket.raisedByDept ? ` (${ticket.raisedByDept})` : ""}`} icon={User} />
-          <Field label="Assigned To" value={`${ticket.assignedTo}${ticket.assignedDept ? ` (${ticket.assignedDept})` : ""}`} icon={Building2} />
+          <Field label="Assigned To" value={`${ticket.assignedTo}${(ticket as any).escalationLevel >= 1 ? (ticket as any).escalationLevel >= 2 ? " (L2)" : " (L1 AOM)" : ticket.assignedDept ? ` (${ticket.assignedDept})` : ""}`} icon={Building2} />
           <Field label="Department" value={ticket.assignedDept} icon={Building2} />
           {!isZenoti && <Field label="Category" value={ticket.category} icon={Layers} />}
           {isZenoti && ticket.zenotiMainCategory && <Field label="Category" value={ticket.zenotiMainCategory} icon={Layers} />}
@@ -780,10 +780,10 @@ const TicketDetailPage = () => {
 
       {/* ── Inline Edit Panel (always visible for users who can edit) ── */}
       {canEditFinal && (
-        <Section title={isAomRole ? "Attachments" : "Edit Ticket"} green>
+        <Section title={isAomRole && !isAomAssigned && !isCddRaisedTicket ? "Attachments" : "Edit Ticket"} green>
           <div className="grid grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-4">
-            {/* Status — hidden for AOM (they use approval actions instead) */}
-            {!isAomRole && <div>
+            {/* Status — hidden for AOM approval tickets (they use approval actions), but shown for AOM assigned/CDD tickets */}
+            {(!isAomRole || isAomAssigned || isCddRaisedTicket) && <div>
               <label className="flex items-center gap-1.5 text-[11px] font-medium text-muted-foreground uppercase tracking-wider mb-1">
                 <Clock className="h-3 w-3" /> Status
               </label>
@@ -792,12 +792,15 @@ const TicketDetailPage = () => {
                 {isAomRole ? (
                   <>
                     <option value={ticket.status}>{ticket.status}</option>
-                    {(isAomAssigned || isCddRaisedTicket) && (ticket.status as string) !== "In Progress" && <option value="In Progress">In Progress</option>}
+                    {(isAomAssigned || isCddRaisedTicket) && isCddRaisedTicket && !["Closed", "Resolved"].includes(ticket.status as string) && <option value="Resolved">Resolved</option>}
+                    {(isAomAssigned || isCddRaisedTicket) && isCddRaisedTicket && !["Closed", "Resolved"].includes(ticket.status as string) && <option value="Closed">Closed</option>}
+                    {(isAomAssigned || isCddRaisedTicket) && !isCddRaisedTicket && (ticket.status as string) !== "In Progress" && !["Closed", "Resolved"].includes(ticket.status as string) && <option value="In Progress">In Progress</option>}
                     {!isAomAssigned && !isCddRaisedTicket && <option value="Approved">Approved</option>}
                     {!isAomAssigned && !isCddRaisedTicket && <option value="Rejected">Rejected</option>}
                     {!isAomAssigned && !isCddRaisedTicket && <option value="Follow Up">Follow Up</option>}
-                    {(isAomAssigned || isCddRaisedTicket) && (ticket.status as string) !== "Closed" && <option value="Closed">Closed</option>}
-                    {(isAomAssigned || isCddRaisedTicket) && ((ticket.status as string) === "Closed") && <option value="Re-Open">Re-Open</option>}
+                    {(isAomAssigned || isCddRaisedTicket) && !isCddRaisedTicket && !["Closed", "Resolved"].includes(ticket.status as string) && <option value="Resolved">Resolved</option>}
+                    {(isAomAssigned || isCddRaisedTicket) && !isCddRaisedTicket && !["Closed", "Resolved"].includes(ticket.status as string) && <option value="Closed">Closed</option>}
+                    {(isAomAssigned || isCddRaisedTicket) && ["Closed", "Resolved"].includes(ticket.status as string) && <option value="Re-Open">Re-Open</option>}
                   </>
                 ) : isZenoti ? (
                   <>
@@ -851,8 +854,8 @@ const TicketDetailPage = () => {
               </label>
             </div>
 
-            {/* Description / Comment — hidden for AOM */}
-            {!isAomRole && <div className="col-span-full">
+            {/* Description / Comment — hidden for AOM approval tickets, shown for AOM assigned/CDD tickets */}
+            {(!isAomRole || isAomAssigned || isCddRaisedTicket) && <div className="col-span-full">
               <label className="flex items-center gap-1.5 text-[11px] font-medium text-muted-foreground uppercase tracking-wider mb-1">
                 <MessageSquare className="h-3 w-3" /> Description / Reason for Change
                 {(["Employee", "Others"].includes(currentUserRole) || editStatus !== ticket.status) && <span className="text-destructive">*</span>}
