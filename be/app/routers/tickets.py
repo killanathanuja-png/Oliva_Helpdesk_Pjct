@@ -493,6 +493,16 @@ def create_ticket(req: TicketCreate, current_user: User = Depends(get_current_us
                 ticket.assigned_dept or "", ticket.center or "", priority_val,
                 ticket_db_id=ticket.id)
 
+        # 3. AOM gets email when ticket needs their approval
+        if ticket.approval_required and ticket.approver:
+            aom_user = db.query(User).filter(User.name == ticket.approver).first()
+            if aom_user and aom_user.email and aom_user.id != (raiser.id if raiser else current_user.id):
+                print(f"[EMAIL] APPROVAL NEEDED → AOM: {aom_user.name} ({aom_user.email})")
+                send_ticket_assigned(aom_user.email, ticket.code, ticket.title,
+                    aom_user.name, raiser_name,
+                    ticket.assigned_dept or "", ticket.center or "", priority_val,
+                    ticket_db_id=ticket.id)
+
     except Exception as email_err:
         import traceback
         print(f"[EMAIL] Failed to send creation emails: {email_err}")
