@@ -91,6 +91,7 @@ const Dashboard = () => {
   /* ── Filters ── */
   const [filterDept, setFilterDept] = useState("All");
   const [filterCategory, setFilterCategory] = useState("All");
+  const [filterSubCategory, setFilterSubCategory] = useState("All");
   const [timePreset, setTimePreset] = useState("all");
   const [customFrom, setCustomFrom] = useState("");
   const [customTo, setCustomTo] = useState("");
@@ -120,6 +121,7 @@ const Dashboard = () => {
     const params: Record<string, any> = { ...base };
     if (filterDept !== "All" && !base.department) params.department = filterDept;
     if (filterCategory !== "All") params.category = filterCategory;
+    if (filterSubCategory !== "All") params.sub_category = filterSubCategory;
     // Time
     if (timePreset === "custom") {
       if (customFrom) params.from_date = customFrom;
@@ -141,7 +143,8 @@ const Dashboard = () => {
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Reset category when department changes
-  useEffect(() => { setFilterCategory("All"); }, [filterDept]);
+  useEffect(() => { setFilterCategory("All"); setFilterSubCategory("All"); }, [filterDept]);
+  useEffect(() => { setFilterSubCategory("All"); }, [filterCategory]);
 
   // Fetch expiring certificates for Admin Department and Helpdesk Admin
   useEffect(() => {
@@ -164,6 +167,7 @@ const Dashboard = () => {
   /* ── Derived ── */
   const deptOptions = stats.tickets_by_department.map((d) => d.name).filter((n) => n !== "Unassigned");
   const categoryOptions = (stats.tickets_by_category || []).map((c) => c.name);
+  const subCategoryOptions = (stats.tickets_by_sub_category || []).map((s) => s.name);
   const priorityPieData = Object.entries(stats.tickets_by_priority).map(([name, value]) => ({ name, value }));
   const deptPieData = stats.tickets_by_department.filter((d) => d.count > 0);
 
@@ -241,6 +245,16 @@ const Dashboard = () => {
           <option value="last_3_months">Last 3 Months</option>
           <option value="custom">Custom</option>
         </select>
+        <select value={filterCategory} onChange={(e) => setFilterCategory(e.target.value)}
+          className="px-2 py-1.5 rounded-md border border-border bg-background text-xs focus:outline-none focus:ring-2 focus:ring-primary/30">
+          <option value="All">All Categories</option>
+          {categoryOptions.map((c) => <option key={c} value={c}>{c}</option>)}
+        </select>
+        <select value={filterSubCategory} onChange={(e) => setFilterSubCategory(e.target.value)}
+          className="px-2 py-1.5 rounded-md border border-border bg-background text-xs focus:outline-none focus:ring-2 focus:ring-primary/30">
+          <option value="All">All Sub-Categories</option>
+          {subCategoryOptions.map((s) => <option key={s} value={s}>{s}</option>)}
+        </select>
         {timePreset === "custom" && (
           <>
             <input type="date" value={customFrom} onChange={(e) => setCustomFrom(e.target.value)} className="px-2 py-1.5 rounded-md border border-border bg-background text-xs focus:outline-none focus:ring-2 focus:ring-primary/30 w-[130px]" />
@@ -252,7 +266,7 @@ const Dashboard = () => {
           className="px-3 py-1.5 rounded-md bg-primary text-primary-foreground text-xs font-medium hover:bg-primary/90 transition-colors flex items-center gap-1 disabled:opacity-50">
           <Filter className="h-3 w-3" /> Submit
         </button>
-        <button onClick={() => { setTimePreset("all"); setCustomFrom(""); setCustomTo(""); setTimeout(doFetch, 50); }}
+        <button onClick={() => { setTimePreset("all"); setFilterCategory("All"); setFilterSubCategory("All"); setCustomFrom(""); setCustomTo(""); setTimeout(doFetch, 50); }}
           className="px-3 py-1.5 rounded-md border border-border bg-card text-xs font-medium hover:bg-muted transition-colors flex items-center gap-1">
           <RefreshCw className="h-3 w-3" /> Refresh
         </button>

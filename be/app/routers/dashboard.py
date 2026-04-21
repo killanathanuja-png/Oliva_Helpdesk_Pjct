@@ -30,6 +30,7 @@ _OPEN_STATUSES = [
 def get_dashboard_stats(
     department: Optional[str] = Query(None, description="Filter by department"),
     category: Optional[str] = Query(None, description="Filter by category"),
+    sub_category: Optional[str] = Query(None, description="Filter by sub-category"),
     user_id: Optional[int] = Query(None, description="Filter by user (raised_by)"),
     from_date: Optional[str] = Query(None, description="Start date (YYYY-MM-DD)"),
     to_date: Optional[str] = Query(None, description="End date (YYYY-MM-DD)"),
@@ -38,12 +39,12 @@ def get_dashboard_stats(
     print(f"[DASHBOARD] Stats request: dept={department}, user={user_id}")
     import traceback
     try:
-        return _get_dashboard_stats_impl(department, category, user_id, from_date, to_date, db)
+        return _get_dashboard_stats_impl(department, category, sub_category, user_id, from_date, to_date, db)
     except Exception as e:
         traceback.print_exc()
         raise
 
-def _get_dashboard_stats_impl(department, category, user_id, from_date, to_date, db):
+def _get_dashboard_stats_impl(department, category, sub_category, user_id, from_date, to_date, db):
     # Base query — optionally filtered by department or user
     base = db.query(Ticket)
     # Department alias mapping (departments that share tickets)
@@ -69,6 +70,9 @@ def _get_dashboard_stats_impl(department, category, user_id, from_date, to_date,
 
     if category:
         base = base.filter(Ticket.category == category)
+
+    if sub_category:
+        base = base.filter(Ticket.sub_category == sub_category)
 
     # Time-based filtering
     if from_date:
