@@ -244,8 +244,14 @@ const TicketsPage = () => {
     return data.filter((t) => t.assignedTo === currentUser);
   })();
 
-  // View & Update: department tickets excluding Resolved/Closed/Final Closed
-  const deptTickets = allDeptTickets.filter((t) => !resolvedStatuses.includes(t.status));
+  // View & Update: dept tickets + tickets raised by user, excluding Resolved/Closed/Final Closed
+  const deptTickets = data.filter((t) => {
+    if (resolvedStatuses.includes(t.status)) return false;
+    if (allDeptTickets.includes(t)) return true;
+    if (t.raisedBy === currentUser) return true;
+    if (t.assignedTo === currentUser) return true;
+    return false;
+  });
 
   // "All Tickets": super admin sees everything, others see dept tickets + tickets they raised
   const roleFiltered = isSuperRole(currentUserRole)
