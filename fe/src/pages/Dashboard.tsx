@@ -453,8 +453,8 @@ const Dashboard = () => {
               ) : <p className="text-xs text-muted-foreground text-center py-8">No data</p>}
             </div>
 
-            {/* Priority-wise Pie */}
-            <div className="bg-card rounded-xl p-4 card-shadow border border-border">
+            {/* Priority-wise Pie — hidden for IT Department */}
+            {userDept !== "IT Department" && <div className="bg-card rounded-xl p-4 card-shadow border border-border">
               <div className="flex items-center gap-2 mb-3">
                 <Target className="h-4 w-4 text-primary" />
                 <h3 className="font-semibold text-xs">Priority-wise</h3>
@@ -482,7 +482,7 @@ const Dashboard = () => {
                   </div>
                 </div>
               ) : <p className="text-xs text-muted-foreground text-center py-8">No data</p>}
-            </div>
+            </div>}
 
             {/* Category-wise Bars */}
             <div className="bg-card rounded-xl p-4 card-shadow border border-border">
