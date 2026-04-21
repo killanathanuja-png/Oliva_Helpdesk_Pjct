@@ -610,8 +610,8 @@ const TicketDetailPage = () => {
                     </div>
                     <p className={cn("text-xs font-bold mt-2 text-center", labelColor)}>{label}</p>
                     <p className="text-[10px] text-muted-foreground mt-0.5 text-center">{event.timestamp}</p>
-                    <p className="text-[10px] text-muted-foreground/70 text-center mt-0.5 px-1 leading-relaxed line-clamp-2" title={event.message}>
-                      {event.message}
+                    <p className="text-[10px] text-muted-foreground/70 text-center mt-0.5 px-1 leading-relaxed line-clamp-2" title={event.message.split(/Reason:/i)[0].replace(/\.\s*$/, "")}>
+                      {event.message.split(/Reason:/i)[0].replace(/\.\s*$/, "")}
                     </p>
                   </div>
                   {!isLast && (
