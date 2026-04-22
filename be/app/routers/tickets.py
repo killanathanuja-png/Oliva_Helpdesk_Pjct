@@ -290,9 +290,10 @@ def create_ticket(req: TicketCreate, current_user: User = Depends(get_current_us
                     if assigned_user:
                         assigned_to_id_value = assigned_user.id
 
-            # Override status and approval
-            ticket_status = TicketStatusEnum.Open
-            approval_required = False
+            # Override status and approval — but NOT for Zenoti department (approval handled later)
+            if (req.assigned_dept or "").lower() != "zenoti":
+                ticket_status = TicketStatusEnum.Open
+                approval_required = False
 
         # Auto-assign Admin Department tickets to L1 based on center location
         if (req.assigned_dept or "").lower() in ("admin department", "admin") and center_value:
