@@ -161,7 +161,12 @@ def _get_dashboard_stats_impl(department, category, sub_category, user_id, from_
         if deadline <= threshold:
             escalation_no_due += 1
 
-    escalation_count = escalation_with_due + escalation_no_due
+    # Already escalated tickets count
+    already_escalated = base.filter(
+        Ticket.status.in_([TicketStatusEnum.EscalatedL1, TicketStatusEnum.EscalatedL2]),
+    ).count()
+
+    escalation_count = escalation_with_due + escalation_no_due + already_escalated
 
     by_priority = {}
     for p in PriorityEnum:

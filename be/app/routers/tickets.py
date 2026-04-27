@@ -152,13 +152,17 @@ _OPEN_STATUSES = [
 
 
 def _get_escalated_tickets(base_tickets: list[Ticket], db: Session) -> list[Ticket]:
-    """Filter tickets that are breaching SLA within next 4 hours (same logic as dashboard)."""
+    """Filter tickets that are already escalated OR breaching SLA within next 4 hours."""
     now = datetime.now(timezone.utc)
     threshold = now + timedelta(hours=4)
     dept_sla_cache: dict = {}
     result = []
     for t in base_tickets:
         if t.status not in _OPEN_STATUSES:
+            continue
+        # Already escalated tickets — always include
+        if t.status in (TicketStatusEnum.EscalatedL1, TicketStatusEnum.EscalatedL2):
+            result.append(t)
             continue
         # Method 1: ticket has due_date set
         if t.due_date:
