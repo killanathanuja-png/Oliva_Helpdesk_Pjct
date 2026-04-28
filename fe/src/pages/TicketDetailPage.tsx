@@ -252,10 +252,13 @@ const TicketDetailPage = () => {
 
   const currentUserDept = parsedUser?.department || "";
 
-  // Hide edit for raiser — BUT allow if ticket is Closed/Resolved (so they can reopen)
+  // Hide edit for raiser — BUT allow if:
+  // 1. Ticket is Closed/Resolved (so they can reopen)
+  // 2. User is Helpdesk Admin (so they can mark as Resolved)
   const isClosed = ticket && ["Closed", "Resolved", "Final Closed"].includes(ticket.status as string);
+  const isHelpdeskAdminRole = hasAnyRole(currentUserRole, ["Helpdesk Admin"]);
   const raisedByCurrentUser = ticket && ticket.raisedBy === currentUser && ticket.assignedDept !== currentUserDept;
-  const canEditFinal = raisedByCurrentUser ? (isClosed ? true : false) : canEdit;
+  const canEditFinal = raisedByCurrentUser ? (isClosed || isHelpdeskAdminRole ? true : false) : canEdit;
 
   // Zenoti department ticket assignees
   const ZENOTI_ASSIGNEE_IDS = [707, 816, 823, 811]; // Kalyani Thadoju, Ramya Janagam, Swapna M, Poornima Oliva
@@ -374,7 +377,9 @@ const TicketDetailPage = () => {
     // Allow Re-Open on Closed/Resolved tickets (max 2 times)
     const closedStatuses = ["Resolved", "Closed", "Final Closed"];
     if (closedStatuses.includes(ticket.status)) {
-      if (editStatus !== "Re-Open") {
+      // Allow Re-Open for everyone, and allow Closed for IT/Admin when ticket is Resolved
+      const canCloseResolved = ticket.status === "Resolved" && editStatus === "Closed" && !isHelpdeskAdminRole;
+      if (editStatus !== "Re-Open" && !canCloseResolved) {
         alert(`This ticket is "${ticket.status}". You can only Re-Open it.`);
         return;
       }
@@ -390,7 +395,8 @@ const TicketDetailPage = () => {
     // Only assigned department team can resolve/change status (except Super Admin and Re-Open)
     const _isSuperAdmin = hasAnyRole(currentUserRole, ["Super Admin", "Global Admin", "Super User"]);
     const isReopening = editStatus === "Re-Open";
-    if (statusChanged && !isReopening && !_isSuperAdmin && currentUserDept && ticket.assignedDept && currentUserDept !== ticket.assignedDept) {
+    const isHelpdeskAdminResolving = isHelpdeskAdminRole && editStatus === "Resolved";
+    if (statusChanged && !isReopening && !isHelpdeskAdminResolving && !_isSuperAdmin && currentUserDept && ticket.assignedDept && currentUserDept !== ticket.assignedDept) {
       alert(`You cannot change the status of this ticket. Only the ${ticket.assignedDept} team can resolve or update this ticket.`);
       return;
     }
@@ -811,12 +817,18 @@ const TicketDetailPage = () => {
                     {!["Closed", "Resolved"].includes(ticket.status as string) && <option value="Closed">Closed</option>}
                     {["Closed", "Resolved"].includes(ticket.status as string) && <option value="Re-Open">Re-Open</option>}
                   </>
+                ) : hasAnyRole(currentUserRole, ["Helpdesk Admin"]) ? (
+                  <>
+                    <option value={ticket.status}>{ticket.status}</option>
+                    {!["Closed", "Resolved"].includes(ticket.status as string) && <option value="Resolved">Resolved</option>}
+                    {["Closed", "Resolved"].includes(ticket.status as string) && <option value="Re-Open">Re-Open</option>}
+                  </>
                 ) : (
                   <>
                     <option value={ticket.status}>{ticket.status}</option>
                     {!["Open", "Closed", "Resolved", "Reopened"].includes(ticket.status as string) && <option value="Open">Open</option>}
                     {(ticket.status as string) !== "In Progress" && !["Closed", "Resolved"].includes(ticket.status as string) && <option value="In Progress">In Progress</option>}
-                    {!["Closed", "Resolved"].includes(ticket.status as string) && <option value="Closed">Closed</option>}
+                    {(ticket.status as string) === "Resolved" && <option value="Closed">Closed</option>}
                     {["Closed", "Resolved"].includes(ticket.status as string) && <option value="Re-Open">Re-Open</option>}
                   </>
                 )}
