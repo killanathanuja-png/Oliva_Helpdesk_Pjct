@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Zenoti Department - Ticket Flow</title>
+<style>
+  @page { margin: 12mm; size: A4; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Segoe UI', Arial, sans-serif; color: #1a1a1a; line-height: 1.45; padding: 25px; max-width: 920px; margin: 0 auto; }
+
+  .header { background: linear-gradient(135deg, #b45309, #f59e0b); color: white; padding: 22px 28px; border-radius: 12px; margin-bottom: 22px; }
+  .header h1 { font-size: 22px; margin-bottom: 4px; }
+  .header p { font-size: 12px; opacity: 0.9; }
+
+  .section { margin-bottom: 20px; page-break-inside: avoid; }
+  .section-title { font-size: 14px; font-weight: 700; color: #b45309; border-bottom: 2px solid #f59e0b; padding-bottom: 4px; margin-bottom: 10px; }
+
+  .flow-container { display: flex; flex-direction: column; gap: 0; align-items: center; }
+  .flow-step { border: 2px solid #f59e0b; border-radius: 10px; padding: 12px 18px; width: 82%; text-align: center; background: #fffbeb; }
+  .flow-step h3 { font-size: 12px; color: #b45309; margin-bottom: 2px; }
+  .flow-step p { font-size: 10px; color: #444; }
+  .flow-step.green { background: #f0fdf4; border-color: #22c55e; }
+  .flow-step.green h3 { color: #16a34a; }
+  .flow-step.blue { background: #eff6ff; border-color: #3b82f6; }
+  .flow-step.blue h3 { color: #2563eb; }
+  .flow-step.purple { background: #faf5ff; border-color: #a855f7; }
+  .flow-step.purple h3 { color: #7c3aed; }
+  .flow-step.teal { background: #f0fdfa; border-color: #14b8a6; }
+  .flow-step.teal h3 { color: #0d9488; }
+  .flow-step.red { background: #fef2f2; border-color: #ef4444; }
+  .flow-step.red h3 { color: #dc2626; }
+  .flow-step.orange { background: #fff7ed; border-color: #f97316; }
+  .flow-step.orange h3 { color: #ea580c; }
+
+  .arrow { text-align: center; font-size: 18px; color: #f59e0b; line-height: 1; padding: 3px 0; }
+  .arrow.green { color: #22c55e; }
+  .arrow.blue { color: #3b82f6; }
+  .arrow.purple { color: #a855f7; }
+
+  .split { display: flex; gap: 10px; width: 82%; }
+  .split .flow-step { flex: 1; width: auto; }
+
+  table { width: 100%; border-collapse: collapse; font-size: 10.5px; margin-bottom: 8px; }
+  th { background: #b45309; color: white; padding: 6px 8px; text-align: left; font-weight: 600; }
+  td { padding: 5px 8px; border-bottom: 1px solid #e5e7eb; }
+  tr:nth-child(even) { background: #f9fafb; }
+
+  .badge { display: inline-block; padding: 2px 7px; border-radius: 10px; font-size: 9px; font-weight: 600; }
+  .badge-green { background: #dcfce7; color: #166534; }
+  .badge-blue { background: #dbeafe; color: #1e40af; }
+  .badge-orange { background: #ffedd5; color: #9a3412; }
+  .badge-red { background: #fee2e2; color: #991b1b; }
+  .badge-amber { background: #fef3c7; color: #92400e; }
+  .badge-purple { background: #f3e8ff; color: #6b21a8; }
+  .badge-teal { background: #ccfbf1; color: #115e59; }
+
+  .info-box { background: #fffbeb; border-left: 4px solid #f59e0b; padding: 8px 12px; border-radius: 0 8px 8px 0; margin: 8px 0; font-size: 10.5px; }
+  .info-box strong { color: #b45309; }
+
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .three-col { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+  .card { background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; padding: 10px; }
+  .card h4 { font-size: 11px; color: #b45309; margin-bottom: 5px; }
+  .card ul { list-style: none; padding: 0; }
+  .card ul li { font-size: 10.5px; padding: 2px 0; border-bottom: 1px dotted #e5e7eb; }
+  .card ul li:last-child { border: none; }
+  .card ul li::before { content: ""; display: inline-block; width: 5px; height: 5px; border-radius: 50%; background: #f59e0b; margin-right: 5px; vertical-align: middle; }
+
+  .flow-label { text-align: center; font-size: 11px; font-weight: 700; padding: 6px 14px; border-radius: 20px; margin: 12px 0 6px; display: inline-block; }
+
+  .footer { text-align: center; font-size: 10px; color: #9ca3af; margin-top: 25px; padding-top: 12px; border-top: 1px solid #e5e7eb; }
+
+  @media print {
+    body { padding: 0; }
+    .header, th, .badge, .flow-step, .info-box, .card, .flow-label { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>Zenoti Department - Ticket Flow</h1>
+  <p>Oliva Helpdesk | 3 Flows: Zenoti-Finance | Zenoti-Operational | Operational Issues</p>
+</div>
+
+<!-- OVERVIEW -->
+<div class="section">
+  <div class="section-title">Overview</div>
+  <div class="two-col">
+    <div class="card">
+      <h4>Key Characteristics</h4>
+      <ul>
+        <li><strong>3 distinct flows</strong> based on category type</li>
+        <li>Zenoti-Finance: AOM + Finance dual approval</li>
+        <li>Zenoti-Operational: AOM approval only</li>
+        <li>Operational Issues: No approval needed</li>
+        <li>Zenoti-specific fields (invoice, billing, client)</li>
+        <li>Priority auto-set: Finance = Critical, Others = Medium</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h4>Key People</h4>
+      <ul>
+        <li><strong>Clinic Manager (CM)</strong> — Raises the ticket</li>
+        <li><strong>AOM</strong> — First approver (auto-mapped by center)</li>
+        <li><strong>Finance Team</strong> — Second approver (Zenoti-Finance only)</li>
+        <li><strong>Zenoti Team</strong> — Works on approved tickets</li>
+        <li><strong>Zenoti Team Manager</strong> — Oversees Zenoti tickets</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<!-- 3 FLOWS SUMMARY -->
+<div class="section">
+  <div class="section-title">The 3 Zenoti Flows at a Glance</div>
+  <table>
+    <tr><th>Flow</th><th>Category</th><th>Approval</th><th>Priority</th><th>Path</th></tr>
+    <tr>
+      <td><span class="badge badge-red">Flow 1</span></td>
+      <td><strong>Zenoti-Finance</strong></td>
+      <td>AOM → Finance (dual)</td>
+      <td><span class="badge badge-red">Critical</span></td>
+      <td>CM → AOM Approve → Finance Approve → Zenoti Team → Resolve</td>
+    </tr>
+    <tr>
+      <td><span class="badge badge-orange">Flow 2</span></td>
+      <td><strong>Zenoti-Operational</strong></td>
+      <td>AOM only</td>
+      <td><span class="badge badge-amber">Medium</span></td>
+      <td>CM → AOM Approve → Zenoti Team → Resolve</td>
+    </tr>
+    <tr>
+      <td><span class="badge badge-green">Flow 3</span></td>
+      <td><strong>Operational Issues</strong></td>
+      <td>None</td>
+      <td><span class="badge badge-amber">Medium</span></td>
+      <td>CM → Zenoti Team directly → Resolve</td>
+    </tr>
+  </table>
+</div>
+
+<!-- RAISE TICKET -->
+<div class="section">
+  <div class="section-title">Raise a Zenoti Ticket (Required Fields)</div>
+  <table>
+    <tr><th>Field</th><th>Required</th><th>Description</th></tr>
+    <tr><td>Department</td><td><span class="badge badge-red">Mandatory</span></td><td>Auto-set to "Zenoti"</td></tr>
+    <tr><td>Category</td><td><span class="badge badge-red">Mandatory</span></td><td>Zenoti-Finance / Zenoti-Operational / Operational Issues</td></tr>
+    <tr><td>Sub-Category</td><td><span class="badge badge-red">Mandatory</span></td><td>Based on category</td></tr>
+    <tr><td>Child Category</td><td><span class="badge badge-red">Mandatory</span></td><td>Further breakdown</td></tr>
+    <tr><td>Location (Center)</td><td><span class="badge badge-red">Mandatory</span></td><td>Clinic center</td></tr>
+    <tr><td>Mobile Number</td><td><span class="badge badge-red">Mandatory</span></td><td>Client mobile number</td></tr>
+    <tr><td>Client ID</td><td><span class="badge badge-red">Mandatory</span></td><td>Zenoti client ID</td></tr>
+    <tr><td>Client Name</td><td><span class="badge badge-red">Mandatory</span></td><td>Client's full name</td></tr>
+    <tr><td>Billed By</td><td><span class="badge badge-red">Mandatory</span></td><td>Who billed the client</td></tr>
+    <tr><td>Invoice No</td><td><span class="badge badge-red">Mandatory</span></td><td>Invoice reference</td></tr>
+    <tr><td>Invoice Date</td><td><span class="badge badge-red">Mandatory</span></td><td>Date of invoice</td></tr>
+    <tr><td>Description</td><td><span class="badge badge-red">Mandatory</span></td><td>Issue description</td></tr>
+    <tr><td>Amount</td><td>Optional</td><td>Transaction amount</td></tr>
+  </table>
+</div>
+
+<!-- FLOW 1: ZENOTI-FINANCE -->
+<div class="section">
+  <div class="section-title">Flow 1: Zenoti-Finance (AOM + Finance Approval)</div>
+  <div class="flow-container">
+    <div class="flow-step">
+      <h3>STEP 1: CM RAISES TICKET</h3>
+      <p>Category: Zenoti-Finance | Priority: <span class="badge badge-red">Critical</span> | Status: <span class="badge badge-purple">Pending Approval</span></p>
+      <p>Email: <strong>Raiser</strong> (Created) + <strong>AOM</strong> (Approval Needed)</p>
+    </div>
+    <div class="arrow">&#9660;</div>
+
+    <div class="flow-step orange">
+      <h3>STEP 2: AOM REVIEWS</h3>
+      <p>AOM sees ticket in Approvals page</p>
+      <p>Actions: <span class="badge badge-green">Approve</span> <span class="badge badge-red">Reject</span> <span class="badge badge-amber">Follow Up</span></p>
+    </div>
+    <div class="arrow">&#9660;</div>
+
+    <div class="split">
+      <div class="flow-step green" style="flex: 2;">
+        <h3>AOM APPROVES → ESCALATES TO FINANCE</h3>
+        <p>Approver changes to "Finance Team" | Status stays: <span class="badge badge-purple">Pending Approval</span></p>
+        <p>Email: <strong>All Finance users</strong> (Ticket Assigned)</p>
+      </div>
+      <div class="flow-step red">
+        <h3>AOM REJECTS</h3>
+        <p><span class="badge badge-red">Rejected</span></p>
+        <p>Email: Raiser</p>
+      </div>
+    </div>
+    <div class="arrow">&#9660;</div>
+
+    <div class="flow-step purple">
+      <h3>STEP 3: FINANCE REVIEWS</h3>
+      <p>Finance team sees ticket in Finance Approvals page</p>
+      <p>Actions: <span class="badge badge-green">Approve</span> <span class="badge badge-red">Reject</span> <span class="badge badge-amber">Follow Up</span></p>
+    </div>
+    <div class="arrow">&#9660;</div>
+
+    <div class="flow-step blue">
+      <h3>STEP 4: FINANCE APPROVES → ZENOTI TEAM</h3>
+      <p>Status: <span class="badge badge-blue">In Progress</span> | Dept: Zenoti | Sent to Zenoti team</p>
+      <p>Email: <strong>All Zenoti Team members</strong> (Ticket Assigned)</p>
+    </div>
+    <div class="arrow green">&#9660;</div>
+
+    <div class="flow-step green">
+      <h3>STEP 5: ZENOTI TEAM RESOLVES</h3>
+      <p>Zenoti team works on correction | <span class="badge badge-green">Resolved / Closed</span></p>
+      <p>Email: <strong>Raiser + Assignee</strong></p>
+    </div>
+  </div>
+</div>
+
+<!-- FLOW 2: ZENOTI-OPERATIONAL -->
+<div class="section">
+  <div class="section-title">Flow 2: Zenoti-Operational (AOM Approval Only)</div>
+  <div class="flow-container">
+    <div class="flow-step">
+      <h3>STEP 1: CM RAISES TICKET</h3>
+      <p>Category: Zenoti-Operational | Priority: <span class="badge badge-amber">Medium</span> | Status: <span class="badge badge-purple">Pending Approval</span></p>
+      <p>Email: <strong>Raiser</strong> (Created) + <strong>AOM</strong> (Approval Needed)</p>
+    </div>
+    <div class="arrow">&#9660;</div>
+
+    <div class="flow-step orange">
+      <h3>STEP 2: AOM REVIEWS & APPROVES</h3>
+      <p>Actions: <span class="badge badge-green">Approve</span> <span class="badge badge-red">Reject</span> <span class="badge badge-amber">Follow Up</span></p>
+      <p>On Approve: Sent <strong>directly to Zenoti team</strong> (skips Finance)</p>
+    </div>
+    <div class="arrow green">&#9660;</div>
+
+    <div class="flow-step blue">
+      <h3>STEP 3: ZENOTI TEAM WORKS</h3>
+      <p>Status: <span class="badge badge-blue">In Progress</span> | Dept: Zenoti</p>
+      <p>Email: <strong>All Zenoti Team members</strong> (Assigned)</p>
+    </div>
+    <div class="arrow green">&#9660;</div>
+
+    <div class="flow-step green">
+      <h3>STEP 4: ZENOTI TEAM RESOLVES</h3>
+      <p><span class="badge badge-green">Resolved / Closed</span></p>
+      <p>Email: <strong>Raiser + Assignee</strong></p>
+    </div>
+  </div>
+</div>
+
+<!-- FLOW 3: OPERATIONAL ISSUES -->
+<div class="section">
+  <div class="section-title">Flow 3: Operational Issues (No Approval)</div>
+  <div class="flow-container">
+    <div class="flow-step">
+      <h3>STEP 1: CM RAISES TICKET</h3>
+      <p>Category: Operational Issues | Priority: <span class="badge badge-amber">Medium</span> | Status: <span class="badge badge-blue">Open</span></p>
+      <p>No approval needed — goes directly to Zenoti department</p>
+      <p>Email: <strong>Raiser</strong> (Created)</p>
+    </div>
+    <div class="arrow green">&#9660;</div>
+
+    <div class="flow-step blue">
+      <h3>STEP 2: ZENOTI TEAM WORKS</h3>
+      <p>Zenoti team picks up the ticket directly</p>
+      <p>Can: Update status, Add comments, Resolve</p>
+    </div>
+    <div class="arrow green">&#9660;</div>
+
+    <div class="flow-step green">
+      <h3>STEP 3: ZENOTI TEAM RESOLVES</h3>
+      <p><span class="badge badge-green">Resolved / Closed</span></p>
+      <p>Email: <strong>Raiser + Assignee</strong></p>
+    </div>
+  </div>
+</div>
+
+<!-- APPROVAL ACTIONS -->
+<div class="section">
+  <div class="section-title">Approval Actions</div>
+  <table>
+    <tr><th>Action</th><th>Result</th><th>Next Step</th></tr>
+    <tr><td><span class="badge badge-green">Approve</span></td><td>Approval granted</td><td>Finance review (Flow 1) or Zenoti team (Flow 2)</td></tr>
+    <tr><td><span class="badge badge-red">Reject</span></td><td>Ticket rejected</td><td>Status: Rejected, Raiser notified</td></tr>
+    <tr><td><span class="badge badge-amber">Follow Up</span></td><td>More info needed</td><td>Status: Follow Up, Raiser responds</td></tr>
+  </table>
+</div>
+
+<!-- EMAIL NOTIFICATIONS -->
+<div class="section">
+  <div class="section-title">Email Notifications</div>
+  <table>
+    <tr><th>Event</th><th>Who Gets Email</th><th>Type</th></tr>
+    <tr><td>Ticket Created</td><td>Raiser (CM)</td><td>Ticket Created</td></tr>
+    <tr><td>Approval Needed</td><td>AOM</td><td>Ticket Assigned</td></tr>
+    <tr><td>AOM Approves (Finance flow)</td><td>Raiser + All Finance users</td><td>Status Update + Assigned</td></tr>
+    <tr><td>AOM Approves (Operational)</td><td>Raiser + All Zenoti Team</td><td>Status Update + Assigned</td></tr>
+    <tr><td>Finance Approves</td><td>Raiser + All Zenoti Team</td><td>Status Update + Assigned</td></tr>
+    <tr><td>Rejected</td><td>Raiser</td><td>Status Update</td></tr>
+    <tr><td>Follow Up</td><td>Raiser</td><td>Status Update</td></tr>
+    <tr><td>Resolved / Closed</td><td>Raiser + Assignee</td><td>Status Update</td></tr>
+    <tr><td>Comment Added</td><td>Raiser + Assignee</td><td>Comment</td></tr>
+  </table>
+</div>
+
+<!-- STATUSES -->
+<div class="section">
+  <div class="section-title">All Statuses in Zenoti Flow</div>
+  <table>
+    <tr><th>Status</th><th>Meaning</th><th>Set By</th></tr>
+    <tr><td><span class="badge badge-purple">Pending Approval</span></td><td>Awaiting AOM or Finance approval</td><td>System</td></tr>
+    <tr><td><span class="badge badge-blue">Open</span></td><td>No approval needed (Operational Issues)</td><td>System</td></tr>
+    <tr><td><span class="badge badge-blue">In Progress</span></td><td>Approved, Zenoti team working</td><td>System / Zenoti Team</td></tr>
+    <tr><td><span class="badge badge-amber">Follow Up</span></td><td>Approver needs more info</td><td>AOM / Finance</td></tr>
+    <tr><td><span class="badge badge-green">Resolved</span></td><td>Zenoti team fixed the issue</td><td>Zenoti Team</td></tr>
+    <tr><td><span class="badge badge-green">Closed</span></td><td>Ticket closed after review</td><td>Zenoti Team</td></tr>
+    <tr><td><span class="badge badge-red">Rejected</span></td><td>Approver rejected the ticket</td><td>AOM / Finance</td></tr>
+    <tr><td><span class="badge badge-orange">Reopened</span></td><td>Was closed, opened again</td><td>Raiser</td></tr>
+  </table>
+</div>
+
+<!-- PERMISSIONS -->
+<div class="section">
+  <div class="section-title">Edit Permissions</div>
+  <table>
+    <tr><th>Role</th><th>Can Do</th></tr>
+    <tr><td><strong>CM / AOM (Raiser)</strong></td><td>Raise ticket, view, add comments, reopen if closed</td></tr>
+    <tr><td><strong>AOM (Approver)</strong></td><td>Approve, Reject, Follow Up on pending tickets</td></tr>
+    <tr><td><strong>Finance Team</strong></td><td>Approve, Reject, Follow Up (Zenoti-Finance only)</td></tr>
+    <tr><td><strong>Zenoti Team</strong></td><td>Update status, Resolve, Close approved tickets</td></tr>
+    <tr><td><strong>Zenoti Team Manager</strong></td><td>Full Zenoti ticket management, assign to team</td></tr>
+    <tr><td><strong>Super Admin</strong></td><td>Full access, delete tickets</td></tr>
+  </table>
+</div>
+
+<!-- COMPARISON -->
+<div class="section">
+  <div class="section-title">Zenoti vs Other Departments</div>
+  <table>
+    <tr><th>Feature</th><th style="background:#b45309;">Zenoti</th><th>Admin</th><th>CDD</th><th>Quality</th></tr>
+    <tr><td>Approval</td><td><span class="badge badge-red">Yes (AOM + Finance)</span></td><td>No</td><td>No</td><td>No</td></tr>
+    <tr><td>Auto-Assignment</td><td>No</td><td>Yes (L1)</td><td>Yes (CM)</td><td>No</td></tr>
+    <tr><td>Escalation</td><td>No</td><td>L1→L2→L3</td><td>CM→AOM→L2</td><td>No</td></tr>
+    <tr><td>Special Fields</td><td>Invoice, billing, client</td><td>Admin categories</td><td>Client details</td><td>None</td></tr>
+    <tr><td>Priority</td><td>Auto (Critical/Medium)</td><td>User selects</td><td>Medium</td><td>Medium</td></tr>
+  </table>
+</div>
+
+<div class="footer">
+  Oliva Helpdesk - Zenoti Department Flow Document | Generated: April 2026
+</div>
+
+</body>
+</html>

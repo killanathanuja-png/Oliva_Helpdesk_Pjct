@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>CDD Ticket - Step by Step Guide</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Segoe UI', Arial, sans-serif; color: #1a1a1a; line-height: 1.5; padding: 25px; max-width: 920px; margin: 0 auto; }
+
+  .header { background: linear-gradient(135deg, #0369a1, #0ea5e9); color: white; padding: 22px 28px; border-radius: 12px; margin-bottom: 20px; }
+  .header h1 { font-size: 20px; margin-bottom: 3px; }
+  .header p { font-size: 11px; opacity: 0.9; }
+
+  .step-container { position: relative; padding-left: 50px; }
+  .step-container::before { content: ""; position: absolute; left: 22px; top: 0; bottom: 0; width: 3px; background: linear-gradient(to bottom, #0ea5e9, #f97316, #22c55e); border-radius: 3px; }
+
+  .step { position: relative; margin-bottom: 18px; padding: 14px 18px; background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 10px; border-left: 4px solid #0ea5e9; }
+  .step.orange { border-left-color: #f97316; }
+  .step.green { border-left-color: #22c55e; }
+  .step.red { border-left-color: #ef4444; }
+  .step.purple { border-left-color: #a855f7; }
+  .step.amber { border-left-color: #f59e0b; }
+
+  .step-number { position: absolute; left: -50px; top: 12px; width: 32px; height: 32px; border-radius: 50%; background: #0ea5e9; color: white; font-size: 13px; font-weight: 700; display: flex; align-items: center; justify-content: center; z-index: 1; box-shadow: 0 2px 6px rgba(0,0,0,0.15); }
+  .step.orange .step-number { background: #f97316; }
+  .step.green .step-number { background: #22c55e; }
+  .step.red .step-number { background: #ef4444; }
+  .step.purple .step-number { background: #a855f7; }
+  .step.amber .step-number { background: #f59e0b; }
+
+  .step h3 { font-size: 13px; color: #0369a1; margin-bottom: 4px; }
+  .step.orange h3 { color: #ea580c; }
+  .step.green h3 { color: #16a34a; }
+  .step.red h3 { color: #dc2626; }
+  .step.purple h3 { color: #7c3aed; }
+  .step.amber h3 { color: #b45309; }
+
+  .step p { font-size: 11px; color: #444; margin-bottom: 3px; }
+  .step .action { font-size: 10px; color: #666; font-style: italic; }
+  .step .who { font-size: 10px; background: #e0f2fe; color: #0369a1; padding: 2px 8px; border-radius: 8px; display: inline-block; margin-top: 4px; font-weight: 600; }
+  .step.orange .who { background: #fff7ed; color: #ea580c; }
+  .step.green .who { background: #f0fdf4; color: #16a34a; }
+  .step.red .who { background: #fef2f2; color: #dc2626; }
+  .step.purple .who { background: #faf5ff; color: #7c3aed; }
+  .step.amber .who { background: #fffbeb; color: #b45309; }
+
+  .step .email-tag { font-size: 9px; background: #dbeafe; color: #1e40af; padding: 1px 6px; border-radius: 6px; display: inline-block; margin-top: 3px; }
+
+  .badge { display: inline-block; padding: 2px 7px; border-radius: 10px; font-size: 9px; font-weight: 600; }
+  .badge-blue { background: #dbeafe; color: #1e40af; }
+  .badge-green { background: #dcfce7; color: #166534; }
+  .badge-orange { background: #ffedd5; color: #9a3412; }
+  .badge-red { background: #fee2e2; color: #991b1b; }
+  .badge-amber { background: #fef3c7; color: #92400e; }
+  .badge-purple { background: #f3e8ff; color: #6b21a8; }
+
+  .divider { text-align: center; padding: 8px 0; font-size: 11px; font-weight: 700; color: #9ca3af; position: relative; }
+  .divider span { background: white; padding: 0 12px; position: relative; z-index: 1; }
+
+  .section-title { font-size: 14px; font-weight: 700; color: #0369a1; border-bottom: 2px solid #0ea5e9; padding-bottom: 4px; margin: 20px 0 12px; }
+
+  .fields-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin: 8px 0; }
+  .field-item { background: #f0f9ff; border: 1px solid #bae6fd; border-radius: 6px; padding: 5px 8px; font-size: 10px; }
+  .field-item strong { color: #0369a1; }
+
+  .info-box { background: #f0f9ff; border-left: 4px solid #0ea5e9; padding: 8px 12px; border-radius: 0 8px 8px 0; margin: 10px 0; font-size: 10.5px; }
+  .info-box strong { color: #0369a1; }
+  .info-box.warn { background: #fff7ed; border-color: #f97316; }
+  .info-box.warn strong { color: #ea580c; }
+
+  .branch { display: flex; gap: 10px; margin: 10px 0; }
+  .branch-item { flex: 1; background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; padding: 10px; text-align: center; font-size: 10px; }
+  .branch-item h5 { font-size: 11px; margin-bottom: 3px; }
+  .branch-item.green { border-color: #22c55e; background: #f0fdf4; }
+  .branch-item.green h5 { color: #16a34a; }
+  .branch-item.orange { border-color: #f97316; background: #fff7ed; }
+  .branch-item.orange h5 { color: #ea580c; }
+  .branch-item.red { border-color: #ef4444; background: #fef2f2; }
+  .branch-item.red h5 { color: #dc2626; }
+
+  .footer { text-align: center; font-size: 10px; color: #9ca3af; margin-top: 25px; padding-top: 12px; border-top: 1px solid #e5e7eb; }
+
+  @media print {
+    body { padding: 0; }
+    .header, .step-number, .badge, .who, .email-tag, .field-item, .info-box, .branch-item { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .step-container::before { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>CDD Ticket Flow - Step by Step Guide</h1>
+  <p>From Login to Ticket Closure | Complete walkthrough for CDD users, Clinic Managers, and AOMs</p>
+</div>
+
+<!-- ====== PHASE 1: CDD USER ====== -->
+<div class="section-title">Phase 1: CDD User Raises a Ticket</div>
+
+<div class="step-container">
+
+  <div class="step">
+    <div class="step-number">1</div>
+    <h3>LOGIN</h3>
+    <p>Open <strong>http://localhost:8080</strong> in browser</p>
+    <p>Enter your CDD credentials (email & password)</p>
+    <p>System redirects to <strong>Dashboard</strong></p>
+    <span class="who">CDD User</span>
+  </div>
+
+  <div class="step">
+    <div class="step-number">2</div>
+    <h3>NAVIGATE TO TICKETS</h3>
+    <p>Click <strong>Tickets</strong> in the left sidebar</p>
+    <p>Click <strong>View & Update Tickets</strong> or <strong>All Tickets</strong></p>
+    <p>You can see all CDD tickets (raised by you and your team)</p>
+    <span class="who">CDD User</span>
+  </div>
+
+  <div class="step">
+    <div class="step-number">3</div>
+    <h3>CLICK "RAISE TICKET"</h3>
+    <p>Click the <strong>+ Raise Ticket</strong> button (top right, teal color)</p>
+    <p>A modal/popup opens with the ticket form</p>
+    <p>Department is auto-set to <strong>Clinic</strong></p>
+    <span class="who">CDD User</span>
+  </div>
+
+  <div class="step">
+    <div class="step-number">4</div>
+    <h3>FILL MANDATORY FIELDS</h3>
+    <p>All fields marked with <span style="color:red;">*</span> are mandatory:</p>
+    <div class="fields-grid">
+      <div class="field-item"><strong>Client Code:</strong> Enter client code</div>
+      <div class="field-item"><strong>Client Name:</strong> Enter client name</div>
+      <div class="field-item"><strong>Description:</strong> Describe the complaint</div>
+      <div class="field-item"><strong>Category:</strong> Treatment / Marketing</div>
+      <div class="field-item"><strong>Sub-Category:</strong> Select from dropdown</div>
+      <div class="field-item"><strong>Service Name:</strong> Related service</div>
+      <div class="field-item"><strong>CRT Name:</strong> CRT person name</div>
+      <div class="field-item"><strong>Primary Doctor:</strong> Doctor involved</div>
+      <div class="field-item"><strong>Therapist Name:</strong> Therapist involved</div>
+      <div class="field-item"><strong>Center:</strong> Select clinic center</div>
+    </div>
+    <p class="action">When you select a Center, the Clinic Manager (CM) and AOM are auto-filled</p>
+    <span class="who">CDD User</span>
+  </div>
+
+  <div class="step">
+    <div class="step-number">5</div>
+    <h3>SUBMIT TICKET</h3>
+    <p>Click <strong>Submit Ticket</strong> button</p>
+    <p>Ticket is created with status: <span class="badge badge-blue">Open</span></p>
+    <p>Ticket is <strong>auto-assigned to Clinic Manager</strong> of the selected center</p>
+    <p>Ticket code generated: TKT0001, TKT0002, etc.</p>
+    <span class="email-tag">Email → CDD User (Ticket Created)</span>
+    <span class="email-tag">Email → Clinic Manager (Ticket Assigned)</span>
+    <span class="who">System</span>
+  </div>
+
+</div>
+
+<!-- ====== PHASE 2: CLINIC MANAGER ====== -->
+<div class="section-title">Phase 2: Clinic Manager Responds</div>
+
+<div class="step-container">
+
+  <div class="step orange">
+    <div class="step-number">6</div>
+    <h3>CM RECEIVES TICKET</h3>
+    <p>Clinic Manager logs in → sees the ticket in <strong>View & Update Tickets</strong></p>
+    <p>Ticket shows in their list with status <span class="badge badge-blue">Open</span></p>
+    <p>CM clicks on the ticket to open details</p>
+    <span class="who">Clinic Manager</span>
+  </div>
+
+  <div class="step orange">
+    <div class="step-number">7</div>
+    <h3>CM WORKS ON TICKET</h3>
+    <p>CM reviews the issue, contacts the client/team</p>
+    <p>CM can change status to: <span class="badge badge-blue">In Progress</span></p>
+    <p>CM can add comments to update the CDD team</p>
+    <p>CM needs to resolve within <strong>6 working hours</strong> (before auto-escalation)</p>
+    <span class="email-tag">Email → CDD User (Status Update)</span>
+    <span class="who">Clinic Manager</span>
+  </div>
+
+  <div class="step orange">
+    <div class="step-number">8</div>
+    <h3>CM RESOLVES OR CLOSES</h3>
+    <p>If issue is fixed, CM changes status to:</p>
+    <p><span class="badge badge-green">Resolved</span> or <span class="badge badge-green">Closed</span></p>
+    <p>Adds resolution comment explaining what was done</p>
+    <span class="email-tag">Email → CDD User (Status Update)</span>
+    <span class="who">Clinic Manager</span>
+  </div>
+
+</div>
+
+<div class="info-box warn">
+  <strong>Auto-Escalation Alert:</strong> If CM does NOT resolve within <strong>6 working hours</strong> (10AM-6PM IST, Mon-Sat), the system automatically escalates to <strong>AOM (L1)</strong>. Skip to Step 10.
+</div>
+
+<!-- ====== PHASE 3: CDD REVIEW ====== -->
+<div class="section-title">Phase 3: CDD Reviews the Resolution</div>
+
+<div class="step-container">
+
+  <div class="step purple">
+    <div class="step-number">9</div>
+    <h3>CDD REVIEWS RESOLVED TICKET</h3>
+    <p>CDD user opens the resolved/closed ticket</p>
+    <p>Reviews if the issue is truly resolved</p>
+    <p>Two options:</p>
+
+    <div class="branch">
+      <div class="branch-item green">
+        <h5>All Good → Final Close</h5>
+        <p>Click <strong>Final Close</strong></p>
+        <p>Status: <span class="badge badge-green">Final Closed</span></p>
+        <p><strong>TICKET COMPLETE</strong></p>
+      </div>
+      <div class="branch-item orange">
+        <h5>Not Resolved → Reopen</h5>
+        <p>Click <strong>Reopen</strong></p>
+        <p>Status: <span class="badge badge-amber">Reopened by CDD</span></p>
+        <p>Goes back to CM/Assignee</p>
+      </div>
+    </div>
+    <span class="email-tag">Email → Assignee (Status Update)</span>
+    <span class="who">CDD User</span>
+  </div>
+
+</div>
+
+<!-- ====== PHASE 4: ESCALATION ====== -->
+<div class="section-title">Phase 4: Auto-Escalation (If CM Doesn't Resolve)</div>
+
+<div class="step-container">
+
+  <div class="step red">
+    <div class="step-number">10</div>
+    <h3>AUTO-ESCALATION TO L1 (AOM) — After 6 Working Hours</h3>
+    <p>System automatically escalates if CM hasn't resolved</p>
+    <p>Status changes to: <span class="badge badge-orange">Escalated to L1</span></p>
+    <p>Ticket reassigned to the center's <strong>AOM (Area Operations Manager)</strong></p>
+    <p>System adds comment: "Auto-escalated to L1 AOM. Originally assigned to [CM name]"</p>
+    <span class="email-tag">Email → AOM (Ticket Assigned)</span>
+    <span class="who">System (Automatic)</span>
+  </div>
+
+  <div class="step red">
+    <div class="step-number">11</div>
+    <h3>AOM WORKS ON TICKET</h3>
+    <p>AOM logs in → sees escalated ticket in their list</p>
+    <p>Ticket shows: <strong>Assigned To: [AOM Name] (L1 AOM)</strong></p>
+    <p>AOM can only: <span class="badge badge-green">Resolve</span> or <span class="badge badge-green">Close</span></p>
+    <p>AOM adds resolution comment</p>
+    <span class="email-tag">Email → CDD User (Status Update)</span>
+    <span class="who">AOM</span>
+  </div>
+
+</div>
+
+<div class="info-box warn">
+  <strong>Second Escalation:</strong> If AOM also doesn't resolve within <strong>14 total working hours</strong> (6+8), the system auto-escalates to <strong>L2 Manager</strong>. Same process — L2 resolves and closes.
+</div>
+
+<div class="step-container">
+
+  <div class="step red">
+    <div class="step-number">12</div>
+    <h3>AUTO-ESCALATION TO L2 — After 14 Working Hours</h3>
+    <p>Status: <span class="badge badge-red">Escalated to L2</span> | Assigned to L2 Manager</p>
+    <p>L2 Manager resolves → CDD does Final Review (Step 9)</p>
+    <span class="email-tag">Email → L2 Manager (Ticket Assigned)</span>
+    <span class="who">System (Automatic)</span>
+  </div>
+
+</div>
+
+<!-- ====== MANUAL ESCALATION ====== -->
+<div class="section-title">Manual Actions (CDD Can Also Do These Anytime)</div>
+
+<div class="step-container">
+
+  <div class="step amber">
+    <div class="step-number">M1</div>
+    <h3>MANUAL ACKNOWLEDGE</h3>
+    <p>CDD clicks <strong>Acknowledge</strong> to confirm ticket receipt</p>
+    <p>Status: <span class="badge badge-blue">Acknowledged</span></p>
+    <span class="who">CDD User</span>
+  </div>
+
+  <div class="step amber">
+    <div class="step-number">M2</div>
+    <h3>MANUAL ESCALATE L1</h3>
+    <p>CDD can manually escalate to AOM without waiting for auto-escalation</p>
+    <p>Status: <span class="badge badge-orange">Escalated to L1</span></p>
+    <span class="who">CDD User</span>
+  </div>
+
+  <div class="step amber">
+    <div class="step-number">M3</div>
+    <h3>MANUAL ESCALATE L2</h3>
+    <p>CDD can manually escalate to L2 Manager</p>
+    <p>Status: <span class="badge badge-red">Escalated to L2</span></p>
+    <span class="who">CDD User</span>
+  </div>
+
+</div>
+
+<!-- SUMMARY TIMELINE -->
+<div class="section-title">Quick Reference: Complete Timeline</div>
+
+<div style="background: #f0f9ff; border: 2px solid #0ea5e9; border-radius: 10px; padding: 16px; font-size: 11px; margin-bottom: 15px;">
+  <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+    <span class="badge badge-blue" style="font-size: 10px;">1. Login</span> →
+    <span class="badge badge-blue" style="font-size: 10px;">2. Go to Tickets</span> →
+    <span class="badge badge-blue" style="font-size: 10px;">3. Click Raise Ticket</span> →
+    <span class="badge badge-blue" style="font-size: 10px;">4. Fill Fields</span> →
+    <span class="badge badge-blue" style="font-size: 10px;">5. Submit</span> →
+    <span class="badge badge-orange" style="font-size: 10px;">6. CM Gets Ticket</span> →
+    <span class="badge badge-orange" style="font-size: 10px;">7. CM Works</span> →
+    <span class="badge badge-green" style="font-size: 10px;">8. CM Resolves</span> →
+    <span class="badge badge-purple" style="font-size: 10px;">9. CDD Reviews</span> →
+    <span class="badge badge-green" style="font-size: 10px;">Final Close</span>
+  </div>
+  <div style="margin-top: 8px; color: #ea580c; font-weight: 600;">
+    If CM doesn't resolve: → <span class="badge badge-red" style="font-size: 10px;">10. Auto-Escalate AOM (6hrs)</span> →
+    <span class="badge badge-red" style="font-size: 10px;">11. AOM Resolves</span> →
+    <span class="badge badge-purple" style="font-size: 10px;">CDD Reviews</span> →
+    <span class="badge badge-green" style="font-size: 10px;">Final Close</span>
+  </div>
+  <div style="margin-top: 6px; color: #dc2626; font-weight: 600;">
+    If AOM doesn't resolve: → <span class="badge badge-red" style="font-size: 10px;">12. Auto-Escalate L2 (14hrs)</span> →
+    <span class="badge badge-green" style="font-size: 10px;">L2 Resolves</span> →
+    <span class="badge badge-purple" style="font-size: 10px;">CDD Reviews</span> →
+    <span class="badge badge-green" style="font-size: 10px;">Final Close</span>
+  </div>
+</div>
+
+<div class="footer">
+  Oliva Helpdesk - CDD Step-by-Step Guide | Generated: April 2026
+</div>
+
+</body>
+</html>

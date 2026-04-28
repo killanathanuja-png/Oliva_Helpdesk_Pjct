@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Quality & Audit - Ticket Flow</title>
+<style>
+  @page { margin: 15mm; size: A4; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Segoe UI', Arial, sans-serif; color: #1a1a1a; line-height: 1.5; padding: 30px; max-width: 900px; margin: 0 auto; }
+
+  .header { background: linear-gradient(135deg, #7c3aed, #a855f7); color: white; padding: 25px 30px; border-radius: 12px; margin-bottom: 25px; }
+  .header h1 { font-size: 22px; margin-bottom: 4px; }
+  .header p { font-size: 12px; opacity: 0.9; }
+
+  .section { margin-bottom: 22px; page-break-inside: avoid; }
+  .section-title { font-size: 15px; font-weight: 700; color: #7c3aed; border-bottom: 2px solid #7c3aed; padding-bottom: 5px; margin-bottom: 12px; }
+
+  .flow-container { display: flex; flex-direction: column; gap: 0; align-items: center; }
+  .flow-step { background: #faf5ff; border: 2px solid #a855f7; border-radius: 10px; padding: 14px 20px; width: 80%; text-align: center; }
+  .flow-step h3 { font-size: 13px; color: #7c3aed; margin-bottom: 3px; }
+  .flow-step p { font-size: 11px; color: #444; }
+  .flow-step.resolved { background: #f0fdf4; border-color: #22c55e; }
+  .flow-step.resolved h3 { color: #16a34a; }
+  .flow-step.blue { background: #eff6ff; border-color: #3b82f6; }
+  .flow-step.blue h3 { color: #2563eb; }
+
+  .arrow { text-align: center; font-size: 20px; color: #a855f7; line-height: 1; padding: 4px 0; }
+
+  table { width: 100%; border-collapse: collapse; font-size: 11px; margin-bottom: 10px; }
+  th { background: #7c3aed; color: white; padding: 8px 10px; text-align: left; font-weight: 600; }
+  td { padding: 7px 10px; border-bottom: 1px solid #e5e7eb; }
+  tr:nth-child(even) { background: #f9fafb; }
+
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 10px; font-weight: 600; }
+  .badge-green { background: #dcfce7; color: #166534; }
+  .badge-blue { background: #dbeafe; color: #1e40af; }
+  .badge-purple { background: #f3e8ff; color: #6b21a8; }
+  .badge-amber { background: #fef3c7; color: #92400e; }
+
+  .info-box { background: #faf5ff; border-left: 4px solid #a855f7; padding: 10px 14px; border-radius: 0 8px 8px 0; margin: 10px 0; font-size: 11px; }
+  .info-box strong { color: #7c3aed; }
+
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+  .card { background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; padding: 12px; }
+  .card h4 { font-size: 12px; color: #7c3aed; margin-bottom: 6px; }
+  .card ul { list-style: none; padding: 0; }
+  .card ul li { font-size: 11px; padding: 3px 0; border-bottom: 1px dotted #e5e7eb; }
+  .card ul li:last-child { border: none; }
+  .card ul li::before { content: ""; display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: #a855f7; margin-right: 6px; vertical-align: middle; }
+
+  .cat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .cat-item { background: #faf5ff; border: 1px solid #e9d5ff; border-radius: 8px; padding: 8px 10px; }
+  .cat-item h5 { font-size: 11px; color: #7c3aed; font-weight: 700; margin-bottom: 3px; }
+  .cat-item p { font-size: 10px; color: #666; }
+
+  .footer { text-align: center; font-size: 10px; color: #9ca3af; margin-top: 30px; padding-top: 15px; border-top: 1px solid #e5e7eb; }
+
+  @media print {
+    body { padding: 0; }
+    .header, th, .badge, .flow-step, .info-box, .card, .cat-item { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>Quality & Audit Department - Ticket Flow</h1>
+  <p>Oliva Helpdesk | From Ticket Creation to Closure</p>
+</div>
+
+<!-- OVERVIEW -->
+<div class="section">
+  <div class="section-title">Overview</div>
+  <div class="two-col">
+    <div class="card">
+      <h4>Key Characteristics</h4>
+      <ul>
+        <li><strong>Simple workflow</strong> — no approval required</li>
+        <li><strong>No auto-escalation</strong> — unlike Admin dept</li>
+        <li><strong>No auto-assignment</strong> — goes to department</li>
+        <li><strong>Category & Sub-Category</strong> are mandatory</li>
+        <li>Department aliases: "Quality & Audit" = "Quality"</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h4>Who Can Raise?</h4>
+      <ul>
+        <li>Any user who has access to Quality & Audit department</li>
+        <li><strong>QA</strong> role users</li>
+        <li><strong>Sr. Manager Quality & Audit</strong> role users</li>
+        <li>Other roles can also raise if department is available</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<!-- RAISE TICKET -->
+<div class="section">
+  <div class="section-title">Step 1: Raise a Ticket</div>
+  <table>
+    <tr><th>Field</th><th>Required</th><th>Description</th></tr>
+    <tr><td>Department</td><td><span class="badge badge-green">Mandatory</span></td><td>Select "Quality & Audit"</td></tr>
+    <tr><td>Issue Description</td><td><span class="badge badge-green">Mandatory</span></td><td>Detailed description of the issue</td></tr>
+    <tr><td>Category</td><td><span class="badge badge-green">Mandatory</span></td><td>Select from predefined categories</td></tr>
+    <tr><td>Sub-Category</td><td><span class="badge badge-green">Mandatory</span></td><td>Select based on chosen category</td></tr>
+    <tr><td>Center</td><td><span class="badge badge-green">Mandatory</span></td><td>Select the clinic center</td></tr>
+    <tr><td>Attachment</td><td>Optional</td><td>Upload supporting files</td></tr>
+  </table>
+</div>
+
+<!-- CATEGORIES -->
+<div class="section">
+  <div class="section-title">Categories & Sub-Categories</div>
+  <div class="cat-grid">
+    <div class="cat-item">
+      <h5>Post Audit</h5>
+      <p>No sub-categories</p>
+    </div>
+    <div class="cat-item">
+      <h5>Quality Report</h5>
+      <p>No sub-categories</p>
+    </div>
+    <div class="cat-item">
+      <h5>Grooming Approval</h5>
+      <p>Accessories, Make up, Mehandi Application</p>
+    </div>
+    <div class="cat-item">
+      <h5>Inter Departmental Concerns</h5>
+      <p>Admin, Stores, HR, Ops VP, CDD, Marketing, BPM, Products, Zenoti, Medical Team</p>
+    </div>
+    <div class="cat-item">
+      <h5>Clinic Late Opening & Early Closure</h5>
+      <p>Doctor Unavailability, Keys unavailable, Team outing</p>
+    </div>
+    <div class="cat-item">
+      <h5>Uniform Concerns</h5>
+      <p>Temporary Approval, Uniform Issuance, Name Badge, Shoes</p>
+    </div>
+    <div class="cat-item">
+      <h5>Audit Requisitions</h5>
+      <p>Room Checklist, Register video, Emergency drug list, Grooming guidelines</p>
+    </div>
+    <div class="cat-item">
+      <h5>Dr Referrals</h5>
+      <p>No sub-categories</p>
+    </div>
+  </div>
+</div>
+
+<!-- FLOW DIAGRAM -->
+<div class="section">
+  <div class="section-title">Complete Ticket Flow</div>
+  <div class="flow-container">
+
+    <div class="flow-step">
+      <h3>STEP 1: TICKET CREATED</h3>
+      <p>User raises ticket for Quality & Audit | Status: <span class="badge badge-blue">Open</span></p>
+      <p>Email sent to: <strong>Raiser</strong> (Ticket Created)</p>
+    </div>
+    <div class="arrow">&#9660;</div>
+
+    <div class="flow-step">
+      <h3>STEP 2: TICKET ASSIGNED</h3>
+      <p>Ticket goes to Quality & Audit department</p>
+      <p>If assignee set: Email sent to <strong>Assignee</strong> (Ticket Assigned)</p>
+      <p>Center Manager also notified if applicable</p>
+    </div>
+    <div class="arrow">&#9660;</div>
+
+    <div class="flow-step blue">
+      <h3>STEP 3: TEAM WORKS ON TICKET</h3>
+      <p>Quality team reviews the issue, updates status, adds comments</p>
+      <p>Available: <span class="badge badge-blue">In Progress</span> <span class="badge badge-amber">Follow Up</span></p>
+      <p>Email: Raiser + Assignee notified on every status change</p>
+    </div>
+    <div class="arrow">&#9660;</div>
+
+    <div class="flow-step resolved">
+      <h3>STEP 4: RESOLVED</h3>
+      <p>Quality team resolves the issue | Status: <span class="badge badge-green">Resolved</span></p>
+      <p>Email sent to: <strong>Raiser + Assignee</strong> (Status Update)</p>
+    </div>
+    <div class="arrow">&#9660;</div>
+
+    <div class="flow-step resolved" style="border-width: 3px;">
+      <h3>STEP 5: CLOSED</h3>
+      <p>Ticket is closed | Status: <span class="badge badge-green">Closed</span></p>
+      <p>Email sent to: <strong>Raiser + Assignee</strong> (Status Update)</p>
+      <p style="font-size:10px; color:#16a34a; font-weight:700; margin-top:4px;">TICKET COMPLETE</p>
+    </div>
+
+  </div>
+
+  <div class="info-box" style="margin-top: 15px;">
+    <strong>Reopen:</strong> If the issue is not fully resolved, the raiser can reopen the ticket. Status changes to <span class="badge badge-amber">Reopened</span> and the cycle repeats from Step 3.
+  </div>
+</div>
+
+<!-- EMAIL NOTIFICATIONS -->
+<div class="section">
+  <div class="section-title">Email Notifications</div>
+  <table>
+    <tr><th>Event</th><th>Who Gets Email</th><th>Email Type</th></tr>
+    <tr><td>Ticket Created</td><td>Raiser</td><td>Ticket Created</td></tr>
+    <tr><td>Ticket Assigned</td><td>Assignee (if set)</td><td>Ticket Assigned</td></tr>
+    <tr><td>Center Manager</td><td>Center Manager (if exists)</td><td>Ticket Assigned</td></tr>
+    <tr><td>Status Changed</td><td>Raiser + Assignee</td><td>Status Update</td></tr>
+    <tr><td>Comment Added</td><td>Raiser + Assignee</td><td>Comment Notification</td></tr>
+    <tr><td>Resolved / Closed</td><td>Raiser + Assignee</td><td>Status Update</td></tr>
+  </table>
+</div>
+
+<!-- STATUSES -->
+<div class="section">
+  <div class="section-title">Available Statuses</div>
+  <table>
+    <tr><th>Status</th><th>Meaning</th><th>Set By</th></tr>
+    <tr><td><span class="badge badge-blue">Open</span></td><td>Newly created ticket</td><td>System (on creation)</td></tr>
+    <tr><td><span class="badge badge-blue">In Progress</span></td><td>Being worked on by Quality team</td><td>Assignee</td></tr>
+    <tr><td><span class="badge badge-green">Resolved</span></td><td>Issue has been fixed</td><td>Assignee</td></tr>
+    <tr><td><span class="badge badge-green">Closed</span></td><td>Ticket is closed</td><td>Assignee / Admin</td></tr>
+    <tr><td><span class="badge badge-amber">Reopened</span></td><td>Was closed, opened again</td><td>Raiser</td></tr>
+  </table>
+</div>
+
+<!-- EDIT PERMISSIONS -->
+<div class="section">
+  <div class="section-title">Edit Permissions</div>
+  <table>
+    <tr><th>Role</th><th>Can Do</th></tr>
+    <tr><td><strong>QA / Sr. Manager Quality & Audit</strong></td><td>Change status, add comments, resolve, close, assign to team members</td></tr>
+    <tr><td><strong>Raiser</strong></td><td>View ticket, add comments, reopen if closed/resolved</td></tr>
+    <tr><td><strong>Super Admin</strong></td><td>Full edit access, delete tickets</td></tr>
+  </table>
+</div>
+
+<!-- COMPARISON -->
+<div class="section">
+  <div class="section-title">How Quality & Audit Differs from Other Departments</div>
+  <table>
+    <tr><th>Feature</th><th style="background:#7c3aed;">Quality & Audit</th><th>Admin Dept</th><th>CDD → Clinic</th><th>Zenoti</th></tr>
+    <tr><td>Approval Required</td><td><span class="badge badge-green">No</span></td><td>No</td><td>No</td><td>Yes (AOM/Finance)</td></tr>
+    <tr><td>Auto-Assignment</td><td><span class="badge badge-green">No</span></td><td>Yes (L1 by location)</td><td>Yes (Clinic Manager)</td><td>No</td></tr>
+    <tr><td>Auto-Escalation</td><td><span class="badge badge-green">No</span></td><td>Yes (L1→L2→L3)</td><td>Yes (AOM→L2)</td><td>No</td></tr>
+    <tr><td>Workflow</td><td>Simple</td><td>Location-based</td><td>CDD oversight</td><td>Multi-step approval</td></tr>
+    <tr><td>Special Fields</td><td>None</td><td>Admin categories</td><td>Client details</td><td>Invoice/billing</td></tr>
+  </table>
+</div>
+
+<div class="footer">
+  Oliva Helpdesk - Quality & Audit Department Flow Document | Generated: April 2026
+</div>
+
+</body>
+</html>

@@ -460,6 +460,17 @@ const RaiseTicketModal = ({ onClose, onSuccess, editMode, editTicket, userRole, 
         setSubmitting(false);
         return;
       }
+      // General departments (Quality & Audit, etc.): Category and Sub Category are mandatory
+      if (!isAdminDept && !isITDept && !isZenoti && !isCDDClinic) {
+        const missing: string[] = [];
+        if (!category.trim()) missing.push("Category");
+        if (!subCategory.trim()) missing.push("Sub-Category");
+        if (missing.length > 0) {
+          alert(`Please fill mandatory fields:\n${missing.join(", ")}`);
+          setSubmitting(false);
+          return;
+        }
+      }
       if (onSuccess) {
         const finalCategory = isAdminDept ? adminMainCategory : isITDept ? itCategory : (isCDDClinic && category === "others" && customType) ? customType : category;
         const finalSubCategory = isAdminDept ? adminModule : isITDept ? itSubCategory : (isCDDClinic && subCategory === "others" && customCategory) ? customCategory : subCategory;
@@ -860,7 +871,7 @@ const RaiseTicketModal = ({ onClose, onSuccess, editMode, editTicket, userRole, 
             {!isZenoti && !isAdminDept && !isITDept && !(isHelpdeskAdmin && department === "IT Department") && (
               <div className={cn("grid gap-3", (isCDDToClinics || isCDDClinic || isQualityAudit) ? "grid-cols-2" : "grid-cols-3")}>
                 <div>
-                  <label className={labelClass}>{isCDDClinic ? "Category" : "Category"}{isCDDClinic && <span className="text-destructive"> *</span>}</label>
+                  <label className={labelClass}>Category<span className="text-destructive"> *</span></label>
                   <ComboBox
                     value={category}
                     onChange={(val) => { handleCategoryChange(val); if (val !== "others") setCustomType(""); }}
@@ -873,7 +884,7 @@ const RaiseTicketModal = ({ onClose, onSuccess, editMode, editTicket, userRole, 
                   )}
                 </div>
                 <div>
-                  <label className={labelClass}>{isCDDClinic ? "Sub Category" : "Sub-Category"}{isCDDClinic && <span className="text-destructive"> *</span>}</label>
+                  <label className={labelClass}>Sub-Category<span className="text-destructive"> *</span></label>
                   <ComboBox
                     value={subCategory}
                     onChange={(val) => { handleSubCategoryChange2(val); if (val !== "others") setCustomCategory(""); }}

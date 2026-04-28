@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>CDD Department - Ticket Flow</title>
+<style>
+  @page { margin: 15mm; size: A4; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Segoe UI', Arial, sans-serif; color: #1a1a1a; line-height: 1.5; padding: 30px; max-width: 900px; margin: 0 auto; }
+
+  .header { background: linear-gradient(135deg, #0369a1, #0ea5e9); color: white; padding: 25px 30px; border-radius: 12px; margin-bottom: 25px; }
+  .header h1 { font-size: 22px; margin-bottom: 4px; }
+  .header p { font-size: 12px; opacity: 0.9; }
+
+  .section { margin-bottom: 22px; page-break-inside: avoid; }
+  .section-title { font-size: 15px; font-weight: 700; color: #0369a1; border-bottom: 2px solid #0ea5e9; padding-bottom: 5px; margin-bottom: 12px; }
+
+  .flow-container { display: flex; flex-direction: column; gap: 0; align-items: center; }
+  .flow-step { background: #f0f9ff; border: 2px solid #0ea5e9; border-radius: 10px; padding: 14px 20px; width: 85%; text-align: center; }
+  .flow-step h3 { font-size: 13px; color: #0369a1; margin-bottom: 3px; }
+  .flow-step p { font-size: 11px; color: #444; }
+  .flow-step.green { background: #f0fdf4; border-color: #22c55e; }
+  .flow-step.green h3 { color: #16a34a; }
+  .flow-step.orange { background: #fff7ed; border-color: #f97316; }
+  .flow-step.orange h3 { color: #ea580c; }
+  .flow-step.red { background: #fef2f2; border-color: #ef4444; }
+  .flow-step.red h3 { color: #dc2626; }
+  .flow-step.purple { background: #faf5ff; border-color: #a855f7; }
+  .flow-step.purple h3 { color: #7c3aed; }
+  .flow-step.teal { background: #f0fdfa; border-color: #14b8a6; }
+  .flow-step.teal h3 { color: #0d9488; }
+
+  .arrow { text-align: center; font-size: 20px; color: #0ea5e9; line-height: 1; padding: 4px 0; }
+  .arrow.orange { color: #f97316; }
+  .arrow.red { color: #ef4444; }
+  .arrow.green { color: #22c55e; }
+
+  .split { display: flex; gap: 12px; width: 85%; }
+  .split .flow-step { flex: 1; width: auto; }
+
+  table { width: 100%; border-collapse: collapse; font-size: 11px; margin-bottom: 10px; }
+  th { background: #0369a1; color: white; padding: 8px 10px; text-align: left; font-weight: 600; }
+  td { padding: 7px 10px; border-bottom: 1px solid #e5e7eb; }
+  tr:nth-child(even) { background: #f9fafb; }
+
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 10px; font-weight: 600; }
+  .badge-green { background: #dcfce7; color: #166534; }
+  .badge-blue { background: #dbeafe; color: #1e40af; }
+  .badge-orange { background: #ffedd5; color: #9a3412; }
+  .badge-red { background: #fee2e2; color: #991b1b; }
+  .badge-amber { background: #fef3c7; color: #92400e; }
+  .badge-purple { background: #f3e8ff; color: #6b21a8; }
+  .badge-teal { background: #ccfbf1; color: #115e59; }
+
+  .info-box { background: #f0f9ff; border-left: 4px solid #0ea5e9; padding: 10px 14px; border-radius: 0 8px 8px 0; margin: 10px 0; font-size: 11px; }
+  .info-box strong { color: #0369a1; }
+  .info-box.warn { background: #fff7ed; border-color: #f97316; }
+  .info-box.warn strong { color: #ea580c; }
+
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+  .three-col { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+  .card { background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; padding: 12px; }
+  .card h4 { font-size: 12px; color: #0369a1; margin-bottom: 6px; }
+  .card ul { list-style: none; padding: 0; }
+  .card ul li { font-size: 11px; padding: 3px 0; border-bottom: 1px dotted #e5e7eb; }
+  .card ul li:last-child { border: none; }
+  .card ul li::before { content: ""; display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: #0ea5e9; margin-right: 6px; vertical-align: middle; }
+
+  .action-card { border: 2px solid #e5e7eb; border-radius: 10px; padding: 10px; text-align: center; }
+  .action-card h5 { font-size: 11px; font-weight: 700; margin-bottom: 3px; }
+  .action-card p { font-size: 10px; color: #666; }
+
+  .footer { text-align: center; font-size: 10px; color: #9ca3af; margin-top: 30px; padding-top: 15px; border-top: 1px solid #e5e7eb; }
+
+  @media print {
+    body { padding: 0; }
+    .header, th, .badge, .flow-step, .info-box, .card, .action-card { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>CDD Department - Ticket Flow</h1>
+  <p>Oliva Helpdesk | CDD to Clinic Manager → AOM → L2 Escalation Flow</p>
+</div>
+
+<!-- OVERVIEW -->
+<div class="section">
+  <div class="section-title">Overview</div>
+  <div class="two-col">
+    <div class="card">
+      <h4>Key Characteristics</h4>
+      <ul>
+        <li><strong>CDD raises tickets</strong> for Clinic department</li>
+        <li><strong>Auto-assigned</strong> to Center's Clinic Manager</li>
+        <li><strong>Auto-escalation</strong> to AOM after 6 working hours</li>
+        <li><strong>Auto-escalation</strong> to L2 after 14 working hours</li>
+        <li>CDD has special actions: Acknowledge, Reopen, Final Close</li>
+        <li>All client detail fields are <strong>mandatory</strong></li>
+      </ul>
+    </div>
+    <div class="card">
+      <h4>Key People</h4>
+      <ul>
+        <li><strong>CDD User</strong> — Raises the ticket</li>
+        <li><strong>Clinic Manager (CM)</strong> — First assignee per center</li>
+        <li><strong>AOM</strong> — Area Operations Manager (L1 escalation)</li>
+        <li><strong>L2 Manager</strong> — Final escalation level</li>
+        <li><strong>CDD Admin</strong> — Admin access to CDD tickets</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<!-- RAISE TICKET -->
+<div class="section">
+  <div class="section-title">Step 1: Raise a Ticket (Mandatory Fields)</div>
+  <table>
+    <tr><th>Field</th><th>Required</th><th>Description</th></tr>
+    <tr><td>Client Code</td><td><span class="badge badge-red">Mandatory</span></td><td>Client's unique code</td></tr>
+    <tr><td>Client Name</td><td><span class="badge badge-red">Mandatory</span></td><td>Client's full name</td></tr>
+    <tr><td>Complaint Description</td><td><span class="badge badge-red">Mandatory</span></td><td>Detailed issue description</td></tr>
+    <tr><td>Category</td><td><span class="badge badge-red">Mandatory</span></td><td>Treatment / Marketing / Others</td></tr>
+    <tr><td>Sub-Category</td><td><span class="badge badge-red">Mandatory</span></td><td>Based on category selection</td></tr>
+    <tr><td>Service Name</td><td><span class="badge badge-red">Mandatory</span></td><td>Service related to the issue</td></tr>
+    <tr><td>CRT Name</td><td><span class="badge badge-red">Mandatory</span></td><td>CRT person name</td></tr>
+    <tr><td>Primary Doctor</td><td><span class="badge badge-red">Mandatory</span></td><td>Doctor involved</td></tr>
+    <tr><td>Therapist Name</td><td><span class="badge badge-red">Mandatory</span></td><td>Therapist involved</td></tr>
+    <tr><td>Assigned Center</td><td><span class="badge badge-red">Mandatory</span></td><td>Clinic center (auto-fills CM & AOM)</td></tr>
+    <tr><td>Action Required</td><td>Optional</td><td>What action is needed</td></tr>
+  </table>
+</div>
+
+<!-- CATEGORIES -->
+<div class="section">
+  <div class="section-title">Categories & Sub-Categories</div>
+  <div class="two-col">
+    <div class="card">
+      <h4>Treatment</h4>
+      <ul>
+        <li>No visible results</li>
+        <li>Package Refund Done Incorrectly</li>
+        <li>Multiple Packages sold</li>
+        <li>Overcharged / Billing issue</li>
+        <li>Diet plan not shared</li>
+        <li>Others (custom entry)</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h4>Marketing</h4>
+      <ul>
+        <li>Misleading / Incorrect offer</li>
+        <li>Duplicate lead</li>
+        <li>Lead not assigned</li>
+        <li>Others (custom entry)</li>
+      </ul>
+    </div>
+  </div>
+  <div class="info-box">
+    <strong>Custom Entry:</strong> Selecting "Others" allows free-text entry for both Category and Sub-Category fields.
+  </div>
+</div>
+
+<!-- CDD ACTIONS -->
+<div class="section">
+  <div class="section-title">CDD Special Actions</div>
+  <div style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px;">
+    <div class="action-card" style="border-color: #0ea5e9; background: #f0f9ff;">
+      <h5 style="color: #0369a1;">Acknowledge</h5>
+      <p>CM confirms receipt</p>
+      <p><span class="badge badge-blue">Acknowledged</span></p>
+    </div>
+    <div class="action-card" style="border-color: #f97316; background: #fff7ed;">
+      <h5 style="color: #ea580c;">Escalate L1</h5>
+      <p>Send to AOM</p>
+      <p><span class="badge badge-orange">Escalated to L1</span></p>
+    </div>
+    <div class="action-card" style="border-color: #ef4444; background: #fef2f2;">
+      <h5 style="color: #dc2626;">Escalate L2</h5>
+      <p>Send to L2 Manager</p>
+      <p><span class="badge badge-red">Escalated to L2</span></p>
+    </div>
+    <div class="action-card" style="border-color: #f59e0b; background: #fffbeb;">
+      <h5 style="color: #b45309;">Reopen</h5>
+      <p>Issue not resolved</p>
+      <p><span class="badge badge-amber">Reopened by CDD</span></p>
+    </div>
+    <div class="action-card" style="border-color: #22c55e; background: #f0fdf4;">
+      <h5 style="color: #16a34a;">Final Close</h5>
+      <p>All queries addressed</p>
+      <p><span class="badge badge-green">Final Closed</span></p>
+    </div>
+  </div>
+</div>
+
+<!-- FLOW DIAGRAM -->
+<div class="section">
+  <div class="section-title">Complete Ticket Flow</div>
+  <div class="flow-container">
+
+    <div class="flow-step">
+      <h3>STEP 1: CDD RAISES TICKET</h3>
+      <p>CDD user fills all mandatory fields | Status: <span class="badge badge-blue">Open</span></p>
+      <p>Email: <strong>Raiser</strong> (Created) + <strong>Clinic Manager</strong> (Assigned)</p>
+    </div>
+    <div class="arrow">&#9660;</div>
+
+    <div class="flow-step teal">
+      <h3>STEP 2: AUTO-ASSIGNED TO CLINIC MANAGER</h3>
+      <p>System looks up Center → Clinic Manager Email → Auto-assigns</p>
+      <p>CM receives ticket and can: Acknowledge, Update Status, Resolve, Close</p>
+    </div>
+    <div class="arrow">&#9660;</div>
+
+    <div class="split">
+      <div class="flow-step green">
+        <h3>CM RESOLVES</h3>
+        <p><span class="badge badge-green">Resolved / Closed</span></p>
+        <p>Email: Raiser notified</p>
+        <p style="font-size:10px; margin-top:4px;">CDD can <strong>Final Close</strong> or <strong>Reopen</strong></p>
+      </div>
+      <div class="flow-step orange">
+        <h3>CM DOES NOT RESOLVE</h3>
+        <p>SLA: <strong>6 working hours</strong> exceeded</p>
+        <p>Auto-escalates to AOM &#9654;</p>
+      </div>
+    </div>
+    <div class="arrow orange">&#9660;</div>
+
+    <div class="flow-step orange">
+      <h3>STEP 3: AUTO-ESCALATED TO L1 (AOM)</h3>
+      <p>Status: <span class="badge badge-orange">Escalated to L1</span> | Assigned to center's AOM</p>
+      <p>Email: <strong>AOM</strong> (Ticket Assigned)</p>
+      <p style="font-size:10px;">AOM can: <span class="badge badge-green">Resolve</span> <span class="badge badge-green">Close</span></p>
+    </div>
+    <div class="arrow orange">&#9660;</div>
+
+    <div class="split">
+      <div class="flow-step green">
+        <h3>AOM RESOLVES</h3>
+        <p><span class="badge badge-green">Resolved / Closed</span></p>
+        <p>Email: Raiser notified</p>
+        <p style="font-size:10px; margin-top:4px;">CDD can <strong>Final Close</strong> or <strong>Reopen</strong></p>
+      </div>
+      <div class="flow-step red">
+        <h3>AOM DOES NOT RESOLVE</h3>
+        <p>SLA: <strong>14 working hours</strong> (6+8)</p>
+        <p>Auto-escalates to L2 &#9654;</p>
+      </div>
+    </div>
+    <div class="arrow red">&#9660;</div>
+
+    <div class="flow-step red">
+      <h3>STEP 4: AUTO-ESCALATED TO L2</h3>
+      <p>Status: <span class="badge badge-red">Escalated to L2</span> | Assigned to L2 Manager</p>
+      <p>Email: <strong>L2 Manager</strong> (Ticket Assigned)</p>
+    </div>
+    <div class="arrow green">&#9660;</div>
+
+    <div class="flow-step green">
+      <h3>STEP 5: RESOLVED & CLOSED</h3>
+      <p>L2 resolves the issue | Status: <span class="badge badge-green">Resolved / Closed</span></p>
+      <p>Email: <strong>Raiser + Assignee</strong></p>
+    </div>
+    <div class="arrow green">&#9660;</div>
+
+    <div class="flow-step purple">
+      <h3>STEP 6: CDD FINAL REVIEW</h3>
+      <p>CDD reviews the resolution</p>
+      <p style="margin-top: 4px;">
+        <span class="badge badge-green">Final Close</span> — All queries addressed, ticket complete
+        &nbsp;&nbsp;OR&nbsp;&nbsp;
+        <span class="badge badge-amber">Reopen</span> — Issue not fully resolved, back to assignee
+      </p>
+    </div>
+
+  </div>
+</div>
+
+<!-- ESCALATION TIMING -->
+<div class="section">
+  <div class="section-title">Auto-Escalation Timing</div>
+  <table>
+    <tr><th>Escalation</th><th>From</th><th>To</th><th>After</th><th>Status</th></tr>
+    <tr><td><span class="badge badge-orange">L1</span></td><td>Clinic Manager</td><td>AOM (per center)</td><td>6 working hours</td><td>Escalated to L1</td></tr>
+    <tr><td><span class="badge badge-red">L2</span></td><td>AOM</td><td>L2 Manager</td><td>14 working hours (6+8)</td><td>Escalated to L2</td></tr>
+  </table>
+  <div class="info-box warn">
+    <strong>Working Hours:</strong> 10:00 AM to 6:00 PM IST, Monday to Saturday only. Sundays and outside office hours are excluded. System checks every 5 minutes.
+  </div>
+</div>
+
+<!-- EMAIL NOTIFICATIONS -->
+<div class="section">
+  <div class="section-title">Email Notifications</div>
+  <table>
+    <tr><th>Event</th><th>Who Gets Email</th><th>Type</th></tr>
+    <tr><td>Ticket Created</td><td>CDD Raiser</td><td>Ticket Created</td></tr>
+    <tr><td>Auto-Assigned to CM</td><td>Clinic Manager</td><td>Ticket Assigned</td></tr>
+    <tr><td>Center Manager</td><td>Center Manager (if different from CM)</td><td>Ticket Assigned</td></tr>
+    <tr><td>Status Changed</td><td>Raiser + Current Assignee</td><td>Status Update</td></tr>
+    <tr><td>Auto-Escalated to AOM</td><td>AOM</td><td>Ticket Assigned</td></tr>
+    <tr><td>Auto-Escalated to L2</td><td>L2 Manager</td><td>Ticket Assigned</td></tr>
+    <tr><td>CDD Action (Reopen/Final Close)</td><td>Raiser + Assignee</td><td>Status Update</td></tr>
+    <tr><td>Comment Added</td><td>Raiser + Assignee</td><td>Comment</td></tr>
+  </table>
+</div>
+
+<!-- STATUSES -->
+<div class="section">
+  <div class="section-title">All Statuses in CDD Flow</div>
+  <table>
+    <tr><th>Status</th><th>Meaning</th><th>Set By</th></tr>
+    <tr><td><span class="badge badge-blue">Open</span></td><td>Newly created</td><td>System</td></tr>
+    <tr><td><span class="badge badge-blue">Acknowledged</span></td><td>CM confirmed receipt</td><td>Clinic Manager</td></tr>
+    <tr><td><span class="badge badge-blue">In Progress</span></td><td>Being worked on</td><td>CM / AOM</td></tr>
+    <tr><td><span class="badge badge-orange">Escalated to L1</span></td><td>Moved to AOM (6hrs)</td><td>System / CDD manual</td></tr>
+    <tr><td><span class="badge badge-red">Escalated to L2</span></td><td>Moved to L2 (14hrs)</td><td>System / CDD manual</td></tr>
+    <tr><td><span class="badge badge-green">Resolved</span></td><td>Issue fixed</td><td>CM / AOM / L2</td></tr>
+    <tr><td><span class="badge badge-green">Closed</span></td><td>Ticket closed</td><td>CM / AOM / L2</td></tr>
+    <tr><td><span class="badge badge-amber">Reopened by CDD</span></td><td>CDD says issue not resolved</td><td>CDD User</td></tr>
+    <tr><td><span class="badge badge-green">Final Closed</span></td><td>CDD confirms all done</td><td>CDD User</td></tr>
+  </table>
+</div>
+
+<!-- EDIT PERMISSIONS -->
+<div class="section">
+  <div class="section-title">Edit Permissions</div>
+  <table>
+    <tr><th>Role</th><th>Can Do</th></tr>
+    <tr><td><strong>CDD User (Raiser)</strong></td><td>Acknowledge, Escalate L1/L2, Reopen, Final Close, Add comments</td></tr>
+    <tr><td><strong>Clinic Manager</strong></td><td>Update status, Resolve, Close, Add comments</td></tr>
+    <tr><td><strong>AOM (Escalated L1)</strong></td><td>Resolve, Close (only for CDD escalated tickets)</td></tr>
+    <tr><td><strong>L2 Manager</strong></td><td>Resolve, Close</td></tr>
+    <tr><td><strong>CDD Admin</strong></td><td>Full CDD ticket management</td></tr>
+    <tr><td><strong>Super Admin</strong></td><td>Full access, delete tickets</td></tr>
+  </table>
+</div>
+
+<div class="footer">
+  Oliva Helpdesk - CDD Department Flow Document | Generated: April 2026
+</div>
+
+</body>
+</html>
