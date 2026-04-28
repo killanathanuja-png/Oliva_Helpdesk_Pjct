@@ -44,6 +44,13 @@ def generate_token():
         else:
             print("No Zoho service user found. Creating one...\n")
 
+            # Find CDD department to link the service user
+            from app.models.models import Department
+            cdd_dept = db.query(Department).filter(Department.name.ilike("%CDD%")).first()
+            dept_id = cdd_dept.id if cdd_dept else None
+            if cdd_dept:
+                print(f"Linking to department: {cdd_dept.name} (ID: {cdd_dept.id})")
+
             # Create a dedicated service user for Zoho integration
             # Find max code
             all_codes = db.query(User.code).all()
@@ -60,8 +67,9 @@ def generate_token():
                 code=f"USR{(max_num + 1):04d}",
                 name="Zoho Desk Integration",
                 email="zoho-integration@olivaclinic.com",
-                password_hash=hash_password(secrets.token_urlsafe(32)),  # random password, not used
+                hashed_password=hash_password(secrets.token_urlsafe(32)),  # random password, not used
                 role="API Integration",
+                department_id=dept_id,
                 status=StatusEnum.Active,
             )
             db.add(zoho_user)
