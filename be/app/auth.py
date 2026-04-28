@@ -1,5 +1,6 @@
 from datetime import datetime, timedelta, timezone
 from typing import Optional
+import hashlib
 import bcrypt
 from jose import JWTError, jwt
 from fastapi import Depends, HTTPException, status
@@ -7,7 +8,7 @@ from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.orm import Session
 from app.config import SECRET_KEY, ALGORITHM, ACCESS_TOKEN_EXPIRE_MINUTES
 from app.database import get_db
-from app.models.models import User
+from app.models.models import User, ApiToken
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login")
 
@@ -29,6 +30,11 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
         return False
 
 
+def hash_api_token(token: str) -> str:
+    """Hash an API token using SHA-256 for storage."""
+    return hashlib.sha256(token.encode("utf-8")).hexdigest()
+
+
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -> str:
     to_encode = data.copy()
     expire = datetime.now(timezone.utc) + (expires_delta or timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES))
@@ -42,6 +48,25 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
         detail="Could not validate credentials",
         headers={"WWW-Authenticate": "Bearer"},
     )
+
+    # First try: check if it's a long-lived API token (prefixed with "oliva_")
+    if token.startswith("oliva_"):
+        token_hash = hash_api_token(token)
+        api_token = db.query(ApiToken).filter(
+            ApiToken.token_hash == token_hash,
+            ApiToken.is_active == True,
+        ).first()
+        if api_token is None:
+            raise credentials_exception
+        # Update last_used_at
+        api_token.last_used_at = datetime.now(timezone.utc)
+        db.commit()
+        user = db.query(User).filter(User.id == api_token.user_id).first()
+        if user is None:
+            raise credentials_exception
+        return user
+
+    # Second try: standard JWT token
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         sub = payload.get("sub")

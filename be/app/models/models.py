@@ -528,3 +528,18 @@ class AdminEscalationMatrix(Base):
     l2_sla_hours = Column(Float, default=10)   # Escalate to L3 after 10 more hours (18 total)
     status = Column(SAEnum(StatusEnum), default=StatusEnum.Active)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+
+class ApiToken(Base):
+    """Long-lived API tokens for external integrations (e.g., Zoho Desk)."""
+    __tablename__ = "api_tokens"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String(100), nullable=False)  # e.g. "Zoho Desk Integration"
+    token_hash = Column(String(200), nullable=False, unique=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    last_used_at = Column(DateTime(timezone=True), nullable=True)
+
+    user = relationship("User")
