@@ -560,6 +560,7 @@ const TicketsPage = () => {
           <option value="Open">Open</option>
           <option value="In Progress">In Progress</option>
           <option value="Reopened">Re-Open</option>
+          <option value="Follow Up">Follow Up</option>
           <option value="Closed">Closed</option>
         </select>
         {isZenotiRole && (

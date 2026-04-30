@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Admin & IT Department - Ticket Flow</title>
+<style>
+  @page { margin: 10mm; size: A3; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Segoe UI', Arial, sans-serif; color: #1a1a1a; line-height: 1.5; padding: 30px; max-width: 1100px; margin: 0 auto; background: #f8fafc; }
+
+  .header { background: linear-gradient(135deg, #0d9488, #14b8a6); color: white; padding: 25px 30px; border-radius: 12px; margin-bottom: 30px; text-align: center; }
+  .header h1 { font-size: 24px; margin-bottom: 4px; }
+  .header p { font-size: 13px; opacity: 0.9; }
+
+  .two-flows { display: grid; grid-template-columns: 1fr 1fr; gap: 25px; }
+
+  .flow-panel { background: white; border-radius: 14px; padding: 24px; box-shadow: 0 2px 12px rgba(0,0,0,0.08); }
+  .flow-panel h2 { font-size: 17px; text-align: center; padding: 12px; border-radius: 8px; margin-bottom: 18px; color: white; }
+  .flow-panel.admin h2 { background: linear-gradient(135deg, #0d9488, #14b8a6); }
+  .flow-panel.it h2 { background: linear-gradient(135deg, #2563eb, #3b82f6); }
+
+  .flow-container { display: flex; flex-direction: column; align-items: center; gap: 0; }
+
+  .flow-step { background: #f0fdfa; border: 2px solid #14b8a6; border-radius: 10px; padding: 12px 16px; width: 92%; text-align: center; }
+  .flow-step h3 { font-size: 12px; color: #0d9488; margin-bottom: 3px; text-transform: uppercase; letter-spacing: 0.5px; }
+  .flow-step p { font-size: 11px; color: #444; line-height: 1.4; }
+  .flow-step.blue { background: #eff6ff; border-color: #3b82f6; }
+  .flow-step.blue h3 { color: #2563eb; }
+  .flow-step.escalation { background: #fff7ed; border-color: #f97316; }
+  .flow-step.escalation h3 { color: #ea580c; }
+  .flow-step.alert { background: #fef2f2; border-color: #ef4444; }
+  .flow-step.alert h3 { color: #dc2626; }
+  .flow-step.resolved { background: #f0fdf4; border-color: #22c55e; }
+  .flow-step.resolved h3 { color: #16a34a; }
+  .flow-step.purple { background: #faf5ff; border-color: #7c3aed; border-width: 3px; }
+  .flow-step.purple h3 { color: #7c3aed; }
+  .flow-step.final { background: #ecfdf5; border-color: #059669; border-width: 3px; }
+  .flow-step.final h3 { color: #059669; }
+
+  .arrow { text-align: center; font-size: 18px; color: #14b8a6; line-height: 1; padding: 3px 0; }
+  .arrow.orange { color: #f97316; }
+  .arrow.red { color: #ef4444; }
+  .arrow.green { color: #16a34a; }
+  .arrow.purple { color: #7c3aed; }
+  .arrow.blue { color: #3b82f6; }
+
+  .split { display: flex; gap: 8px; width: 92%; }
+  .split .flow-step { flex: 1; width: auto; padding: 10px 8px; }
+
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 10px; font-weight: 600; }
+  .badge-green { background: #dcfce7; color: #166534; }
+  .badge-orange { background: #ffedd5; color: #9a3412; }
+  .badge-red { background: #fee2e2; color: #991b1b; }
+  .badge-blue { background: #dbeafe; color: #1e40af; }
+  .badge-purple { background: #ede9fe; color: #5b21b6; }
+
+  .divider-label { text-align: center; font-size: 11px; font-weight: 700; color: white; background: #059669; padding: 6px 16px; border-radius: 20px; margin: 4px auto; display: inline-block; }
+  .divider-wrap { text-align: center; padding: 4px 0; }
+
+  .info-box { background: #f0f9ff; border-left: 4px solid #0ea5e9; padding: 10px 14px; border-radius: 0 8px 8px 0; font-size: 11px; margin-top: 14px; }
+  .info-box strong { color: #0369a1; }
+
+  /* Bottom tables section */
+  .tables-section { margin-top: 30px; background: white; border-radius: 14px; padding: 24px; box-shadow: 0 2px 12px rgba(0,0,0,0.08); }
+  .tables-section h2 { font-size: 17px; color: #0d9488; border-bottom: 2px solid #0d9488; padding-bottom: 6px; margin-bottom: 14px; }
+
+  table { width: 100%; border-collapse: collapse; font-size: 11px; margin-bottom: 16px; }
+  th { background: #0d9488; color: white; padding: 8px 10px; text-align: left; font-weight: 600; }
+  td { padding: 7px 10px; border-bottom: 1px solid #e5e7eb; }
+  tr:nth-child(even) { background: #f9fafb; }
+
+  .footer { text-align: center; font-size: 10px; color: #9ca3af; margin-top: 24px; padding-top: 12px; border-top: 1px solid #e5e7eb; }
+
+  @media print {
+    body { padding: 0; background: white; }
+    .header, th, .flow-step, .badge, .divider-label { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>Admin Department & IT Department — Ticket Flow</h1>
+  <p>Oliva Helpdesk | clinicdesk.olivaclinic.com | Complete Flow from Creation to Closure</p>
+</div>
+
+<div class="two-flows">
+
+  <!-- ====== ADMIN DEPARTMENT ====== -->
+  <div class="flow-panel admin">
+    <h2>Admin Department Flow</h2>
+    <div class="flow-container">
+
+      <div class="flow-step">
+        <h3>Step 1: Ticket Created</h3>
+        <p><strong>Helpdesk Admin</strong> raises ticket → selects <strong>Admin Department</strong></p>
+        <p>Status: <span class="badge badge-blue">Open</span></p>
+        <p>Email → Raiser (Ticket Created)</p>
+      </div>
+      <div class="arrow">▼</div>
+
+      <div class="flow-step">
+        <h3>Step 2: Auto-Assign to L1</h3>
+        <p>System: Center → City → <strong>Escalation Matrix</strong> → L1 Person</p>
+        <p>Email → <strong>L1 Assignee</strong> (Ticket Assigned)</p>
+      </div>
+      <div class="arrow">▼</div>
+
+      <div class="flow-step blue">
+        <h3>Step 3: L1 Works on Ticket</h3>
+        <p>L1 reviews, adds comments, works on issue</p>
+        <p>Status: <span class="badge badge-blue">In Progress</span></p>
+      </div>
+      <div class="arrow">▼</div>
+
+      <div class="split">
+        <div class="flow-step resolved">
+          <h3>✓ L1 Fixes Issue</h3>
+          <p>Goes to Resolution ▼</p>
+        </div>
+        <div class="flow-step escalation">
+          <h3>✗ L1 Not Resolved</h3>
+          <p>SLA: <strong>8 working hrs</strong></p>
+          <p>Auto → L2</p>
+        </div>
+      </div>
+      <div class="arrow orange">▼</div>
+
+      <div class="flow-step escalation">
+        <h3>Step 4: Auto-Escalate to L2</h3>
+        <p>Status: <span class="badge badge-orange">Escalated L1</span> → Assigned to <strong>L2</strong></p>
+        <p>Email → L2 User</p>
+        <p style="font-size:9px;">Comment: "Auto-escalated to L2. Originally assigned to [L1]"</p>
+      </div>
+      <div class="arrow orange">▼</div>
+
+      <div class="split">
+        <div class="flow-step resolved">
+          <h3>✓ L2 Fixes Issue</h3>
+          <p>Goes to Resolution ▼</p>
+        </div>
+        <div class="flow-step alert">
+          <h3>✗ L2 Not Resolved</h3>
+          <p>SLA: <strong>18 hrs</strong> (8+10)</p>
+          <p>Auto → L3</p>
+        </div>
+      </div>
+      <div class="arrow red">▼</div>
+
+      <div class="flow-step alert">
+        <h3>Step 5: Auto-Escalate to L3</h3>
+        <p>Status: <span class="badge badge-red">Escalated L2</span> → Assigned to <strong>L3</strong></p>
+        <p>Email → L3 User</p>
+        <p style="font-size:9px;">Comment: "Auto-escalated to L3. L2 did not resolve."</p>
+      </div>
+      <div class="arrow red">▼</div>
+
+      <div class="flow-step resolved">
+        <h3>✓ L3 Fixes Issue</h3>
+        <p>Goes to Resolution ▼</p>
+      </div>
+
+      <div class="divider-wrap"><div class="divider-label">CLOSURE PROCESS</div></div>
+
+      <div class="flow-step purple">
+        <h3>Step 6: Helpdesk Admin → Resolved</h3>
+        <p><strong>Helpdesk Admin</strong> confirms issue is fixed</p>
+        <p>Changes status to <span class="badge badge-green">Resolved</span></p>
+        <p>Email → Admin Dept Assignee (Status Update)</p>
+      </div>
+      <div class="arrow purple">▼</div>
+
+      <div class="flow-step final">
+        <h3>Step 7: Admin Department → Closed</h3>
+        <p><strong>Admin Dept</strong> (L1/L2/L3) reviews & changes to <span class="badge badge-green">Closed</span></p>
+        <p>Email → Helpdesk Admin / Raiser (Status Update)</p>
+        <p style="font-size:11px; color:#059669; font-weight:700; margin-top:4px;">✓ TICKET COMPLETE</p>
+      </div>
+
+      <div class="info-box">
+        <strong>SLA Working Hours:</strong> 10:00 AM – 6:00 PM IST, Mon–Sat. Sundays excluded. System checks every 5 minutes.
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ====== IT DEPARTMENT ====== -->
+  <div class="flow-panel it">
+    <h2>IT Department Flow</h2>
+    <div class="flow-container">
+
+      <div class="flow-step blue">
+        <h3>Step 1: Ticket Created</h3>
+        <p><strong>Helpdesk Admin</strong> raises ticket → selects <strong>IT Department</strong></p>
+        <p>Status: <span class="badge badge-blue">Open</span></p>
+        <p>Email → Raiser (Ticket Created)</p>
+      </div>
+      <div class="arrow blue">▼</div>
+
+      <div class="flow-step blue">
+        <h3>Step 2: No Auto-Assignment</h3>
+        <p>Ticket stays <strong>Unassigned</strong></p>
+        <p><strong>Both IT team members</strong> can see all IT tickets</p>
+        <p>Email → Both IT Members (Ticket Created)</p>
+      </div>
+      <div class="arrow blue">▼</div>
+
+      <div class="flow-step blue">
+        <h3>Step 3: IT Member Picks Up Ticket</h3>
+        <p>An IT member self-assigns or is assigned by admin</p>
+        <p>Status: <span class="badge badge-blue">In Progress</span></p>
+      </div>
+      <div class="arrow blue">▼</div>
+
+      <div class="flow-step blue">
+        <h3>Step 4: IT Works on Issue</h3>
+        <p>IT member investigates, adds comments, resolves the issue</p>
+        <p>Can request inputs: <span class="badge badge-orange">Awaiting User Inputs</span></p>
+      </div>
+      <div class="arrow blue">▼</div>
+
+      <div class="flow-step" style="background:#fffbeb; border-color:#f59e0b;">
+        <h3 style="color:#d97706;">Step 5: Awaiting User Inputs (If Needed)</h3>
+        <p>IT requests more info from Helpdesk Admin</p>
+        <p>Helpdesk Admin responds → <span class="badge badge-blue">User Inputs Received</span></p>
+        <p>IT resumes work</p>
+      </div>
+      <div class="arrow blue">▼</div>
+
+      <div class="flow-step resolved">
+        <h3>✓ IT Fixes the Issue</h3>
+        <p>Issue has been resolved by the IT member</p>
+      </div>
+
+      <div class="divider-wrap"><div class="divider-label">CLOSURE PROCESS</div></div>
+
+      <div class="flow-step purple">
+        <h3>Step 6: Helpdesk Admin → Resolved</h3>
+        <p><strong>Helpdesk Admin</strong> confirms issue is fixed</p>
+        <p>Changes status to <span class="badge badge-green">Resolved</span></p>
+        <p>Email → IT Assignee (Status Update)</p>
+      </div>
+      <div class="arrow purple">▼</div>
+
+      <div class="flow-step final">
+        <h3>Step 7: IT Department → Closed</h3>
+        <p><strong>IT Member</strong> reviews & changes to <span class="badge badge-green">Closed</span></p>
+        <p>Email → Helpdesk Admin / Raiser (Status Update)</p>
+        <p style="font-size:11px; color:#059669; font-weight:700; margin-top:4px;">✓ TICKET COMPLETE</p>
+      </div>
+
+      <div class="info-box">
+        <strong>Key Differences from Admin:</strong><br>
+        • <strong>No auto-assignment</strong> — IT members pick up tickets themselves<br>
+        • <strong>No auto-escalation</strong> — No L1 → L2 → L3 escalation<br>
+        • <strong>Both IT members</strong> see all IT tickets<br>
+        • <strong>Standard SLA</strong> — 24 hours (not working-hours based)
+      </div>
+
+    </div>
+  </div>
+
+</div>
+
+<!-- COMPARISON TABLE -->
+<div class="tables-section">
+  <h2>Admin Department vs IT Department — Comparison</h2>
+  <table>
+    <tr>
+      <th>Feature</th>
+      <th>Admin Department</th>
+      <th>IT Department</th>
+    </tr>
+    <tr>
+      <td><strong>Who Raises</strong></td>
+      <td>Helpdesk Admin</td>
+      <td>Helpdesk Admin</td>
+    </tr>
+    <tr>
+      <td><strong>Auto-Assignment</strong></td>
+      <td><span class="badge badge-green">Yes</span> — L1 from Escalation Matrix (location-based)</td>
+      <td><span class="badge badge-red">No</span> — Stays unassigned, IT members pick up</td>
+    </tr>
+    <tr>
+      <td><strong>Who Sees Tickets</strong></td>
+      <td>Only assigned person (L1/L2/L3)</td>
+      <td>Both IT members see all IT tickets</td>
+    </tr>
+    <tr>
+      <td><strong>Auto-Escalation</strong></td>
+      <td><span class="badge badge-green">Yes</span> — L1 → L2 (8 hrs) → L3 (18 hrs)</td>
+      <td><span class="badge badge-red">No</span> — No auto-escalation</td>
+    </tr>
+    <tr>
+      <td><strong>SLA Calculation</strong></td>
+      <td>Working hours only (10AM–6PM IST, Mon–Sat)</td>
+      <td>Standard 24 hours</td>
+    </tr>
+    <tr>
+      <td><strong>Who Resolves</strong></td>
+      <td><strong>Helpdesk Admin</strong> marks as Resolved</td>
+      <td><strong>Helpdesk Admin</strong> marks as Resolved</td>
+    </tr>
+    <tr>
+      <td><strong>Who Closes</strong></td>
+      <td><strong>Admin Department</strong> (L1/L2/L3) marks as Closed</td>
+      <td><strong>IT Member</strong> marks as Closed</td>
+    </tr>
+    <tr>
+      <td><strong>Email on Creation</strong></td>
+      <td>Raiser + L1 Assignee</td>
+      <td>Raiser + Both IT Members</td>
+    </tr>
+  </table>
+</div>
+
+<!-- STATUS FLOW -->
+<div class="tables-section">
+  <h2>Status Flow — Both Departments</h2>
+  <table>
+    <tr><th>Status</th><th>Set By</th><th>Meaning</th></tr>
+    <tr><td><span class="badge badge-blue">Open</span></td><td>System (on creation)</td><td>Newly created ticket</td></tr>
+    <tr><td><span class="badge badge-blue">In Progress</span></td><td>Assignee (L1/IT)</td><td>Being worked on</td></tr>
+    <tr><td><span class="badge badge-orange">Awaiting User Inputs</span></td><td>Assignee</td><td>Need more info from raiser</td></tr>
+    <tr><td><span class="badge badge-blue">User Inputs Received</span></td><td>Helpdesk Admin</td><td>Raiser provided info</td></tr>
+    <tr><td><span class="badge badge-orange">Escalated L1</span></td><td>System (auto) — Admin only</td><td>L1 SLA breached, moved to L2</td></tr>
+    <tr><td><span class="badge badge-red">Escalated L2</span></td><td>System (auto) — Admin only</td><td>L2 SLA breached, moved to L3</td></tr>
+    <tr><td><span class="badge badge-green">Resolved</span></td><td><strong>Helpdesk Admin</strong></td><td>Issue is fixed, confirmed by raiser</td></tr>
+    <tr><td><span class="badge badge-green">Closed</span></td><td><strong>Admin Dept / IT Dept</strong></td><td>Final closure by department</td></tr>
+    <tr><td><span class="badge badge-orange">Reopened</span></td><td>Helpdesk Admin</td><td>Issue reoccurred after closure</td></tr>
+  </table>
+</div>
+
+<!-- ESCALATION MATRIX -->
+<div class="tables-section">
+  <h2>Admin Department — Escalation Matrix</h2>
+  <table>
+    <tr><th>Field</th><th>Description</th><th>Example</th></tr>
+    <tr><td>Location</td><td>City name</td><td>Chennai, Bangalore, Hyderabad</td></tr>
+    <tr><td>L1 Email</td><td>First responder</td><td>admin-chn@olivaclinic.com</td></tr>
+    <tr><td>L2 Email</td><td>Second level escalation</td><td>manager-chn@olivaclinic.com</td></tr>
+    <tr><td>L3 Email</td><td>Final escalation</td><td>head-admin@olivaclinic.com</td></tr>
+    <tr><td>L1 SLA Hours</td><td>Working hours before L1 → L2</td><td>8 hours</td></tr>
+    <tr><td>L2 SLA Hours</td><td>Additional hours before L2 → L3</td><td>10 hours (18 total)</td></tr>
+  </table>
+</div>
+
+<div class="footer">
+  Oliva Helpdesk — Admin & IT Department Flow | clinicdesk.olivaclinic.com | April 2026
+</div>
+
+</body>
+</html>

@@ -553,7 +553,7 @@ const TicketDetailPage = () => {
                 event.type === "approval" ? (
                   msg.includes("rejected") ? "Rejected" :
                   msg.includes("follow") ? "Follow Up" :
-                  msg.includes("(finance)") ? "Finance Approval" : "AOM Approval"
+                  msg.includes("(finance)") || (msg.includes("approved") && msg.includes("finance") && !msg.includes("escalated to finance")) ? "Finance Approval" : "AOM Approval"
                 ) :
                 event.type === "status_change" ? (
                   toStatus === "re-open" || toStatus === "reopened" ? "Reopened" :
