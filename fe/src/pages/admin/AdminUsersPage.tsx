@@ -429,6 +429,11 @@ const AdminUsersPage = () => {
       setFormError(`Please fill: ${missing.join(", ")}`);
       return;
     }
+    // Validate email domain — only @olivaclinic.com allowed
+    if (form.email.trim() && !form.email.trim().toLowerCase().endsWith("@olivaclinic.com")) {
+      setFormError("Only @olivaclinic.com email addresses are allowed.");
+      return;
+    }
     setFormError("");
 
     if (_isAdminDept) {

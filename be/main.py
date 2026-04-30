@@ -102,9 +102,10 @@ def on_startup():
                 now = datetime.now(timezone.utc)
                 admin_tickets = db.query(Ticket).filter(
                     Ticket.assigned_dept.in_(["Admin Department", "Admin"]),
-                    Ticket.status.notin_([
-                        TicketStatusEnum.Resolved, TicketStatusEnum.Closed,
-                        TicketStatusEnum.Rejected, TicketStatusEnum.FinalClosed,
+                    Ticket.status.in_([
+                        TicketStatusEnum.Open, TicketStatusEnum.InProgress,
+                        TicketStatusEnum.Acknowledged, TicketStatusEnum.EscalatedL1,
+                        TicketStatusEnum.EscalatedL2, TicketStatusEnum.Reopened,
                     ]),
                 ).all()
                 count = 0
@@ -168,9 +169,10 @@ def on_startup():
                 cdd_clinic_tickets = db.query(Ticket).filter(
                     Ticket.assigned_dept == "Clinic",
                     Ticket.raised_by_dept == "CDD",
-                    Ticket.status.notin_([
-                        TicketStatusEnum.Resolved, TicketStatusEnum.Closed,
-                        TicketStatusEnum.Rejected, TicketStatusEnum.FinalClosed,
+                    Ticket.status.in_([
+                        TicketStatusEnum.Open, TicketStatusEnum.InProgress,
+                        TicketStatusEnum.Acknowledged, TicketStatusEnum.EscalatedL1,
+                        TicketStatusEnum.EscalatedL2, TicketStatusEnum.Reopened,
                     ]),
                 ).all()
 

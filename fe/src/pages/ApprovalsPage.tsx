@@ -69,7 +69,7 @@ const ApprovalsPage = () => {
   const [data, setData] = useState<Ticket[]>([]);
   const [loading, setLoading] = useState(true);
   const isZenotiInit = hasAnyRole(currentUserRole, ["Zenoti Team", "Zenoti Team Manager", "Manager", "MANAGER"]);
-  const [filterTab, setFilterTab] = useState<"pending" | "approved" | "rejected" | "followup" | "all" | "aom_approved" | "finance_approved">(isZenotiInit ? "aom_approved" : "pending");
+  const [filterTab, setFilterTab] = useState<"pending" | "approved" | "rejected" | "followup" | "all" | "aom_approved" | "finance_approved" | "zenoti_requests">(isZenotiInit ? "aom_approved" : "pending");
   const currentUserName = parsedUser?.name || "";
   const managedCenters: string[] = parsedUser?.managed_centers || [];
 
@@ -82,12 +82,18 @@ const ApprovalsPage = () => {
       const apiTickets = await ticketsApi.list();
       const allTickets = apiTickets.map(apiToTicket);
       setData(allTickets.filter((t) => {
-        if (!t.approvalRequired) return false;
         const isProcessed = t.approvalStatus === "Approved" || t.approvalStatus === "Rejected" || (t.status as string) === "Follow Up";
-        // Zenoti Team: sees all approved Zenoti tickets (AOM approved + Finance approved)
+        // Zenoti Team: sees approved Zenoti tickets + Operational Issues (exclude Closed/Resolved)
         if (isZenotiRole) {
-          return t.assignedDept === "Zenoti" && t.approvalStatus === "Approved";
+          const closedStatuses = ["Closed", "Resolved", "Final Closed"];
+          if (closedStatuses.includes(t.status)) return false;
+          if (t.assignedDept !== "Zenoti") return false;
+          // Operational Issues (no approval, direct) OR approved tickets
+          const isOperationalIssue = (t.category || "").toLowerCase() === "operational issues";
+          return t.approvalStatus === "Approved" || isOperationalIssue;
         }
+        // Non-Zenoti roles: only show approval-required tickets
+        if (!t.approvalRequired) return false;
         if (isFinanceRole) {
           return t.approvalType === "aom_finance" && (t.approver === "Finance Team" || isProcessed);
         }
@@ -120,6 +126,7 @@ const ApprovalsPage = () => {
     if (filterTab === "followup") return (t.status as string) === "Follow Up";
     if (filterTab === "aom_approved") return t.approvalStatus === "Approved" && t.approvalType === "aom_only";
     if (filterTab === "finance_approved") return t.approvalStatus === "Approved" && t.approvalType === "aom_finance";
+    if (filterTab === "zenoti_requests") return (t.category || "").toLowerCase() === "operational issues";
     return true;
   });
 
@@ -129,6 +136,7 @@ const ApprovalsPage = () => {
   const followUpCount = data.filter((t) => (t.status as string) === "Follow Up").length;
   const aomApprovedCount = data.filter((t) => t.approvalStatus === "Approved" && t.approvalType === "aom_only").length;
   const financeApprovedCount = data.filter((t) => t.approvalStatus === "Approved" && t.approvalType === "aom_finance").length;
+  const zenotiRequestsCount = data.filter((t) => (t.category || "").toLowerCase() === "operational issues").length;
  
   if (loading) {
     return (
@@ -147,6 +155,7 @@ const ApprovalsPage = () => {
         {(isZenotiRole ? [
           { key: "aom_approved" as const, label: "AOM Approved", count: aomApprovedCount, icon: CheckCircle2 },
           { key: "finance_approved" as const, label: "Finance Approved", count: financeApprovedCount, icon: CheckCircle2 },
+          { key: "zenoti_requests" as const, label: "Zenoti Requests", count: zenotiRequestsCount, icon: ShieldCheck },
         ] : [
           { key: "pending" as const, label: "Pending", count: pendingCount, icon: Clock },
           { key: "approved" as const, label: "Approved", count: approvedCount, icon: CheckCircle2 },

@@ -1050,8 +1050,9 @@ const RaiseTicketModal = ({ onClose, onSuccess, editMode, editTicket, userRole, 
                     <label className={labelClass}>Amount</label>
                     <input
                       type="text"
+                      type="number"
                       value={zenotiFields.amount}
-                      onChange={(e) => setZenotiFields({ ...zenotiFields, amount: e.target.value })}
+                      onChange={(e) => setZenotiFields({ ...zenotiFields, amount: e.target.value.replace(/[^0-9.]/g, "") })}
                       className={inputClass}
                       placeholder="Enter amount"
                     />

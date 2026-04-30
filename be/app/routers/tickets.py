@@ -756,10 +756,10 @@ def approve_ticket(ticket_id: int, req: ApprovalRequest, db: Session = Depends(g
             raise HTTPException(status_code=400, detail="You have already approved this ticket. It is now pending Finance approval.")
 
     if req.action == "Follow-up":
-        # AOM needs more info – set status to Follow Up, add comment
+        # Set status to Follow Up — ticket goes back to raiser for more info
+        # Don't change approver — keep current approval chain intact
         t.status = TicketStatusEnum.FollowUp
         t.approval_status = ApprovalStatusEnum.Pending
-        t.approver = approver
         comment_msg = f"Follow-up requested by {approver}: {req.comment}" if req.comment else f"Follow-up requested by {approver}"
         db.add(TicketComment(
             ticket_id=ticket_id, user=approver, message=comment_msg,
