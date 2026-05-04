@@ -772,7 +772,16 @@ def approve_ticket(ticket_id: int, req: ApprovalRequest, db: Session = Depends(g
         is_zenoti_finance = cat == "zenoti-finance" or main_cat == "zenoti-finance"
         is_zenoti_operational = cat == "zenoti-operational" or main_cat == "zenoti-operational"
         finance_already_involved = t.approver == "Finance Team"
- 
+
+        # Guard: Finance role users cannot approve Zenoti-Finance tickets until AOM has approved
+        if is_zenoti_finance and not finance_already_involved:
+            approver_user = db.query(User).filter(User.name == approver).first()
+            if approver_user and approver_user.role and "finance" in approver_user.role.lower():
+                raise HTTPException(
+                    status_code=400,
+                    detail="AOM is not approved. Finance approval is not allowed until AOM approves this ticket.",
+                )
+
         if is_zenoti_finance and not finance_already_involved:
             # Flow I: Zenoti-Finance — AOM approving → escalate to Finance team
             comment_msg = f"Approved by {approver} (AOM). Escalated to Finance team for final approval."

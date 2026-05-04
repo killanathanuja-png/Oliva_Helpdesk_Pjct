@@ -323,13 +323,31 @@ const TicketDetailPage = () => {
 
   const handleApproval = async () => {
     if (!approvalAction || !ticket) return;
+
+    // Guard: Finance cannot approve a Zenoti-Finance ticket until AOM has approved it.
+    // After AOM approves, ticket.approver is set to "Finance Team".
+    if (approvalAction === "Approve") {
+      const isFinanceRole = hasAnyRole(currentUserRole, ["Finance", "Finance Head"]);
+      const isZenotiFinance =
+        ticket.category?.toLowerCase() === "zenoti-finance" ||
+        ticket.zenotiMainCategory?.toLowerCase() === "zenoti-finance";
+      const aomNotApproved = ticket.approver !== "Finance Team";
+      if (isFinanceRole && isZenotiFinance && aomNotApproved) {
+        alert("AOM is not approved. Finance approval is not allowed until AOM approves this ticket.");
+        return;
+      }
+    }
+
     setApproving(true);
     try {
       await ticketsApi.approve(ticket._dbId, { action: approvalAction, comment: approvalComment || undefined, approver_name: currentUser });
       await fetchTicket();
       setApprovalAction("");
       setApprovalComment("");
-    } catch { alert("Failed to process approval."); } finally { setApproving(false); }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "";
+      alert(msg && !msg.startsWith("API error:") ? msg : "Failed to process approval.");
+    } finally { setApproving(false); }
   };
 
   const handleSendComment = async () => {
