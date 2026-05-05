@@ -338,6 +338,22 @@ const TicketDetailPage = () => {
       }
     }
 
+    // Each approver side (AOM / Finance) can request follow-up only once per ticket.
+    if (
+      approvalAction === "Follow-up" &&
+      (ticket.approvalType === "aom_finance" || ticket.approvalType === "aom_only")
+    ) {
+      const side = ticket.approver === "Finance Team" ? "Finance" : "AOM";
+      const sideRegex = new RegExp(`follow-?up requested by .*\\(${side}\\)`, "i");
+      const alreadyFollowedUp = ticket.comments.some(
+        (c) => c.type === "approval" && sideRegex.test(c.message || "")
+      );
+      if (alreadyFollowedUp) {
+        alert(`This ticket is already in Follow Up. ${side} can request follow-up only once per ticket.`);
+        return;
+      }
+    }
+
     setApproving(true);
     try {
       await ticketsApi.approve(ticket._dbId, { action: approvalAction, comment: approvalComment || undefined, approver_name: currentUser });
@@ -431,6 +447,23 @@ const TicketDetailPage = () => {
     if (!isAomRole && currentUserRole !== "User" && (statusChanged || priorityChanged) && !editComment.trim()) {
       alert("Please provide a reason for changing the status or priority.");
       return;
+    }
+    // Each approver side (AOM / Finance) can request follow-up on a Zenoti ticket
+    // only once per ticket lifetime.
+    if (
+      statusChanged &&
+      editStatus === "Follow Up" &&
+      (ticket.approvalType === "aom_finance" || ticket.approvalType === "aom_only")
+    ) {
+      const side = ticket.approver === "Finance Team" ? "Finance" : "AOM";
+      const sideRegex = new RegExp(`follow-?up requested by .*\\(${side}\\)`, "i");
+      const alreadyFollowedUp = ticket.comments.some(
+        (c) => c.type === "approval" && sideRegex.test(c.message || "")
+      );
+      if (alreadyFollowedUp) {
+        alert(`This ticket is already in Follow Up. ${side} can request follow-up only once per ticket.`);
+        return;
+      }
     }
     setEditSaving(true);
     try {
@@ -835,9 +868,7 @@ const TicketDetailPage = () => {
                 ) : isZenoti ? (
                   <>
                     <option value={ticket.status}>{ticket.status}</option>
-                    {!["Open", "Closed", "Resolved", "Reopened"].includes(ticket.status as string) && <option value="Open">Open</option>}
                     {(ticket.status as string) !== "In Progress" && !["Closed", "Resolved"].includes(ticket.status as string) && <option value="In Progress">In Progress</option>}
-                    {(ticket.status as string) !== "Follow Up" && !["Closed", "Resolved"].includes(ticket.status as string) && <option value="Follow Up">Follow Up</option>}
                     {!["Closed", "Resolved"].includes(ticket.status as string) && <option value="Closed">Closed</option>}
                     {["Closed", "Resolved"].includes(ticket.status as string) && <option value="Re-Open">Re-Open</option>}
                   </>

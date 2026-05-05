@@ -769,11 +769,31 @@ def approve_ticket(ticket_id: int, req: ApprovalRequest, db: Session = Depends(g
             raise HTTPException(status_code=400, detail="You have already approved this ticket. It is now pending Finance approval.")
 
     if req.action == "Follow-up":
+        # On Zenoti tickets, each approver side (AOM / Finance) can request follow-up
+        # only once per ticket. AOM acts before approver flips to "Finance Team";
+        # Finance acts after.
+        side = "Finance" if t.approver == "Finance Team" else "AOM"
+        if t.approval_type in ("aom_finance", "aom_only"):
+            already_followed_up = any(
+                c.type == CommentTypeEnum.approval
+                and "follow-up requested by" in (c.message or "").lower()
+                and f"({side.lower()})" in (c.message or "").lower()
+                for c in t.comments
+            )
+            if already_followed_up:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"This ticket is already in Follow Up. {side} can request follow-up only once per ticket.",
+                )
         # Set status to Follow Up — ticket goes back to raiser for more info
         # Don't change approver — keep current approval chain intact
         t.status = TicketStatusEnum.FollowUp
         t.approval_status = ApprovalStatusEnum.Pending
-        comment_msg = f"Follow-up requested by {approver}: {req.comment}" if req.comment else f"Follow-up requested by {approver}"
+        comment_msg = (
+            f"Follow-up requested by {approver} ({side}): {req.comment}"
+            if req.comment
+            else f"Follow-up requested by {approver} ({side})"
+        )
         db.add(TicketComment(
             ticket_id=ticket_id, user=approver, message=comment_msg,
             type=CommentTypeEnum.approval,
