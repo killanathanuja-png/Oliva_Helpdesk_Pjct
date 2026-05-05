@@ -547,9 +547,15 @@ const TicketDetailPage = () => {
           </div>
         </div>
         {zenotiBlockedByFinance && (
-          <div className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-amber-50 border border-amber-200 text-amber-700 text-xs font-medium">
-            <Clock className="h-3.5 w-3.5" /> Awaiting Finance Approval — editing disabled
-          </div>
+          ticket.approvalStatus === "Rejected" ? (
+            <div className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-red-50 border border-red-200 text-red-700 text-xs font-medium">
+              <Clock className="h-3.5 w-3.5" /> Rejected by Finance — status cannot be changed
+            </div>
+          ) : (
+            <div className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-amber-50 border border-amber-200 text-amber-700 text-xs font-medium">
+              <Clock className="h-3.5 w-3.5" /> Awaiting Finance Approval — editing disabled
+            </div>
+          )
         )}
       </div>
 

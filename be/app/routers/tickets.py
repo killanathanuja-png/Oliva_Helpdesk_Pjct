@@ -599,6 +599,19 @@ def update_ticket(ticket_id: int, req: TicketUpdate, current_user: User = Depend
     update_data = req.model_dump(exclude_unset=True)
     # Extract comment before processing (don't set it on ticket model)
     update_comment = update_data.pop("comment", None) or ""
+
+    # Lock Zenoti-Finance tickets that were rejected — Zenoti team cannot change status.
+    # The ticket is still readable, but no status edits are allowed once Finance has rejected.
+    if "status" in update_data and t.approval_type == "aom_finance" and t.approval_status == ApprovalStatusEnum.Rejected:
+        role_name = (current_user.role or "").lower()
+        is_zenoti_role = "zenoti" in role_name
+        is_super = any(r in role_name for r in ["super admin", "global admin", "super user"])
+        if is_zenoti_role and not is_super:
+            raise HTTPException(
+                status_code=403,
+                detail="This ticket was rejected by Finance — status cannot be changed.",
+            )
+
     if "status" in update_data:
         # If reopening a Closed/Resolved ticket, set status to "Reopened"
         new_status_str = update_data["status"]

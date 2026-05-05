@@ -38,6 +38,23 @@ const statusColors: Record<string, string> = {
   "Final Closed": "bg-emerald-200 text-emerald-800",
 };
 
+// Determine which approval party (AOM / Finance) is associated with the ticket's
+// current approval-related status. Used by the status badge and Excel export.
+function getApprovalParty(t: Ticket): string | null {
+  const approver = (t as any).approver as string | undefined;
+  const approvalType = (t as any).approvalType as string | undefined;
+  if (approvalType !== "aom_finance" && approvalType !== "aom_only") return null;
+  if (approvalType === "aom_only") return "AOM";
+  // aom_finance — approver field tracks current party for Pending/Follow Up;
+  // for Rejected, approver is overwritten with the rejecting user, so fall back
+  // to comment history (an "Approved by ... (AOM)" comment means Finance acted).
+  if (approver === "Finance Team") return "Finance";
+  const aomApproved = (t.comments || []).some(
+    (c) => c.type === "approval" && /Approved by .* \(AOM\)/i.test(c.message || "")
+  );
+  return aomApproved ? "Finance" : "AOM";
+}
+
 // Convert API ticket to frontend Ticket shape
 function apiToTicket(t: ApiTicket): Ticket & { _dbId: number; tatHours: number | null; tatBreached: boolean } {
   return {
@@ -503,13 +520,20 @@ const TicketsPage = () => {
             onClick={() => {
               const exportData = filtered.map((t) => {
                 const tatData = t as Ticket & { tatHours?: number | null; tatBreached?: boolean };
+                const party = getApprovalParty(t);
+                const verb =
+                  t.status === "Pending Approval" ? "Awaiting"
+                  : (t.status as string) === "Follow Up" ? "Follow-up by"
+                  : t.status === "Rejected" ? "Rejected by"
+                  : null;
+                const statusLabel = party && verb ? `${t.status} (${verb} ${party})` : t.status;
                 return {
                   "Ticket ID": t.id,
                   "Description": t.description || t.title,
                   "Category": t.assignedDept === "Admin Department" ? ((t as any).zenotiChildCategory || t.category) : t.category,
                   "Sub-Category": t.assignedDept === "Admin Department" ? ((t as any).zenotiDescription || t.subCategory || "") : (t.subCategory || ""),
                   "Priority": t.priority,
-                  "Status": t.status,
+                  "Status": statusLabel,
                   "Raised By": t.raisedBy,
                   "Assigned To": t.assignedTo,
                   "Department": t.assignedDept,
@@ -655,9 +679,39 @@ const TicketsPage = () => {
                   </td>
                 )}
                 <td className="px-4 py-3">
-                  <span className={cn("inline-block px-2 py-0.5 rounded-full text-[11px] font-medium", statusColors[t.status] || "bg-gray-100 text-gray-600")}>
-                    {t.status}
-                  </span>
+                  <div className="flex flex-col items-start gap-1">
+                    <span className={cn("inline-block px-2 py-0.5 rounded-full text-[11px] font-medium", statusColors[t.status] || "bg-gray-100 text-gray-600")}>
+                      {t.status}
+                    </span>
+                    {(() => {
+                      const verb =
+                        t.status === "Pending Approval" ? "Awaiting"
+                        : (t.status as string) === "Follow Up" ? "Follow-up by"
+                        : t.status === "Rejected" ? "Rejected by"
+                        : null;
+                      if (!verb) return null;
+                      const party = getApprovalParty(t);
+                      if (!party) return null;
+                      const tone =
+                        t.status === "Rejected"
+                          ? "bg-red-50 text-red-700 border-red-200"
+                          : (t.status as string) === "Follow Up"
+                          ? "bg-orange-50 text-orange-700 border-orange-200"
+                          : "bg-amber-50 text-amber-700 border-amber-200";
+                      const dot =
+                        t.status === "Rejected"
+                          ? "bg-red-500"
+                          : (t.status as string) === "Follow Up"
+                          ? "bg-orange-500"
+                          : "bg-amber-500";
+                      return (
+                        <span className={cn("inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium border", tone)}>
+                          <span className={cn("h-1.5 w-1.5 rounded-full", dot)} />
+                          {verb} {party}
+                        </span>
+                      );
+                    })()}
+                  </div>
                 </td>
                 <td className="px-4 py-3 text-xs text-muted-foreground">{t.assignedDept}</td>
                 <td className="px-4 py-3 text-xs text-muted-foreground">
