@@ -43,6 +43,31 @@ const statusColors: Record<string, string> = {
 function getApprovalParty(t: Ticket): string | null {
   const approver = (t as any).approver as string | undefined;
   const approvalType = (t as any).approvalType as string | undefined;
+
+  // Follow Up status: identify who actually triggered the most recent follow-up.
+  // Approval-flow follow-ups land as type=approval with a "(AOM)"/"(Finance)" tag;
+  // Zenoti team follow-ups land as type=status_change ('to "Follow Up"').
+  if ((t.status as string) === "Follow Up") {
+    const fuComments = (t.comments || []).filter(
+      (c) =>
+        (c.type === "approval" && /follow-?up requested by/i.test(c.message || "")) ||
+        (c.type === "status_change" && /to "follow up"/i.test(c.message || ""))
+    );
+    const latest = fuComments[fuComments.length - 1];
+    if (latest) {
+      if (latest.type === "status_change") return "Zenoti";
+      if (/\(finance\)/i.test(latest.message)) return "Finance";
+      if (/\(aom\)/i.test(latest.message)) return "AOM";
+      // older follow-ups without a role label — fall through to default rules
+    }
+  }
+
+  // Operational Issues tickets skip the approval flow and are handled by the
+  // Zenoti team directly — any Rejected on them is by Zenoti.
+  const isOpIssues =
+    (t.category || "").toLowerCase() === "operational issues" &&
+    (t.assignedDept || "").toLowerCase() === "zenoti";
+  if (isOpIssues) return "Zenoti";
   if (approvalType !== "aom_finance" && approvalType !== "aom_only") return null;
   if (approvalType === "aom_only") return "AOM";
   // aom_finance — approver field tracks current party for Pending/Follow Up;

@@ -338,19 +338,19 @@ const TicketDetailPage = () => {
       }
     }
 
-    // Each approver side (AOM / Finance) can request follow-up only once per ticket.
-    if (
-      approvalAction === "Follow-up" &&
-      (ticket.approvalType === "aom_finance" || ticket.approvalType === "aom_only")
-    ) {
-      const side = ticket.approver === "Finance Team" ? "Finance" : "AOM";
-      const sideRegex = new RegExp(`follow-?up requested by .*\\(${side}\\)`, "i");
-      const alreadyFollowedUp = ticket.comments.some(
-        (c) => c.type === "approval" && sideRegex.test(c.message || "")
-      );
-      if (alreadyFollowedUp) {
-        alert(`This ticket is already in Follow Up. ${side} can request follow-up only once per ticket.`);
-        return;
+    // Follow Up quota: tied to the role of the user submitting, not the ticket's approver field.
+    if (approvalAction === "Follow-up") {
+      const isFinanceRoleUser = hasAnyRole(currentUserRole, ["Finance", "Finance Head"]);
+      const side: "AOM" | "Finance" | null = isAomRole ? "AOM" : isFinanceRoleUser ? "Finance" : null;
+      if (side) {
+        const sideRegex = new RegExp(`follow-?up requested by .*\\(${side}\\)`, "i");
+        const alreadyFollowedUp = ticket.comments.some(
+          (c) => c.type === "approval" && sideRegex.test(c.message || "")
+        );
+        if (alreadyFollowedUp) {
+          alert(`This ticket is already in Follow Up. ${side} can request follow-up only once per ticket.`);
+          return;
+        }
       }
     }
 
@@ -448,19 +448,31 @@ const TicketDetailPage = () => {
       alert("Please provide a reason for changing the status or priority.");
       return;
     }
-    // Each approver side (AOM / Finance) can request follow-up on a Zenoti ticket
-    // only once per ticket lifetime.
-    if (
-      statusChanged &&
-      editStatus === "Follow Up" &&
-      (ticket.approvalType === "aom_finance" || ticket.approvalType === "aom_only")
-    ) {
-      const side = ticket.approver === "Finance Team" ? "Finance" : "AOM";
-      const sideRegex = new RegExp(`follow-?up requested by .*\\(${side}\\)`, "i");
-      const alreadyFollowedUp = ticket.comments.some(
-        (c) => c.type === "approval" && sideRegex.test(c.message || "")
-      );
-      if (alreadyFollowedUp) {
+    // Follow Up quota: each role gets one per ticket lifetime.
+    //   - AOM-role user: blocked by prior approval comment tagged "(AOM)"
+    //   - Finance-role user: blocked by prior approval comment tagged "(Finance)"
+    //   - Zenoti-role user: blocked by prior status_change comment 'to "Follow Up"'
+    if (statusChanged && editStatus === "Follow Up") {
+      const isFinanceRoleUser = hasAnyRole(currentUserRole, ["Finance", "Finance Head"]);
+      let side: "AOM" | "Finance" | "Zenoti" | null = null;
+      let alreadyFollowedUp = false;
+      if (isAomRole) {
+        side = "AOM";
+        alreadyFollowedUp = ticket.comments.some(
+          (c) => c.type === "approval" && /follow-?up requested by .*\(aom\)/i.test(c.message || "")
+        );
+      } else if (isFinanceRoleUser) {
+        side = "Finance";
+        alreadyFollowedUp = ticket.comments.some(
+          (c) => c.type === "approval" && /follow-?up requested by .*\(finance\)/i.test(c.message || "")
+        );
+      } else if (isZenotiTeamRole) {
+        side = "Zenoti";
+        alreadyFollowedUp = ticket.comments.some(
+          (c) => c.type === "status_change" && /to "follow up"/i.test(c.message || "")
+        );
+      }
+      if (side && alreadyFollowedUp) {
         alert(`This ticket is already in Follow Up. ${side} can request follow-up only once per ticket.`);
         return;
       }
@@ -865,14 +877,31 @@ const TicketDetailPage = () => {
                     {(isAomAssigned || isCddRaisedTicket) && !isCddRaisedTicket && !["Closed", "Resolved"].includes(ticket.status as string) && <option value="Closed">Closed</option>}
                     {(isAomAssigned || isCddRaisedTicket) && ["Closed", "Resolved"].includes(ticket.status as string) && <option value="Re-Open">Re-Open</option>}
                   </>
-                ) : isZenoti ? (
-                  <>
-                    <option value={ticket.status}>{ticket.status}</option>
-                    {(ticket.status as string) !== "In Progress" && !["Closed", "Resolved"].includes(ticket.status as string) && <option value="In Progress">In Progress</option>}
-                    {!["Closed", "Resolved"].includes(ticket.status as string) && <option value="Closed">Closed</option>}
-                    {["Closed", "Resolved"].includes(ticket.status as string) && <option value="Re-Open">Re-Open</option>}
-                  </>
-                ) : hasAnyRole(currentUserRole, ["Helpdesk Admin"]) ? (
+                ) : isZenoti ? (() => {
+                  const hasBeenInFollowUp =
+                    (ticket.status as string) === "Follow Up" ||
+                    ticket.comments.some(
+                      (c) => c.type === "status_change" && /to "follow up"/i.test(c.message || "")
+                    );
+                  // Once a ticket has been in Follow Up, the only next move is Closed.
+                  if (hasBeenInFollowUp && !["Closed", "Resolved"].includes(ticket.status as string)) {
+                    return (
+                      <>
+                        <option value={ticket.status}>{ticket.status}</option>
+                        <option value="Closed">Closed</option>
+                      </>
+                    );
+                  }
+                  return (
+                    <>
+                      <option value={ticket.status}>{ticket.status}</option>
+                      {(ticket.status as string) !== "In Progress" && !["Closed", "Resolved"].includes(ticket.status as string) && <option value="In Progress">In Progress</option>}
+                      {(ticket.status as string) !== "Follow Up" && !["Closed", "Resolved"].includes(ticket.status as string) && <option value="Follow Up">Follow Up</option>}
+                      {!["Closed", "Resolved"].includes(ticket.status as string) && <option value="Closed">Closed</option>}
+                      {["Closed", "Resolved"].includes(ticket.status as string) && <option value="Re-Open">Re-Open</option>}
+                    </>
+                  );
+                })() : hasAnyRole(currentUserRole, ["Helpdesk Admin"]) ? (
                   <>
                     <option value={ticket.status}>{ticket.status}</option>
                     {!["Closed", "Resolved"].includes(ticket.status as string) && <option value="Resolved">Resolved</option>}

@@ -612,6 +612,44 @@ def update_ticket(ticket_id: int, req: TicketUpdate, current_user: User = Depend
                 detail="This ticket was rejected by Finance — status cannot be changed.",
             )
 
+    # Zenoti team Follow Up via the regular update flow: only once per ticket lifetime.
+    # Applies to any ticket assigned to Zenoti dept (Op Issues + post-approval Zenoti work).
+    if (
+        "status" in update_data
+        and update_data["status"] == "Follow Up"
+        and (t.assigned_dept or "").lower() == "zenoti"
+    ):
+        already_followed_up = any(
+            c.type == CommentTypeEnum.status_change and 'to "follow up"' in (c.message or "").lower()
+            for c in t.comments
+        )
+        if already_followed_up:
+            raise HTTPException(
+                status_code=400,
+                detail="This ticket has already been put in Follow Up by Zenoti once. It can be set to Follow Up only once per ticket.",
+            )
+
+    # Zenoti team: once a ticket has been in Follow Up, the only next status is Closed
+    # (no jumping back to In Progress / Open / Follow Up again). Super Admins are exempt.
+    if "status" in update_data and (t.assigned_dept or "").lower() == "zenoti":
+        role_name = (current_user.role or "").lower()
+        is_zenoti_role = "zenoti" in role_name
+        is_super = any(r in role_name for r in ["super admin", "global admin", "super user"])
+        if is_zenoti_role and not is_super:
+            has_been_in_follow_up = (
+                t.status == TicketStatusEnum.FollowUp
+                or any(
+                    c.type == CommentTypeEnum.status_change and 'to "follow up"' in (c.message or "").lower()
+                    for c in t.comments
+                )
+            )
+            new_status = update_data["status"]
+            if has_been_in_follow_up and new_status not in ("Closed", t.status.value if t.status else ""):
+                raise HTTPException(
+                    status_code=400,
+                    detail="This ticket has been in Follow Up. It can only be moved to Closed.",
+                )
+
     if "status" in update_data:
         # If reopening a Closed/Resolved ticket, set status to "Reopened"
         new_status_str = update_data["status"]
@@ -769,10 +807,16 @@ def approve_ticket(ticket_id: int, req: ApprovalRequest, db: Session = Depends(g
             raise HTTPException(status_code=400, detail="You have already approved this ticket. It is now pending Finance approval.")
 
     if req.action == "Follow-up":
-        # On Zenoti tickets, each approver side (AOM / Finance) can request follow-up
-        # only once per ticket. AOM acts before approver flips to "Finance Team";
-        # Finance acts after.
-        side = "Finance" if t.approver == "Finance Team" else "AOM"
+        # Side is determined by the actual role of the user submitting, not by the
+        # ticket's approver field (which gets overwritten after Finance approves).
+        approver_user = db.query(User).filter(User.name == approver).first()
+        approver_role = (approver_user.role if approver_user else "").lower()
+        if "finance" in approver_role:
+            side = "Finance"
+        elif "area operations manager" in approver_role or "aom" in approver_role:
+            side = "AOM"
+        else:
+            side = "AOM"  # default fallback for legacy callers
         if t.approval_type in ("aom_finance", "aom_only"):
             already_followed_up = any(
                 c.type == CommentTypeEnum.approval
