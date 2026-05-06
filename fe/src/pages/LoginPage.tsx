@@ -76,7 +76,7 @@ const LoginPage = () => {
           </div>
 
           {/* Form */}
-          <form onSubmit={handleLogin} className="px-8 pb-8 space-y-5">
+          <form onSubmit={handleLogin} autoComplete="off" className="px-8 pb-8 space-y-5">
             <div>
               <label className="block text-xs font-semibold text-muted-foreground mb-2 uppercase tracking-wider">
                 Username
@@ -88,6 +88,8 @@ const LoginPage = () => {
                   value={form.username}
                   onChange={(e) => setForm({ ...form, username: e.target.value })}
                   placeholder="Enter your username"
+                  autoComplete="off"
+                  name="oliva-username"
                   className="w-full pl-11 pr-4 py-3 rounded-xl border border-gray-200 bg-gray-50/50 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all placeholder:text-muted-foreground/60"
                 />
               </div>
@@ -104,6 +106,8 @@ const LoginPage = () => {
                   value={form.password}
                   onChange={(e) => setForm({ ...form, password: e.target.value })}
                   placeholder="Enter your password"
+                  autoComplete="new-password"
+                  name="oliva-password"
                   className="w-full pl-11 pr-12 py-3 rounded-xl border border-gray-200 bg-gray-50/50 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all placeholder:text-muted-foreground/60"
                 />
                 <button
