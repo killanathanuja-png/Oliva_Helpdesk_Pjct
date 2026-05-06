@@ -17,9 +17,14 @@ const LoginPage = () => {
     setError("");
     setLoading(true);
     try {
-      const { access_token } = await authApi.login(form.username, form.password);
+      const { access_token, must_change_password } = await authApi.login(form.username, form.password);
       localStorage.setItem("oliva_token", access_token);
       localStorage.setItem("oliva_logged_in", "true");
+      if (must_change_password) {
+        localStorage.setItem("oliva_must_change_password", "true");
+      } else {
+        localStorage.removeItem("oliva_must_change_password");
+      }
       // Fetch user profile
       const user = await authApi.me();
       localStorage.setItem("oliva_user", JSON.stringify(user));

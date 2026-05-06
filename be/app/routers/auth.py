@@ -44,7 +44,9 @@ def login(req: LoginRequest, db: Session = Depends(get_db)):
     db.commit()
 
     token = create_access_token(data={"sub": str(user.id)})
-    return {"access_token": token, "token_type": "bearer"}
+    # If the user signed in with the seeded default password, prompt them to change it.
+    must_change = req.password == "oliva@123"
+    return {"access_token": token, "token_type": "bearer", "must_change_password": must_change}
 
 
 @router.get("/me/", response_model=UserResponse)

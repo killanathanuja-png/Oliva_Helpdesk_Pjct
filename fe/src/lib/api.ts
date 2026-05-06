@@ -20,6 +20,15 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
     ...options,
   });
   if (!res.ok) {
+    if (res.status === 401) {
+      // Token expired or invalid — clear auth state and bounce to login
+      localStorage.removeItem("oliva_token");
+      localStorage.removeItem("oliva_logged_in");
+      localStorage.removeItem("oliva_user");
+      if (typeof window !== "undefined" && !window.location.pathname.startsWith("/login")) {
+        window.location.href = "/login";
+      }
+    }
     let detail = "";
     try {
       const body = await res.json();
@@ -36,6 +45,7 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
 export interface LoginResponse {
   access_token: string;
   token_type: string;
+  must_change_password?: boolean;
 }
 
 export interface AuthUser {

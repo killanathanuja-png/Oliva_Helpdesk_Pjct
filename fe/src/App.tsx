@@ -33,7 +33,9 @@ import { canAccess } from "@/lib/roles";
 
 const queryClient = new QueryClient();
 
-const isLoggedIn = () => localStorage.getItem("oliva_logged_in") === "true";
+const isLoggedIn = () =>
+  localStorage.getItem("oliva_logged_in") === "true" &&
+  !!localStorage.getItem("oliva_token");
 
 const ProtectedRoute = ({ children, path }: { children: React.ReactNode; path?: string }) => {
   if (!isLoggedIn()) return <Navigate to="/login" replace />;

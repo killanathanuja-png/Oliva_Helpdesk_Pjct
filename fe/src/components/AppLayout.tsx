@@ -31,6 +31,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getAllowedPaths } from "@/lib/roles";
+import ChangeDefaultPasswordModal from "@/components/ChangeDefaultPasswordModal";
 
 interface AppLayoutProps {
   children: React.ReactNode;
@@ -399,6 +400,7 @@ const AppLayout = ({ children }: AppLayoutProps) => {
         {/* Content */}
         <main className="flex-1 overflow-y-auto p-4 lg:p-6">{children}</main>
       </div>
+      <ChangeDefaultPasswordModal />
     </div>
   );
 };
