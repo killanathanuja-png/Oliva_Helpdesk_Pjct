@@ -877,31 +877,20 @@ const TicketDetailPage = () => {
                     {(isAomAssigned || isCddRaisedTicket) && !isCddRaisedTicket && !["Closed", "Resolved"].includes(ticket.status as string) && <option value="Closed">Closed</option>}
                     {(isAomAssigned || isCddRaisedTicket) && ["Closed", "Resolved"].includes(ticket.status as string) && <option value="Re-Open">Re-Open</option>}
                   </>
-                ) : isZenoti ? (() => {
-                  const hasBeenInFollowUp =
-                    (ticket.status as string) === "Follow Up" ||
-                    ticket.comments.some(
-                      (c) => c.type === "status_change" && /to "follow up"/i.test(c.message || "")
-                    );
-                  // Once a ticket has been in Follow Up, the only next move is Closed.
-                  if (hasBeenInFollowUp && !["Closed", "Resolved"].includes(ticket.status as string)) {
-                    return (
+                ) : isZenoti ? (
+                  <>
+                    <option value={ticket.status}>{ticket.status}</option>
+                    {["Closed", "Resolved"].includes(ticket.status as string) ? (
+                      <option value="Re-Open">Re-Open</option>
+                    ) : (
                       <>
-                        <option value={ticket.status}>{ticket.status}</option>
-                        <option value="Closed">Closed</option>
+                        {(ticket.status as string) !== "In Progress" && <option value="In Progress">In Progress</option>}
+                        {(ticket.status as string) !== "Follow Up" && <option value="Follow Up">Follow Up</option>}
+                        {(ticket.status as string) !== "Closed" && <option value="Closed">Closed</option>}
                       </>
-                    );
-                  }
-                  return (
-                    <>
-                      <option value={ticket.status}>{ticket.status}</option>
-                      {(ticket.status as string) !== "In Progress" && !["Closed", "Resolved"].includes(ticket.status as string) && <option value="In Progress">In Progress</option>}
-                      {(ticket.status as string) !== "Follow Up" && !["Closed", "Resolved"].includes(ticket.status as string) && <option value="Follow Up">Follow Up</option>}
-                      {!["Closed", "Resolved"].includes(ticket.status as string) && <option value="Closed">Closed</option>}
-                      {["Closed", "Resolved"].includes(ticket.status as string) && <option value="Re-Open">Re-Open</option>}
-                    </>
-                  );
-                })() : hasAnyRole(currentUserRole, ["Helpdesk Admin"]) ? (
+                    )}
+                  </>
+                ) : hasAnyRole(currentUserRole, ["Helpdesk Admin"]) ? (
                   <>
                     <option value={ticket.status}>{ticket.status}</option>
                     {!["Closed", "Resolved"].includes(ticket.status as string) && <option value="Resolved">Resolved</option>}

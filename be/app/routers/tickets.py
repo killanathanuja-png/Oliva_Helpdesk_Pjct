@@ -629,27 +629,6 @@ def update_ticket(ticket_id: int, req: TicketUpdate, current_user: User = Depend
                 detail="This ticket has already been put in Follow Up by Zenoti once. It can be set to Follow Up only once per ticket.",
             )
 
-    # Zenoti team: once a ticket has been in Follow Up, the only next status is Closed
-    # (no jumping back to In Progress / Open / Follow Up again). Super Admins are exempt.
-    if "status" in update_data and (t.assigned_dept or "").lower() == "zenoti":
-        role_name = (current_user.role or "").lower()
-        is_zenoti_role = "zenoti" in role_name
-        is_super = any(r in role_name for r in ["super admin", "global admin", "super user"])
-        if is_zenoti_role and not is_super:
-            has_been_in_follow_up = (
-                t.status == TicketStatusEnum.FollowUp
-                or any(
-                    c.type == CommentTypeEnum.status_change and 'to "follow up"' in (c.message or "").lower()
-                    for c in t.comments
-                )
-            )
-            new_status = update_data["status"]
-            if has_been_in_follow_up and new_status not in ("Closed", t.status.value if t.status else ""):
-                raise HTTPException(
-                    status_code=400,
-                    detail="This ticket has been in Follow Up. It can only be moved to Closed.",
-                )
-
     if "status" in update_data:
         # If reopening a Closed/Resolved ticket, set status to "Reopened"
         new_status_str = update_data["status"]
