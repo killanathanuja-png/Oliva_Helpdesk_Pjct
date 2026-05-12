@@ -642,7 +642,7 @@ const AdminUsersPage = () => {
                 "Entity": u.entity,
                 "Vertical": u.vertical,
                 "Costcenter": u.costcenter,
-                "Location": u.center,
+                "Location": u.city || u.center,
                 "Department": u.department,
                 "Mobile No": u.mobile,
                 "Reporting To": u.reportingTo,
@@ -721,7 +721,7 @@ const AdminUsersPage = () => {
               <tr key={u.id} className="border-b border-border last:border-0 hover:bg-muted/20 transition-colors whitespace-nowrap">
                 <td className="px-3 py-2.5 font-mono text-xs text-primary font-semibold">{u.employeeId || u.id}</td>
                 <td className="px-3 py-2.5 text-xs font-medium">{u.name}</td>
-                <td className="px-3 py-2.5 text-xs text-muted-foreground">{u.center || ""}</td>
+                <td className="px-3 py-2.5 text-xs text-muted-foreground">{u.city || u.center || ""}</td>
                 <td className="px-3 py-2.5 text-xs text-muted-foreground">{u.department || ""}</td>
                 <td className="px-3 py-2.5 text-xs">{u.role}</td>
                 <td className="px-3 py-2.5 text-xs text-muted-foreground">{u.mapLevelAccess || ""}</td>
