@@ -825,13 +825,23 @@ export interface ExpiringCert {
 export const certificatesApi = {
   getExpiring: () => request<ExpiringCert[]>("/certificates/expiring"),
   getForCenter: (centerId: number) => request<{ center_id: number; center_name: string; city: string; certificates: CertificateData[] }>(`/certificates/center/${centerId}`),
-  upload: (formData: FormData) => {
+  upload: async (formData: FormData) => {
     const token = localStorage.getItem("oliva_token");
-    return fetch(`${API_BASE}/certificates/upload/`, {
+    const res = await fetch(`${API_BASE}/certificates/upload/`, {
       method: "POST",
       headers: token ? { Authorization: `Bearer ${token}` } : {},
       body: formData,
-    }).then((res) => res.json());
+    });
+    if (!res.ok) {
+      let detail = `Upload failed (${res.status})`;
+      try {
+        const body = await res.json();
+        if (typeof body?.detail === "string") detail = body.detail;
+        else if (body?.detail) detail = JSON.stringify(body.detail);
+      } catch { /* non-JSON body */ }
+      throw new Error(detail);
+    }
+    return res.json();
   },
   download: (certId: number) => {
     const token = localStorage.getItem("oliva_token");

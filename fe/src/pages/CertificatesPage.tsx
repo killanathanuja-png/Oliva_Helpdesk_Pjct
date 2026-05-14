@@ -106,6 +106,11 @@ const CertificatesPage = () => {
     if (!uploadModal.file) { alert("Please select a file."); return; }
     if (!uploadModal.startDate) { alert("Please enter the Start Date."); return; }
     if (!uploadModal.expiryDate) { alert("Please enter the Expiry Date."); return; }
+    const MAX_BYTES = 10 * 1024 * 1024; // 10 MB
+    if (uploadModal.file.size > MAX_BYTES) {
+      alert(`File too large. Maximum size is 10 MB (your file is ${(uploadModal.file.size / (1024 * 1024)).toFixed(2)} MB).`);
+      return;
+    }
     setUploading(true);
     try {
       const formData = new FormData();
@@ -120,8 +125,9 @@ const CertificatesPage = () => {
       const data = await certificatesApi.getForCenter(Number(selectedCenterId));
       setCerts(data.certificates);
       setUploadModal(null);
-    } catch {
-      alert("Upload failed");
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Upload failed";
+      alert(msg);
     } finally {
       setUploading(false);
     }
@@ -425,6 +431,7 @@ const CertificatesPage = () => {
                   <input type="file" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
                     onChange={(e) => setUploadModal({ ...uploadModal, file: e.target.files?.[0] || null })}
                     className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm" />
+                  <p className="text-[11px] text-muted-foreground mt-1">PDF, JPG, PNG, DOC &middot; Max 10 MB</p>
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div>

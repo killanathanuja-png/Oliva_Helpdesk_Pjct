@@ -15,6 +15,7 @@ UPLOAD_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 CERT_TYPES = ["Trade", "Labour", "Medical License", "PCB", "PPL", "GST"]
+MAX_UPLOAD_BYTES = 10 * 1024 * 1024  # 10 MB
 
 
 @router.get("/expiring/")
@@ -112,11 +113,18 @@ async def upload_certificate(
     if not center:
         raise HTTPException(404, "Center not found")
 
+    # Read & validate file size (10 MB cap)
+    content = await file.read()
+    if len(content) > MAX_UPLOAD_BYTES:
+        raise HTTPException(
+            status_code=413,
+            detail=f"File too large. Maximum size is 10 MB (you uploaded {round(len(content) / (1024 * 1024), 2)} MB).",
+        )
+
     # Save file
     ext = os.path.splitext(file.filename)[1] if file.filename else ".pdf"
     safe_name = f"{center.name}_{cert_type}_{uuid.uuid4().hex[:8]}{ext}"
     file_path = os.path.join(UPLOAD_DIR, safe_name)
-    content = await file.read()
     with open(file_path, "wb") as f:
         f.write(content)
 
