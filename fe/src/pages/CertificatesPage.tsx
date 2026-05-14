@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { useSearchParams } from "react-router-dom";
 import { centersApi, certificatesApi } from "@/lib/api";
 import type { ApiCenter, CertificateData } from "@/lib/api";
-import { Loader2, MapPin, Building2, ArrowLeft, ChevronRight, Search, FileText, Upload, Download, Eye, Trash2, CheckCircle2, AlertTriangle, X } from "lucide-react";
+import { Loader2, MapPin, Building2, ArrowLeft, ChevronRight, Search, FileText, Upload, Download, Eye, Trash2, CheckCircle2, AlertTriangle, X, Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const CERT_TYPES = ["Trade", "Labour", "Medical License", "PCB", "PPL", "GST"];
@@ -38,6 +38,8 @@ const CertificatesPage = () => {
   const [viewCert, setViewCert] = useState<CertificateData | null>(null);
   const [showAddCert, setShowAddCert] = useState(false);
   const [addCertName, setAddCertName] = useState("");
+  const [addClinicModal, setAddClinicModal] = useState<{ name: string; state: string; zone: string; submitting: boolean; error: string } | null>(null);
+  const [addCityModal, setAddCityModal] = useState<{ city: string; state: string; clinicName: string; submitting: boolean; error: string } | null>(null);
 
   useEffect(() => {
     centersApi.list()
@@ -478,17 +480,116 @@ const CertificatesPage = () => {
 
   // View: Clinic List for City
   if (selectedCity) {
+    const submitAddClinic = async () => {
+      if (!addClinicModal) return;
+      const name = addClinicModal.name.trim();
+      if (!name) { setAddClinicModal({ ...addClinicModal, error: "Clinic name is required" }); return; }
+      setAddClinicModal({ ...addClinicModal, submitting: true, error: "" });
+      try {
+        const created = await centersApi.create({
+          name,
+          city: selectedCity,
+          state: addClinicModal.state.trim(),
+          zone: addClinicModal.zone.trim(),
+          country: "India",
+        });
+        setCenters((prev) => [...prev, created]);
+        setAddClinicModal(null);
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : "Failed to add clinic";
+        setAddClinicModal({ ...addClinicModal, submitting: false, error: msg });
+      }
+    };
     return (
       <div className="space-y-4 animate-fade-in">
-        <div className="flex items-center gap-3">
-          <button onClick={() => setSearchParams({})} className="p-2 rounded-lg border border-border hover:bg-muted transition-colors" title="Back">
-            <ArrowLeft className="h-4 w-4" />
-          </button>
-          <div>
-            <h1 className="text-xl font-bold font-display">{selectedCity} - Clinics</h1>
-            <p className="text-xs text-muted-foreground mt-0.5">{selectedClinics.length} clinics &middot; Click a clinic to manage certificates</p>
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <button onClick={() => setSearchParams({})} className="p-2 rounded-lg border border-border hover:bg-muted transition-colors" title="Back">
+              <ArrowLeft className="h-4 w-4" />
+            </button>
+            <div>
+              <h1 className="text-xl font-bold font-display">{selectedCity} - Clinics</h1>
+              <p className="text-xs text-muted-foreground mt-0.5">{selectedClinics.length} clinics &middot; Click a clinic to manage certificates</p>
+            </div>
           </div>
+          {canUpload && (
+            <button
+              onClick={() => {
+                // Infer state from any existing center in this city — the DB uses
+                // either `state` or `zone` for state-like data, so check both.
+                const sample = centers.find((c) => c.city === selectedCity && (c.state || c.zone));
+                const inferredState = sample?.state || sample?.zone || "";
+                setAddClinicModal({
+                  name: "",
+                  state: inferredState,
+                  zone: inferredState,
+                  submitting: false,
+                  error: "",
+                });
+              }}
+              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium text-white transition-all active:scale-[0.98]"
+              style={{ background: "linear-gradient(135deg, #00B7AE, #1A6B6A)" }}
+            >
+              <Plus className="h-4 w-4" /> Add Clinic
+            </button>
+          )}
         </div>
+
+        {addClinicModal && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+            <div className="w-full max-w-md bg-white rounded-2xl shadow-2xl overflow-hidden">
+              <div className="px-6 py-4 border-b border-border flex items-center justify-between">
+                <h2 className="text-base font-semibold">Add Clinic in {selectedCity}</h2>
+                <button onClick={() => setAddClinicModal(null)} className="p-1.5 rounded hover:bg-muted">
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+              <div className="px-6 py-5 space-y-4">
+                <div>
+                  <label className="block text-xs font-semibold text-muted-foreground mb-1.5 uppercase tracking-wider">Clinic Name <span className="text-destructive">*</span></label>
+                  <input
+                    type="text"
+                    value={addClinicModal.name}
+                    onChange={(e) => setAddClinicModal({ ...addClinicModal, name: e.target.value })}
+                    placeholder="e.g. Bopal"
+                    autoFocus
+                    className="w-full px-3 py-2.5 rounded-lg border border-gray-200 bg-gray-50/60 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-semibold text-muted-foreground mb-1.5 uppercase tracking-wider">City</label>
+                    <input type="text" value={selectedCity} readOnly className="w-full px-3 py-2.5 rounded-lg border border-gray-200 bg-gray-100 text-sm text-muted-foreground" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-muted-foreground mb-1.5 uppercase tracking-wider">State</label>
+                    <input type="text" value={addClinicModal.state} readOnly className="w-full px-3 py-2.5 rounded-lg border border-gray-200 bg-gray-100 text-sm text-muted-foreground" />
+                  </div>
+                </div>
+                {addClinicModal.error && <p className="text-xs text-destructive font-medium">{addClinicModal.error}</p>}
+                <div className="flex gap-2 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setAddClinicModal(null)}
+                    className="px-4 py-2.5 rounded-lg border border-gray-200 text-sm font-medium text-muted-foreground hover:bg-gray-50 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={submitAddClinic}
+                    disabled={addClinicModal.submitting}
+                    className="flex-1 py-2.5 rounded-lg text-white font-semibold text-sm transition-all active:scale-[0.98] disabled:opacity-70 flex items-center justify-center gap-2"
+                    style={{ background: "linear-gradient(135deg, #00B7AE, #1A6B6A)" }}
+                  >
+                    {addClinicModal.submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+                    Add Clinic
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {selectedClinics.map((c) => (
             <button
@@ -516,6 +617,34 @@ const CertificatesPage = () => {
   }
 
   // View: City List
+  const submitAddCity = async () => {
+    if (!addCityModal) return;
+    const city = addCityModal.city.trim();
+    const state = addCityModal.state.trim();
+    const clinicName = addCityModal.clinicName.trim();
+    if (!city) { setAddCityModal({ ...addCityModal, error: "City name is required" }); return; }
+    if (!state) { setAddCityModal({ ...addCityModal, error: "State is required" }); return; }
+    if (!clinicName) { setAddCityModal({ ...addCityModal, error: "First clinic name is required" }); return; }
+    if (cityNames.some((c) => c.toLowerCase() === city.toLowerCase())) {
+      setAddCityModal({ ...addCityModal, error: `City "${city}" already exists. Open it and use "Add Clinic" instead.` });
+      return;
+    }
+    setAddCityModal({ ...addCityModal, submitting: true, error: "" });
+    try {
+      const created = await centersApi.create({
+        name: clinicName,
+        city,
+        state,
+        zone: state,
+        country: "India",
+      });
+      setCenters((prev) => [...prev, created]);
+      setAddCityModal(null);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Failed to add city";
+      setAddCityModal({ ...addCityModal, submitting: false, error: msg });
+    }
+  };
   return (
     <div className="space-y-4 animate-fade-in">
       <div className="flex items-center justify-between gap-4">
@@ -528,12 +657,92 @@ const CertificatesPage = () => {
             <p className="text-xs text-muted-foreground mt-0.5">{cityNames.length} cities &middot; {centers.length} clinics</p>
           </div>
         </div>
-        <div className="relative flex-1 max-w-sm">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <input type="text" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search city..."
-            className="w-full pl-9 pr-3 py-2 rounded-lg border border-border bg-card text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 transition-shadow" />
+        <div className="flex items-center gap-3 flex-1 justify-end">
+          <div className="relative flex-1 max-w-sm">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <input type="text" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search city..."
+              className="w-full pl-9 pr-3 py-2 rounded-lg border border-border bg-card text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 transition-shadow" />
+          </div>
+          {canUpload && (
+            <button
+              onClick={() => setAddCityModal({ city: "", state: "", clinicName: "", submitting: false, error: "" })}
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-white transition-all active:scale-[0.98] whitespace-nowrap"
+              style={{ background: "linear-gradient(135deg, #00B7AE, #1A6B6A)" }}
+            >
+              <Plus className="h-4 w-4" /> Add City
+            </button>
+          )}
         </div>
       </div>
+
+      {addCityModal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="w-full max-w-md bg-white rounded-2xl shadow-2xl overflow-hidden">
+            <div className="px-6 py-4 border-b border-border flex items-center justify-between">
+              <h2 className="text-base font-semibold">Add New City</h2>
+              <button onClick={() => setAddCityModal(null)} className="p-1.5 rounded hover:bg-muted">
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <div className="px-6 py-5 space-y-4">
+              <p className="text-xs text-muted-foreground">A city only appears here once it has at least one clinic. Enter the city, state, and the first clinic in that city.</p>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-muted-foreground mb-1.5 uppercase tracking-wider">City <span className="text-destructive">*</span></label>
+                  <input
+                    type="text"
+                    value={addCityModal.city}
+                    onChange={(e) => setAddCityModal({ ...addCityModal, city: e.target.value })}
+                    placeholder="e.g. Surat"
+                    autoFocus
+                    className="w-full px-3 py-2.5 rounded-lg border border-gray-200 bg-gray-50/60 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-muted-foreground mb-1.5 uppercase tracking-wider">State <span className="text-destructive">*</span></label>
+                  <input
+                    type="text"
+                    value={addCityModal.state}
+                    onChange={(e) => setAddCityModal({ ...addCityModal, state: e.target.value })}
+                    placeholder="e.g. Gujarat"
+                    className="w-full px-3 py-2.5 rounded-lg border border-gray-200 bg-gray-50/60 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-muted-foreground mb-1.5 uppercase tracking-wider">First Clinic Name <span className="text-destructive">*</span></label>
+                <input
+                  type="text"
+                  value={addCityModal.clinicName}
+                  onChange={(e) => setAddCityModal({ ...addCityModal, clinicName: e.target.value })}
+                  placeholder="e.g. Adajan"
+                  className="w-full px-3 py-2.5 rounded-lg border border-gray-200 bg-gray-50/60 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
+                />
+              </div>
+              {addCityModal.error && <p className="text-xs text-destructive font-medium">{addCityModal.error}</p>}
+              <div className="flex gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setAddCityModal(null)}
+                  className="px-4 py-2.5 rounded-lg border border-gray-200 text-sm font-medium text-muted-foreground hover:bg-gray-50 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={submitAddCity}
+                  disabled={addCityModal.submitting}
+                  className="flex-1 py-2.5 rounded-lg text-white font-semibold text-sm transition-all active:scale-[0.98] disabled:opacity-70 flex items-center justify-center gap-2"
+                  style={{ background: "linear-gradient(135deg, #00B7AE, #1A6B6A)" }}
+                >
+                  {addCityModal.submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+                  Add City
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {filteredCities.map((city) => (
           <button key={city} onClick={() => setSearchParams({ city })}
