@@ -355,23 +355,25 @@ const CertificatesPage = () => {
                   </div>
                 )}
 
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1.5 flex-wrap">
                   {cert.has_file ? (
                     <>
-                      <button onClick={() => handleView(cert)} className="flex-1 px-3 py-2 rounded-lg border border-border text-xs font-medium hover:bg-muted transition-colors flex items-center justify-center gap-1.5">
-                        <Eye className="h-3.5 w-3.5" /> View
+                      <button onClick={() => handleView(cert)} className="flex-1 min-w-0 px-2 py-2 rounded-lg border border-border text-xs font-medium hover:bg-muted transition-colors flex items-center justify-center gap-1">
+                        <Eye className="h-3.5 w-3.5 shrink-0" /> View
                       </button>
-                      <button onClick={() => handleDownload(cert)} className="flex-1 px-3 py-2 rounded-lg border border-border text-xs font-medium hover:bg-muted transition-colors flex items-center justify-center gap-1.5">
-                        <Download className="h-3.5 w-3.5" /> Download
+                      <button onClick={() => handleDownload(cert)} className="flex-1 min-w-0 px-2 py-2 rounded-lg border border-border text-xs font-medium hover:bg-muted transition-colors flex items-center justify-center gap-1">
+                        <Download className="h-3.5 w-3.5 shrink-0" /> Download
                       </button>
                       {canUpload && (
                         <>
                           <button onClick={() => handleUploadClick(cert.cert_type, cert)}
-                            className="px-3 py-2 rounded-lg border border-primary/30 text-xs font-medium text-primary hover:bg-primary/5 transition-colors flex items-center gap-1.5">
-                            <Upload className="h-3.5 w-3.5" /> Replace
+                            title="Replace"
+                            className="shrink-0 px-2 py-2 rounded-lg border border-primary/30 text-xs font-medium text-primary hover:bg-primary/5 transition-colors flex items-center gap-1">
+                            <Upload className="h-3.5 w-3.5 shrink-0" /> Replace
                           </button>
                           <button onClick={() => cert.id && setDeleteConfirm({ id: cert.id, type: cert.cert_type })}
-                            className="px-2 py-2 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors">
+                            title="Delete"
+                            className="shrink-0 px-2 py-2 rounded-lg border border-border text-muted-foreground hover:text-destructive hover:border-destructive/40 hover:bg-destructive/10 transition-colors">
                             <Trash2 className="h-3.5 w-3.5" />
                           </button>
                         </>
