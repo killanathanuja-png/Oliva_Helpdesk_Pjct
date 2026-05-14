@@ -466,11 +466,18 @@ def create_ticket(req: TicketCreate, current_user: User = Depends(get_current_us
             _create_notification(db, ticket.assigned_to_id, f"New Ticket {ticket.code}",
                 f"New ticket '{ticket.title}' has been assigned to you.", ticket.id)
 
-        # Notify both IT members for IT Department tickets
+        # Notify ALL active IT Department users when an IT Department ticket is raised
         if ticket.assigned_dept == "IT Department":
-            for it_email in ["ramakrishna.kanchu@olivaclinic.com", "suresh.v@olivaclinic.com"]:
-                it_user = db.query(User).filter(User.email == it_email).first()
-                if it_user and it_user.id != current_user.id and it_user.id != ticket.assigned_to_id:
+            it_dept = db.query(Department).filter(Department.name == "IT Department").first()
+            it_users_q = db.query(User).filter(User.status == StatusEnum.Active)
+            if it_dept:
+                it_users_q = it_users_q.filter(
+                    (User.department_id == it_dept.id) | (User.role == "IT")
+                )
+            else:
+                it_users_q = it_users_q.filter(User.role == "IT")
+            for it_user in it_users_q.all():
+                if it_user.id != current_user.id and it_user.id != ticket.assigned_to_id:
                     _create_notification(db, it_user.id, f"New IT Ticket {ticket.code}",
                         f"New IT ticket '{ticket.title}' raised from {ticket.center or 'Unknown'}.", ticket.id)
 
@@ -529,19 +536,25 @@ def create_ticket(req: TicketCreate, current_user: User = Depends(get_current_us
                     ticket.assigned_dept or "", ticket.center or "", priority_val,
                     ticket_db_id=ticket.id)
 
-        # 4. IT Department — notify both IT members on ticket creation
+        # 4. IT Department — notify ALL active IT Department users on ticket creation
         sent_emails = {raiser_email, assignee_email}
         if ticket.assigned_dept == "IT Department":
-            for it_email in ["ramakrishna.kanchu@olivaclinic.com", "suresh.v@olivaclinic.com"]:
-                if it_email not in sent_emails:
-                    it_user = db.query(User).filter(User.email == it_email).first()
-                    if it_user:
-                        print(f"[EMAIL] IT MEMBER → {it_user.name} ({it_email})")
-                        send_ticket_assigned(it_email, ticket.code, ticket.title,
-                            it_user.name, raiser_name,
-                            "IT Department", ticket.center or "", priority_val,
-                            ticket_db_id=ticket.id)
-                        sent_emails.add(it_email)
+            it_dept = db.query(Department).filter(Department.name == "IT Department").first()
+            it_users_q = db.query(User).filter(User.status == StatusEnum.Active)
+            if it_dept:
+                it_users_q = it_users_q.filter(
+                    (User.department_id == it_dept.id) | (User.role == "IT")
+                )
+            else:
+                it_users_q = it_users_q.filter(User.role == "IT")
+            for it_user in it_users_q.all():
+                if it_user.email and it_user.email not in sent_emails:
+                    print(f"[EMAIL] IT MEMBER → {it_user.name} ({it_user.email})")
+                    send_ticket_assigned(it_user.email, ticket.code, ticket.title,
+                        it_user.name, raiser_name,
+                        "IT Department", ticket.center or "", priority_val,
+                        ticket_db_id=ticket.id)
+                    sent_emails.add(it_user.email)
 
         # 5. Center Manager — notify when ticket is raised for their center (if not already emailed)
         if ticket.center:
