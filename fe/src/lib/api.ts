@@ -15,10 +15,24 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
     const base = url.slice(0, qIdx);
     if (!base.endsWith("/")) url = base + "/" + url.slice(qIdx);
   }
-  const res = await fetch(url, {
-    headers: { "Content-Type": "application/json", ...getAuthHeaders(), ...options?.headers },
-    ...options,
-  });
+  // 60-second timeout so a hung backend doesn't leave the UI spinning forever
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 60_000);
+  let res: Response;
+  try {
+    res = await fetch(url, {
+      headers: { "Content-Type": "application/json", ...getAuthHeaders(), ...options?.headers },
+      ...options,
+      signal: options?.signal ?? controller.signal,
+    });
+  } catch (err) {
+    clearTimeout(timer);
+    if (err instanceof Error && err.name === "AbortError") {
+      throw new Error("Request timed out. Please check your connection and try again.");
+    }
+    throw err;
+  }
+  clearTimeout(timer);
   if (!res.ok) {
     if (res.status === 401) {
       // Token expired or invalid — clear auth state and bounce to login
