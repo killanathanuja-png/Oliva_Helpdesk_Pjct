@@ -543,3 +543,28 @@ class ApiToken(Base):
     last_used_at = Column(DateTime(timezone=True), nullable=True)
 
     user = relationship("User")
+
+
+class PropertyDocument(Base):
+    """Lease agreement documents for clinic properties — managed by Admin Department."""
+    __tablename__ = "property_documents"
+
+    id = Column(Integer, primary_key=True, index=True)
+    city = Column(String(100), nullable=False)
+    location = Column(String(200), nullable=False)
+    area_sqft = Column(Float, nullable=True)
+    agreement_date = Column(DateTime(timezone=True), nullable=True)
+    lease_comm_date = Column(DateTime(timezone=True), nullable=True)
+    lease_end_date = Column(DateTime(timezone=True), nullable=True)
+    rent_escalation_date = Column(DateTime(timezone=True), nullable=True)
+    escalation_percentage = Column(Float, nullable=True)
+    per_month_rent = Column(Float, nullable=True)
+    owner_name = Column(String(150), nullable=True)
+    owner_contact = Column(String(50), nullable=True)
+    owner_email = Column(String(150), nullable=True)
+    registered = Column(Boolean, default=False, nullable=False)
+    file_name = Column(String(300), nullable=True)
+    file_path = Column(String(500), nullable=True)
+    uploaded_by = Column(String(100), nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())

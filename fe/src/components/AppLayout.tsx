@@ -28,6 +28,7 @@ import {
   CheckCircle2,
   UserCheck,
   ListChecks,
+  FileText,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getAllowedPaths } from "@/lib/roles";
@@ -49,6 +50,7 @@ const allNavItems = [
     ],
   },
   { label: "Certificates", icon: Layers, path: "/certificates" },
+  { label: "Documents", icon: FileText, path: "/documents" },
   { label: "Approvals", icon: ShieldCheck, path: "/approvals" },
   { label: "Finance Approvals", icon: DollarSign, path: "/finance-approvals" },
   { label: "Zenoti Requests", icon: Wrench, path: "/zenoti-requests" },

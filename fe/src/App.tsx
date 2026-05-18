@@ -28,6 +28,7 @@ import AdminServiceTitlesPage from "@/pages/admin/AdminServiceTitlesPage";
 import LoginHistoryPage from "@/pages/admin/LoginHistoryPage";
 import ProfilePage from "@/pages/ProfilePage";
 import CertificatesPage from "@/pages/CertificatesPage";
+import DocumentsPage from "@/pages/DocumentsPage";
 import NotFound from "./pages/NotFound";
 import { canAccess } from "@/lib/roles";
 
@@ -88,6 +89,16 @@ const App = () => (
               <ProtectedRoute path="/certificates">
                 <AppLayout>
                   <CertificatesPage />
+                </AppLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/documents"
+            element={
+              <ProtectedRoute path="/documents">
+                <AppLayout>
+                  <DocumentsPage />
                 </AppLayout>
               </ProtectedRoute>
             }

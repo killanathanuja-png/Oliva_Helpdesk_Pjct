@@ -842,6 +842,70 @@ export interface ExpiringCert {
   status: string;
 }
 
+export interface PropertyDocumentData {
+  id: number;
+  city: string;
+  location: string;
+  area_sqft: number | null;
+  agreement_date: string | null;
+  lease_comm_date: string | null;
+  lease_end_date: string | null;
+  rent_escalation_date: string | null;
+  escalation_percentage: number | null;
+  per_month_rent: number | null;
+  owner_name: string | null;
+  owner_contact: string | null;
+  owner_email: string | null;
+  registered: boolean;
+  file_name: string | null;
+  has_file: boolean;
+  uploaded_by: string | null;
+  created_at: string | null;
+  updated_at: string | null;
+}
+
+export const documentsApi = {
+  list: () => request<PropertyDocumentData[]>("/documents"),
+  create: async (formData: FormData) => {
+    const token = localStorage.getItem("oliva_token");
+    const res = await fetch(`${API_BASE}/documents/`, {
+      method: "POST",
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      body: formData,
+    });
+    if (!res.ok) {
+      let detail = `Create failed (${res.status})`;
+      try { const body = await res.json(); if (typeof body?.detail === "string") detail = body.detail; } catch { /* */ }
+      throw new Error(detail);
+    }
+    return res.json() as Promise<PropertyDocumentData>;
+  },
+  update: async (id: number, formData: FormData) => {
+    const token = localStorage.getItem("oliva_token");
+    const res = await fetch(`${API_BASE}/documents/${id}/`, {
+      method: "PUT",
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      body: formData,
+    });
+    if (!res.ok) {
+      let detail = `Update failed (${res.status})`;
+      try { const body = await res.json(); if (typeof body?.detail === "string") detail = body.detail; } catch { /* */ }
+      throw new Error(detail);
+    }
+    return res.json() as Promise<PropertyDocumentData>;
+  },
+  remove: (id: number) => request<{ message: string }>(`/documents/${id}`, { method: "DELETE" }),
+  download: (id: number) => {
+    const token = localStorage.getItem("oliva_token");
+    return fetch(`${API_BASE}/documents/download/${id}/`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    }).then((res) => {
+      if (!res.ok) throw new Error("Download failed");
+      return res.blob();
+    });
+  },
+};
+
 export const certificatesApi = {
   getExpiring: () => request<ExpiringCert[]>("/certificates/expiring"),
   getByYear: (year: number) => request<ExpiringCert[]>(`/certificates/by-year/${year}`),

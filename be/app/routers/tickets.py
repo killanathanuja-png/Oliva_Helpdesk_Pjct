@@ -494,22 +494,36 @@ def create_ticket(req: TicketCreate, current_user: User = Depends(get_current_us
         print(f"[CREATE TICKET] FAILED: {traceback.format_exc()}")
         raise
 
-    # ── Emails on Ticket Creation ──
-    # FINAL EMAIL RULES (production):
-    # Rule 1: "Created" email → ONLY to the raiser
-    # Rule 2: "Assigned" email → ONLY to the assigned person (if different from raiser)
-    # Rule 3: NO emails to department members, center managers, or anyone else
+    # ── Emails on Ticket Creation (fire-and-forget) ──
+    # All notification queries and email sends are moved off the request path so
+    # the API responds as soon as the ticket is committed. The background thread
+    # opens its own DB session and never blocks the user-facing response.
+    from threading import Thread
+    Thread(target=_send_creation_notifications, args=(ticket.id,), daemon=True).start()
+
+    return _ticket_to_response(ticket)
+
+
+def _send_creation_notifications(ticket_id: int):
+    """Look up everyone who should be emailed for a newly-created ticket and
+    dispatch the emails. Runs in a background thread — opens its own DB session
+    so it cannot block the request that created the ticket."""
+    import traceback as _tb
+    from app.database import SessionLocal
+    db = SessionLocal()
     try:
-        db.refresh(ticket)
+        ticket = db.query(Ticket).filter(Ticket.id == ticket_id).first()
+        if not ticket:
+            return
         priority_val = ticket.priority.value if ticket.priority else "Medium"
 
         raiser = ticket.raised_by_rel
-        raiser_email = raiser.email if raiser else current_user.email
-        raiser_name = raiser.name if raiser else current_user.name
+        raiser_email = raiser.email if raiser else ""
+        raiser_name = raiser.name if raiser else ""
         assignee = ticket.assigned_to_rel
         assignee_email = assignee.email if assignee else None
 
-        # 1. RAISER gets "Ticket Created" email ONLY
+        # 1. RAISER gets "Ticket Created" email
         if raiser_email:
             print(f"[EMAIL] CREATED → raiser: {raiser_name} ({raiser_email})")
             send_ticket_created(raiser_email, ticket.code, ticket.title,
@@ -518,8 +532,8 @@ def create_ticket(req: TicketCreate, current_user: User = Depends(get_current_us
                 assignee.name if assignee else "",
                 ticket_db_id=ticket.id)
 
-        # 2. ASSIGNEE gets "Ticket Assigned" email ONLY (skip if same as raiser or unassigned)
-        if assignee and assignee_email and assignee.id != (raiser.id if raiser else current_user.id):
+        # 2. ASSIGNEE gets "Ticket Assigned" email (skip if same as raiser)
+        if assignee and assignee_email and (not raiser or assignee.id != raiser.id):
             print(f"[EMAIL] ASSIGNED → assignee: {assignee.name} ({assignee_email})")
             send_ticket_assigned(assignee_email, ticket.code, ticket.title,
                 assignee.name, raiser_name,
@@ -529,14 +543,14 @@ def create_ticket(req: TicketCreate, current_user: User = Depends(get_current_us
         # 3. AOM gets email when ticket needs their approval
         if ticket.approval_required and ticket.approver:
             aom_user = db.query(User).filter(User.name == ticket.approver).first()
-            if aom_user and aom_user.email and aom_user.id != (raiser.id if raiser else current_user.id):
+            if aom_user and aom_user.email and (not raiser or aom_user.id != raiser.id):
                 print(f"[EMAIL] APPROVAL NEEDED → AOM: {aom_user.name} ({aom_user.email})")
                 send_ticket_assigned(aom_user.email, ticket.code, ticket.title,
                     aom_user.name, raiser_name,
                     ticket.assigned_dept or "", ticket.center or "", priority_val,
                     ticket_db_id=ticket.id)
 
-        # 4. IT Department — notify ALL active IT Department users on ticket creation
+        # 4. IT Department — notify ALL active IT Department users
         sent_emails = {raiser_email, assignee_email}
         if ticket.assigned_dept == "IT Department":
             it_dept = db.query(Department).filter(Department.name == "IT Department").first()
@@ -556,7 +570,7 @@ def create_ticket(req: TicketCreate, current_user: User = Depends(get_current_us
                         ticket_db_id=ticket.id)
                     sent_emails.add(it_user.email)
 
-        # 5. Center Manager — notify when ticket is raised for their center (if not already emailed)
+        # 5. Center Manager — notify when ticket is raised for their center
         if ticket.center:
             center_obj = db.query(Center).filter(Center.name == ticket.center).first()
             if center_obj and center_obj.center_manager_email:
@@ -569,13 +583,11 @@ def create_ticket(req: TicketCreate, current_user: User = Depends(get_current_us
                             cm_user.name, raiser_name,
                             ticket.assigned_dept or "", ticket.center or "", priority_val,
                             ticket_db_id=ticket.id)
-
     except Exception as email_err:
-        import traceback
         print(f"[EMAIL] Failed to send creation emails: {email_err}")
-        traceback.print_exc()
-
-    return _ticket_to_response(ticket)
+        _tb.print_exc()
+    finally:
+        db.close()
  
  
 @router.get("/{ticket_id}", response_model=TicketResponse)

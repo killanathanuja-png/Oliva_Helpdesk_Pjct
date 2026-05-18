@@ -112,10 +112,11 @@ export function getAllowedPaths(): string[] {
   // Only users with "Can View and Edit" map_level_access get master pages
   if (getUserMapLevelAccess() === "Can View and Edit") {
     MASTER_PATHS.forEach((p) => paths.add(p));
-    // Certificates only for Admin Department masters (Rajesh)
+    // Certificates & Documents only for Admin Department masters
     const userRole = getUserRole();
     if (userRole.toLowerCase().includes("admin department")) {
       paths.add("/certificates");
+      paths.add("/documents");
     }
   }
   return [...paths];

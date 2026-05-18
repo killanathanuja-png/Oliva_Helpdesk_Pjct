@@ -18,6 +18,49 @@ CERT_TYPES = ["Trade", "Labour", "Medical License", "PCB", "PPL", "GST"]
 MAX_UPLOAD_BYTES = 1024 * 1024 * 1024  # 1 GB
 
 
+def _resolve_file_path(cert: "Certificate") -> str | None:
+    """Resolve a certificate's file location on disk.
+
+    Newer rows store the full file_path. Older rows only stored file_name.
+    For legacy rows, look up the file by matching the upload-dir naming
+    convention `{centerName}_{certType}_*` or by the original file_name.
+    Returns the absolute path if found, else None.
+    """
+    if cert.file_path and os.path.exists(cert.file_path):
+        return cert.file_path
+    if not os.path.isdir(UPLOAD_DIR):
+        return None
+    # Legacy fallback — scan the upload directory
+    try:
+        files = os.listdir(UPLOAD_DIR)
+    except OSError:
+        return None
+    # 1) Exact stored file_name match
+    if cert.file_name and cert.file_name in files:
+        return os.path.join(UPLOAD_DIR, cert.file_name)
+    # 2) Match naming convention `{center}_{cert_type}_*`
+    if cert.cert_type:
+        from app.models.models import Center
+        from app.database import SessionLocal
+        # Caller already has a session, but Certificate may not eagerly load center
+        center_name = ""
+        if hasattr(cert, "center_id"):
+            db = SessionLocal()
+            try:
+                c = db.query(Center).filter(Center.id == cert.center_id).first()
+                center_name = c.name if c else ""
+            finally:
+                db.close()
+        prefix = f"{center_name}_{cert.cert_type}_" if center_name else f"_{cert.cert_type}_"
+        matches = [f for f in files if f.startswith(prefix) or (f"_{cert.cert_type}_" in f and (not center_name or center_name in f))]
+        if matches:
+            # Prefer the most recently modified match
+            matches_full = [os.path.join(UPLOAD_DIR, m) for m in matches]
+            matches_full.sort(key=lambda p: os.path.getmtime(p), reverse=True)
+            return matches_full[0]
+    return None
+
+
 @router.get("/expiring/")
 def get_expiring_certificates(db: Session = Depends(get_db)):
     """Get all certificates expiring within 30 days."""
@@ -162,7 +205,7 @@ def get_certificates(center_id: int, db: Session = Depends(get_db)):
             "uploaded_by": c.uploaded_by,
             "created_at": c.created_at.isoformat() if c.created_at else None,
             "updated_at": c.updated_at.isoformat() if c.updated_at else None,
-            "has_file": bool(c.file_path and os.path.exists(c.file_path)),
+            "has_file": bool(c.file_name or c.file_path),
         }
 
     result = []
@@ -254,10 +297,17 @@ def view_certificate(cert_id: int, db: Session = Depends(get_db)):
     """View a certificate file inline in browser."""
     import mimetypes
     cert = db.query(Certificate).filter(Certificate.id == cert_id).first()
-    if not cert or not cert.file_path or not os.path.exists(cert.file_path):
+    if not cert:
+        raise HTTPException(404, "Certificate not found")
+    resolved = _resolve_file_path(cert)
+    if not resolved:
         raise HTTPException(404, "Certificate file not found")
-    mime_type = mimetypes.guess_type(cert.file_path)[0] or "application/pdf"
-    return FileResponse(cert.file_path, media_type=mime_type,
+    # Backfill the resolved path so subsequent calls are fast
+    if not cert.file_path:
+        cert.file_path = resolved
+        db.commit()
+    mime_type = mimetypes.guess_type(resolved)[0] or "application/pdf"
+    return FileResponse(resolved, media_type=mime_type,
                         headers={"Content-Disposition": f"inline; filename=\"{cert.file_name or cert.cert_type}\""})
 
 
@@ -265,9 +315,15 @@ def view_certificate(cert_id: int, db: Session = Depends(get_db)):
 def download_certificate(cert_id: int, db: Session = Depends(get_db)):
     """Download a certificate file."""
     cert = db.query(Certificate).filter(Certificate.id == cert_id).first()
-    if not cert or not cert.file_path or not os.path.exists(cert.file_path):
+    if not cert:
+        raise HTTPException(404, "Certificate not found")
+    resolved = _resolve_file_path(cert)
+    if not resolved:
         raise HTTPException(404, "Certificate file not found")
-    return FileResponse(cert.file_path, filename=cert.file_name or f"{cert.cert_type}.pdf",
+    if not cert.file_path:
+        cert.file_path = resolved
+        db.commit()
+    return FileResponse(resolved, filename=cert.file_name or f"{cert.cert_type}.pdf",
                         media_type="application/octet-stream")
 
 
