@@ -4,6 +4,7 @@ import { centersApi, certificatesApi } from "@/lib/api";
 import type { ApiCenter, CertificateData } from "@/lib/api";
 import { Loader2, MapPin, Building2, ArrowLeft, ChevronRight, Search, FileText, Upload, Download, Eye, Trash2, CheckCircle2, AlertTriangle, X, Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { exportToExcel } from "@/lib/exportExcel";
 
 const CERT_TYPES = ["Trade", "Labour", "Medical License", "PCB", "PPL", "GST"];
 
@@ -13,11 +14,21 @@ const CertificatesPage = () => {
   const selectedCenterId = searchParams.get("centerId") || "";
   const selectedCenterName = searchParams.get("centerName") || "";
   const isExpiringView = searchParams.get("view") === "expiring";
+  const selectedYear = searchParams.get("year") || "";
+  const isYearView = !!selectedYear;
+  const fromDate = searchParams.get("from") || "";
+  const toDate = searchParams.get("to") || "";
+  const isRangeView = !!fromDate && !!toDate;
   const [centers, setCenters] = useState<ApiCenter[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [expiringList, setExpiringList] = useState<{ centerName: string; city: string; centerId: number; cert_type: string; expiry_date: string; days_left: number; file_name: string }[]>([]);
   const [expiringLoading, setExpiringLoading] = useState(false);
+  const [yearOptions, setYearOptions] = useState<number[]>([]);
+  const [yearList, setYearList] = useState<{ centerName: string; city: string; centerId: number; cert_type: string; expiry_date: string; days_left: number; file_name: string; status: string }[]>([]);
+  const [yearLoading, setYearLoading] = useState(false);
+  const [rangeList, setRangeList] = useState<{ centerName: string; city: string; centerId: number; cert_type: string; expiry_date: string; days_left: number; file_name: string; status: string }[]>([]);
+  const [rangeLoading, setRangeLoading] = useState(false);
 
   // Detect user role
   const storedUser = localStorage.getItem("oliva_user");
@@ -39,6 +50,7 @@ const CertificatesPage = () => {
   const [showAddCert, setShowAddCert] = useState(false);
   const [addCertName, setAddCertName] = useState("");
   const [addClinicModal, setAddClinicModal] = useState<{ name: string; state: string; zone: string; submitting: boolean; error: string } | null>(null);
+  const [cityExportLoading, setCityExportLoading] = useState(false);
   const [addCityModal, setAddCityModal] = useState<{ city: string; state: string; clinicName: string; submitting: boolean; error: string } | null>(null);
 
   useEffect(() => {
@@ -68,6 +80,47 @@ const CertificatesPage = () => {
       setExpiringLoading(false);
     }).catch(() => setExpiringLoading(false));
   }, [isExpiringView]);
+
+  // Load available expiry years for the year filter dropdown
+  useEffect(() => {
+    certificatesApi.getExpiryYears()
+      .then((data) => setYearOptions(data.years || []))
+      .catch(() => setYearOptions([]));
+  }, []);
+
+  // Fetch certificates for selected year
+  useEffect(() => {
+    if (!isYearView) return;
+    const yr = Number(selectedYear);
+    if (!yr) return;
+    setYearLoading(true);
+    certificatesApi.getByYear(yr).then((data) => {
+      const filtered = isHelpdeskAdmin ? data.filter((c) => c.center_name === userCenter) : data;
+      setYearList(filtered.map((c) => ({
+        centerName: c.center_name, city: c.city, centerId: c.center_id,
+        cert_type: c.cert_type, expiry_date: c.expiry_date || "",
+        days_left: c.days_left, file_name: c.file_name || "",
+        status: c.status,
+      })));
+      setYearLoading(false);
+    }).catch(() => setYearLoading(false));
+  }, [isYearView, selectedYear, isHelpdeskAdmin, userCenter]);
+
+  // Fetch certificates for custom date range
+  useEffect(() => {
+    if (!isRangeView) return;
+    setRangeLoading(true);
+    certificatesApi.getByDateRange(fromDate, toDate).then((data) => {
+      const filtered = isHelpdeskAdmin ? data.filter((c) => c.center_name === userCenter) : data;
+      setRangeList(filtered.map((c) => ({
+        centerName: c.center_name, city: c.city, centerId: c.center_id,
+        cert_type: c.cert_type, expiry_date: c.expiry_date || "",
+        days_left: c.days_left, file_name: c.file_name || "",
+        status: c.status,
+      })));
+      setRangeLoading(false);
+    }).catch(() => setRangeLoading(false));
+  }, [isRangeView, fromDate, toDate, isHelpdeskAdmin, userCenter]);
 
   // Fetch certificates when center is selected
   useEffect(() => {
@@ -106,9 +159,9 @@ const CertificatesPage = () => {
     if (!uploadModal.file) { alert("Please select a file."); return; }
     if (!uploadModal.startDate) { alert("Please enter the Start Date."); return; }
     if (!uploadModal.expiryDate) { alert("Please enter the Expiry Date."); return; }
-    const MAX_BYTES = 10 * 1024 * 1024; // 10 MB
+    const MAX_BYTES = 1024 * 1024 * 1024; // 1 GB
     if (uploadModal.file.size > MAX_BYTES) {
-      alert(`File too large. Maximum size is 10 MB (your file is ${(uploadModal.file.size / (1024 * 1024)).toFixed(2)} MB).`);
+      alert(`File too large. Maximum size is 1 GB (your file is ${(uploadModal.file.size / (1024 * 1024)).toFixed(2)} MB).`);
       return;
     }
     setUploading(true);
@@ -174,6 +227,142 @@ const CertificatesPage = () => {
   }
 
   // Expiring certificates view
+  if (isRangeView) {
+    const fmt = (iso: string) => new Date(iso).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
+    return (
+      <div className="space-y-4 animate-fade-in">
+        <div className="flex items-center gap-3">
+          <button onClick={() => setSearchParams({})} className="p-2 rounded-lg border border-border hover:bg-muted transition-colors" title="Back">
+            <ArrowLeft className="h-4 w-4" />
+          </button>
+          <div>
+            <h1 className="text-xl font-bold font-display">Certificates Expiring Between {fmt(fromDate)} – {fmt(toDate)}</h1>
+            <p className="text-xs text-muted-foreground mt-0.5">{rangeList.length} certificate{rangeList.length === 1 ? "" : "s"} found</p>
+          </div>
+        </div>
+
+        {rangeLoading ? (
+          <div className="flex items-center justify-center h-32"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>
+        ) : rangeList.length === 0 ? (
+          <div className="bg-card rounded-xl p-8 card-shadow border border-border text-center">
+            <FileText className="h-12 w-12 text-muted-foreground mx-auto mb-3" />
+            <p className="text-sm font-medium">No certificates expiring in this date range.</p>
+          </div>
+        ) : (
+          <div className="bg-card rounded-xl card-shadow border border-border overflow-hidden">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-left text-[11px] uppercase tracking-wider text-muted-foreground border-b border-border bg-muted/30">
+                  <th className="px-4 py-3 font-semibold">Certificate</th>
+                  <th className="px-4 py-3 font-semibold">Clinic</th>
+                  <th className="px-4 py-3 font-semibold">City</th>
+                  <th className="px-4 py-3 font-semibold">Expiry Date</th>
+                  <th className="px-4 py-3 font-semibold">Status</th>
+                  <th className="px-4 py-3 font-semibold">Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rangeList.map((c, i) => (
+                  <tr key={i} className="border-b border-border last:border-0 hover:bg-muted/20 transition-colors">
+                    <td className="px-4 py-3"><div className="flex items-center gap-2"><FileText className="h-4 w-4 shrink-0 text-primary" /><span className="font-medium text-xs">{c.cert_type}</span></div></td>
+                    <td className="px-4 py-3 text-xs text-muted-foreground">{c.centerName}</td>
+                    <td className="px-4 py-3 text-xs text-muted-foreground">{c.city}</td>
+                    <td className="px-4 py-3 text-xs text-muted-foreground">{c.expiry_date ? fmt(c.expiry_date) : "—"}</td>
+                    <td className="px-4 py-3">
+                      <span className={cn("px-2 py-0.5 rounded-full text-[10px] font-semibold",
+                        c.status === "Expired" ? "bg-destructive/10 text-destructive"
+                        : c.status === "Expiring Soon" ? "bg-amber-100 text-amber-700"
+                        : "bg-success/10 text-success"
+                      )}>
+                        {c.status === "Expired" ? `Expired ${Math.abs(c.days_left)}d ago` : c.status === "Expiring Soon" ? `${c.days_left} days left` : "Active"}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3">
+                      <button onClick={() => setSearchParams({ city: c.city, centerId: String(c.centerId), centerName: c.centerName })}
+                        className="px-3 py-1.5 rounded-lg gradient-primary text-primary-foreground text-[11px] font-medium hover:opacity-90 transition-opacity">
+                        View
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  if (isYearView) {
+    return (
+      <div className="space-y-4 animate-fade-in">
+        <div className="flex items-center gap-3">
+          <button onClick={() => setSearchParams({})} className="p-2 rounded-lg border border-border hover:bg-muted transition-colors" title="Back">
+            <ArrowLeft className="h-4 w-4" />
+          </button>
+          <div>
+            <h1 className="text-xl font-bold font-display">Certificates Expiring in {selectedYear}</h1>
+            <p className="text-xs text-muted-foreground mt-0.5">{yearList.length} certificate{yearList.length === 1 ? "" : "s"} found</p>
+          </div>
+        </div>
+
+        {yearLoading ? (
+          <div className="flex items-center justify-center h-32"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>
+        ) : yearList.length === 0 ? (
+          <div className="bg-card rounded-xl p-8 card-shadow border border-border text-center">
+            <FileText className="h-12 w-12 text-muted-foreground mx-auto mb-3" />
+            <p className="text-sm font-medium">No certificates expiring in {selectedYear}.</p>
+          </div>
+        ) : (
+          <div className="bg-card rounded-xl card-shadow border border-border overflow-hidden">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-left text-[11px] uppercase tracking-wider text-muted-foreground border-b border-border bg-muted/30">
+                  <th className="px-4 py-3 font-semibold">Certificate</th>
+                  <th className="px-4 py-3 font-semibold">Clinic</th>
+                  <th className="px-4 py-3 font-semibold">City</th>
+                  <th className="px-4 py-3 font-semibold">Expiry Date</th>
+                  <th className="px-4 py-3 font-semibold">Status</th>
+                  <th className="px-4 py-3 font-semibold">Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {yearList.map((c, i) => (
+                  <tr key={i} className="border-b border-border last:border-0 hover:bg-muted/20 transition-colors">
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-2">
+                        <FileText className="h-4 w-4 shrink-0 text-primary" />
+                        <span className="font-medium text-xs">{c.cert_type}</span>
+                      </div>
+                    </td>
+                    <td className="px-4 py-3 text-xs text-muted-foreground">{c.centerName}</td>
+                    <td className="px-4 py-3 text-xs text-muted-foreground">{c.city}</td>
+                    <td className="px-4 py-3 text-xs text-muted-foreground">{c.expiry_date ? new Date(c.expiry_date).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }) : "—"}</td>
+                    <td className="px-4 py-3">
+                      <span className={cn("px-2 py-0.5 rounded-full text-[10px] font-semibold",
+                        c.status === "Expired" ? "bg-destructive/10 text-destructive"
+                        : c.status === "Expiring Soon" ? "bg-amber-100 text-amber-700"
+                        : "bg-success/10 text-success"
+                      )}>
+                        {c.status === "Expired" ? `Expired ${Math.abs(c.days_left)}d ago` : c.status === "Expiring Soon" ? `${c.days_left} days left` : "Active"}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3">
+                      <button onClick={() => setSearchParams({ city: c.city, centerId: String(c.centerId), centerName: c.centerName })}
+                        className="px-3 py-1.5 rounded-lg gradient-primary text-primary-foreground text-[11px] font-medium hover:opacity-90 transition-opacity">
+                        View
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    );
+  }
+
   if (isExpiringView) {
     return (
       <div className="space-y-4 animate-fade-in">
@@ -264,6 +453,27 @@ const CertificatesPage = () => {
             <h1 className="text-xl font-bold font-display">{selectedCenterName} - Certificates</h1>
             <p className="text-xs text-muted-foreground mt-0.5">{selectedCity} &middot; {certs.length} certificate types</p>
           </div>
+          <button
+            onClick={() => {
+              const rows = certs
+                .filter((c) => c.has_file)
+                .map((c) => ({
+                  "Clinic Name": selectedCenterName,
+                  "Certificate Name": c.cert_type,
+                  "Start Date": c.start_date ? new Date(c.start_date).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }) : "",
+                  "Expiry Date": c.expiry_date ? new Date(c.expiry_date).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }) : "",
+                }));
+              if (rows.length === 0) {
+                alert("No uploaded certificates to export.");
+                return;
+              }
+              exportToExcel(rows, `${selectedCenterName}_Certificates`, "Certificates");
+            }}
+            className="px-4 py-2.5 rounded-lg border border-border bg-card text-sm font-medium hover:bg-muted transition-colors flex items-center gap-1.5"
+            title="Export to Excel"
+          >
+            <Download className="h-4 w-4" /> Export Excel
+          </button>
           {canUpload && (
             <button onClick={() => { setShowAddCert(true); setAddCertName(""); }}
               className="px-4 py-2.5 rounded-lg gradient-primary text-primary-foreground text-sm font-medium hover:opacity-90 transition-opacity flex items-center gap-1.5"
@@ -433,7 +643,7 @@ const CertificatesPage = () => {
                   <input type="file" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
                     onChange={(e) => setUploadModal({ ...uploadModal, file: e.target.files?.[0] || null })}
                     className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm" />
-                  <p className="text-[11px] text-muted-foreground mt-1">PDF, JPG, PNG, DOC &middot; Max 10 MB</p>
+                  <p className="text-[11px] text-muted-foreground mt-1">PDF, JPG, PNG, DOC &middot; Max 1 GB</p>
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
@@ -521,27 +731,73 @@ const CertificatesPage = () => {
               <p className="text-xs text-muted-foreground mt-0.5">{selectedClinics.length} clinics &middot; Click a clinic to manage certificates</p>
             </div>
           </div>
-          {canUpload && (
+          <div className="flex items-center gap-2">
             <button
-              onClick={() => {
-                // Infer state from any existing center in this city — the DB uses
-                // either `state` or `zone` for state-like data, so check both.
-                const sample = centers.find((c) => c.city === selectedCity && (c.state || c.zone));
-                const inferredState = sample?.state || sample?.zone || "";
-                setAddClinicModal({
-                  name: "",
-                  state: inferredState,
-                  zone: inferredState,
-                  submitting: false,
-                  error: "",
-                });
+              onClick={async () => {
+                if (cityExportLoading) return;
+                if (selectedClinics.length === 0) {
+                  alert("No clinics in this city.");
+                  return;
+                }
+                setCityExportLoading(true);
+                try {
+                  const results = await Promise.all(
+                    selectedClinics.map((c) => certificatesApi.getForCenter(c.id))
+                  );
+                  const rows: Record<string, string>[] = [];
+                  results.forEach((data) => {
+                    data.certificates
+                      .filter((cert) => cert.has_file)
+                      .forEach((cert) => {
+                        rows.push({
+                          "Clinic Name": data.center_name,
+                          "Certificate Name": cert.cert_type,
+                          "Start Date": cert.start_date ? new Date(cert.start_date).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }) : "",
+                          "Expiry Date": cert.expiry_date ? new Date(cert.expiry_date).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }) : "",
+                        });
+                      });
+                  });
+                  if (rows.length === 0) {
+                    alert(`No uploaded certificates found across the ${selectedClinics.length} clinic(s) in ${selectedCity}.`);
+                    return;
+                  }
+                  exportToExcel(rows, `${selectedCity}_Certificates`, "Certificates");
+                } catch (err) {
+                  const msg = err instanceof Error ? err.message : "Export failed";
+                  alert(msg);
+                } finally {
+                  setCityExportLoading(false);
+                }
               }}
-              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium text-white transition-all active:scale-[0.98]"
-              style={{ background: "linear-gradient(135deg, #00B7AE, #1A6B6A)" }}
+              disabled={cityExportLoading}
+              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg border border-border bg-card text-sm font-medium hover:bg-muted transition-colors disabled:opacity-70"
+              title="Export all uploaded certificates in this city"
             >
-              <Plus className="h-4 w-4" /> Add Clinic
+              {cityExportLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+              {cityExportLoading ? "Exporting..." : "Export Excel"}
             </button>
-          )}
+            {canUpload && (
+              <button
+                onClick={() => {
+                  // Infer state from any existing center in this city — the DB uses
+                  // either `state` or `zone` for state-like data, so check both.
+                  const sample = centers.find((c) => c.city === selectedCity && (c.state || c.zone));
+                  const inferredState = sample?.state || sample?.zone || "";
+                  setAddClinicModal({
+                    name: "",
+                    state: inferredState,
+                    zone: inferredState,
+                    submitting: false,
+                    error: "",
+                  });
+                }}
+                className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium text-white transition-all active:scale-[0.98]"
+                style={{ background: "linear-gradient(135deg, #00B7AE, #1A6B6A)" }}
+              >
+                <Plus className="h-4 w-4" /> Add Clinic
+              </button>
+            )}
+          </div>
         </div>
 
         {addClinicModal && (
@@ -671,6 +927,29 @@ const CertificatesPage = () => {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <input type="text" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search city..."
               className="w-full pl-9 pr-3 py-2 rounded-lg border border-border bg-card text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 transition-shadow" />
+          </div>
+          <div className="flex items-center gap-2 whitespace-nowrap">
+            <span className="text-sm font-bold text-foreground">Expiry Year:</span>
+            <select
+              value=""
+              onChange={(e) => {
+                const yr = e.target.value;
+                if (yr) setSearchParams({ year: yr });
+              }}
+              className="px-3 py-2 rounded-lg border border-border bg-card text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 transition-shadow"
+              title="Filter certificates by expiry year"
+            >
+              <option value="">Select Year</option>
+              {(() => {
+                // Merge DB years with upcoming 5 years so future expiry dates are always pickable
+                const currentYear = new Date().getFullYear();
+                const upcoming = Array.from({ length: 6 }, (_, i) => currentYear + i);
+                const merged = Array.from(new Set([...upcoming, ...yearOptions])).sort((a, b) => a - b);
+                return merged.map((y) => (
+                  <option key={y} value={y}>{y}</option>
+                ));
+              })()}
+            </select>
           </div>
           {canUpload && (
             <button

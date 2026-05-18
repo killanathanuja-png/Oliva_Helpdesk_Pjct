@@ -824,6 +824,10 @@ export interface ExpiringCert {
 
 export const certificatesApi = {
   getExpiring: () => request<ExpiringCert[]>("/certificates/expiring"),
+  getByYear: (year: number) => request<ExpiringCert[]>(`/certificates/by-year/${year}`),
+  getByDateRange: (fromDate: string, toDate: string) =>
+    request<ExpiringCert[]>(`/certificates/by-date-range?from_date=${fromDate}&to_date=${toDate}`),
+  getExpiryYears: () => request<{ years: number[] }>("/certificates/expiry-years"),
   getForCenter: (centerId: number) => request<{ center_id: number; center_name: string; city: string; certificates: CertificateData[] }>(`/certificates/center/${centerId}`),
   upload: async (formData: FormData) => {
     const token = localStorage.getItem("oliva_token");
