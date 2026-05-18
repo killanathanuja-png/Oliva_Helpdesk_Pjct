@@ -1,4 +1,10 @@
-const API_BASE = "http://localhost:8000/api";
+// Use a relative /api path in production (same origin, nginx routes it to the backend).
+// Use http://localhost:8000/api when developing locally so the dev frontend hits the local backend.
+const API_BASE =
+  typeof window !== "undefined" &&
+  (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1")
+    ? "http://localhost:8000/api"
+    : "/api";
 
 function getAuthHeaders(): Record<string, string> {
   const token = localStorage.getItem("oliva_token");
